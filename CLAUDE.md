@@ -37,9 +37,14 @@ that message, this is why.
 
 **Driving it with browser automation** (Claude-in-Chrome and similar):
 
-- `left_click_drag` fires the `dragend` flow **roughly one attempt in two**. A single
-  non-trigger is not a regression — retry, or retry on a different link. If you need to
-  force the panel open regardless, remove the host element's `data-hidden` attribute.
+- **Don't use `left_click_drag` — dispatch the drag events.** The mouse-drag automation is
+  unreliable at firing `dragend` (three consecutive failures on one run). `startDragTracking`
+  never checks `isTrusted`, so a synthetic pair drives the real flow every time:
+  `a.dispatchEvent(new DragEvent('dragstart', {bubbles: true}))` then the same with
+  `'dragend'`. This is the harness to reach for first, not a fallback.
+- **Never `navigator.clipboard.readText()` to verify a copy landed.** It raises a permission
+  prompt that freezes the renderer — a CDP call timed out at 45s this way. `copyText` is
+  fire-and-forget by design, so a clipboard write can only be confirmed by a human pasting.
 - **A synthetic scroll wheel over the panel scrolls the host page, not the preview.** The
   wheel event doesn't route into the shadow tree. This looks exactly like a broken scroll
   container and is not one: `.piko-content` is the real scroll owner. Drive it with
