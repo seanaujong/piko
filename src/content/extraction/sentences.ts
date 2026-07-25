@@ -87,7 +87,50 @@ export function rangeForSentence(block: HTMLElement, start: number, end: number)
   return null
 }
 
-const containsPoint = (rect: DOMRect, x: number, y: number): boolean =>
+/** A sentence's footprint on one visual line, in viewport coordinates. */
+export type LineRect = { left: number; top: number; right: number; bottom: number }
+
+/**
+ * One rect per visual line, merged from the raw client rects.
+ *
+ * `Range.getClientRects()` returns a rect for each inline element the range crosses *and* one
+ * for the text run inside it, so a sentence containing `<a>`, `<b>` or `<sub>` yields
+ * overlapping duplicates — which stack into a visibly darker patch when painted with a
+ * translucent colour. Merging by line removes the doubling, closes the hairline gaps between
+ * adjacent runs, and drops the node count from one-per-run to one-per-line.
+ */
+export function lineRectsForSentence(
+  block: HTMLElement,
+  start: number,
+  end: number,
+): LineRect[] {
+  const range = rangeForSentence(block, start, end)
+  if (!range) return []
+
+  const rects = [...range.getClientRects()]
+    .filter((rect) => rect.width > 0 && rect.height > 0)
+    .sort((a, b) => a.top - b.top || a.left - b.left)
+
+  const lines: LineRect[] = []
+  for (const rect of rects) {
+    // Matching on the vertical centre rather than on `top` keeps subscripts and superscripts
+    // — which sit at a different offset and height — on the line they belong to.
+    const centre = rect.top + rect.height / 2
+    const line = lines.find((candidate) => centre >= candidate.top && centre <= candidate.bottom)
+    if (line) {
+      line.left = Math.min(line.left, rect.left)
+      line.right = Math.max(line.right, rect.right)
+      line.top = Math.min(line.top, rect.top)
+      line.bottom = Math.max(line.bottom, rect.bottom)
+    } else {
+      lines.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })
+    }
+  }
+
+  return lines
+}
+
+const containsPoint = (rect: LineRect, x: number, y: number): boolean =>
   x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
 
 /**
@@ -117,10 +160,11 @@ export function sentenceAtPoint(
 
   // A block holds a handful of sentences, so this scan is bounded and cheap — unlike
   // pre-segmenting the article, whose cost would scale with its length.
+  //
+  // Hit testing runs against the same merged line rects that get painted, so the region that
+  // responds to the cursor is exactly the region that lights up.
   for (const sentence of sentencesIn(block, locale)) {
-    const range = rangeForSentence(block, sentence.start, sentence.end)
-    if (!range) continue
-    for (const rect of range.getClientRects()) {
+    for (const rect of lineRectsForSentence(block, sentence.start, sentence.end)) {
       if (containsPoint(rect, x, y)) return { block, ...sentence }
     }
   }

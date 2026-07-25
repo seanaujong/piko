@@ -1,5 +1,5 @@
 import type { SentenceHit } from '../extraction/sentences'
-import { rangeForSentence, sentenceAtPoint } from '../extraction/sentences'
+import { lineRectsForSentence, sentenceAtPoint } from '../extraction/sentences'
 
 export type HighlightHandle = {
   /** Re-derive every rect. Call after anything that reflows the article. */
@@ -43,19 +43,16 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
   let lastPoint: { x: number; y: number } | null = null
 
   function paintRange(hit: SentenceHit, className: string, base: DOMRect): void {
-    const range = rangeForSentence(hit.block, hit.start, hit.end)
-    if (!range) return
-
-    // One rect per visual line — a sentence wrapping across three lines paints three boxes,
-    // which is what makes the highlight follow the text rather than bounding-box it.
-    for (const rect of range.getClientRects()) {
-      if (rect.width <= 0 || rect.height <= 0) continue
+    // One box per visual line — a sentence wrapping across three lines paints three, which is
+    // what makes the highlight follow the text rather than bounding-box it. Merging happens in
+    // `lineRectsForSentence`, so a translucent mark never stacks on itself over inline markup.
+    for (const rect of lineRectsForSentence(hit.block, hit.start, hit.end)) {
       const mark = document.createElement('div')
       mark.className = className
       mark.style.left = `${rect.left - base.left}px`
       mark.style.top = `${rect.top - base.top}px`
-      mark.style.width = `${rect.width}px`
-      mark.style.height = `${rect.height}px`
+      mark.style.width = `${rect.right - rect.left}px`
+      mark.style.height = `${rect.bottom - rect.top}px`
       overlay.appendChild(mark)
     }
   }
