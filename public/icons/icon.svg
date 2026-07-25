@@ -1,33 +1,57 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
   <defs>
-    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#43B4E4"/>
-      <stop offset="1" stop-color="#0C5379"/>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0"    stop-color="#3B1D63"/>
+      <stop offset="0.38" stop-color="#B93A2B"/>
+      <stop offset="0.74" stop-color="#F2711C"/>
+      <stop offset="1"    stop-color="#FFC648"/>
     </linearGradient>
+
+    <linearGradient id="sun" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFF3C8"/>
+      <stop offset="1" stop-color="#FFB02E"/>
+    </linearGradient>
+
+    <clipPath id="frame"><rect width="128" height="128" rx="28"/></clipPath>
+
+    <!-- Two bands, wide, and widening downwards. Three thinner ones read as banding at 128
+         and as dither at 16, where a band under about 6 units has no whole pixel to land in. -->
+    <mask id="bands">
+      <rect width="128" height="128" fill="#fff"/>
+      <rect x="0" y="102" width="128" height="8"  fill="#000"/>
+      <rect x="0" y="118" width="128" height="11" fill="#000"/>
+    </mask>
   </defs>
 
-  <rect width="128" height="128" rx="28" fill="url(#sea)"/>
+  <rect width="128" height="128" rx="28" fill="url(#sky)"/>
 
-  <!-- The far wing sweeps down and back, tinted so it reads as behind the body.
-       Wings carry no dark tip marking: at icon sizes the wing is only a few pixels
-       across out there, so a contrasting tip detaches into a floating speck. -->
-  <path fill="#A5D0EB" d="M66 70 C56 84 44 100 30 112 C46 103 62 92 74 82 C79 78 72 68 66 70 Z"/>
+  <g clip-path="url(#frame)">
+    <!-- Cloud bands carry the striping up into the sky, so the rhythm survives at the sizes
+         where the sun's own bands have collapsed. -->
+    <rect x="-6" y="26" width="140" height="12" rx="6" fill="#FFD9A0" opacity="0.36"/>
+    <rect x="-6" y="46" width="140" height="8"  rx="4" fill="#FFD9A0" opacity="0.26"/>
 
-  <!-- Body: short tail at lower left, rounded head at upper right. -->
-  <path fill="#FFFFFF" d="M30 88
-    C40 78 52 70 64 62
-    C73 55 84 46 95 45
-    C105 44 112 49 112 56
-    C112 64 105 70 96 72
-    C82 75 64 82 50 90
-    C42 95 34 94 30 88 Z"/>
+    <!-- The sun is cut by the frame rather than floating inside it. A closed disc sitting
+         under a symmetrical dark mark reads as a face at icon sizes — wings for eyebrows,
+         bands for a mouth — and that only shows up in the 16px raster, never at 128. -->
+    <circle cx="64" cy="128" r="52" fill="url(#sun)" mask="url(#bands)"/>
+  </g>
 
-  <!-- Near wing sweeps up and back over the body. -->
-  <path fill="#FFFFFF" d="M74 58 C58 45 39 29 22 21 C29 37 43 55 56 67 C64 74 71 68 74 58 Z"/>
+  <!-- Two crescent wings joined by a wedge that points down. The wedge is the recognition
+       cue: without it the same two arcs read as a mountain range. The wings taper to needle
+       tips and carry no marking of their own, because out there the wing is a couple of
+       pixels across and any contrast within it either detaches into a speck or closes up.
+       Striping belongs to the sky for the same reason — a band across a wing this thin is
+       under two units wide at 128, so it has nothing to land on once rasterised.
 
-  <!-- Beak -->
-  <path fill="#FFA62B" d="M110 50 L126 55 L110 61 C113 57 113 54 110 50 Z"/>
-
-  <!-- Eye -->
-  <circle cx="102" cy="53" r="3.2" fill="#0B3A57"/>
+       The tilt is load-bearing twice over: it is what makes the bird look like it is coasting
+       rather than working, and it breaks the shared centre line with the sun that cutting the
+       disc above is already guarding against. -->
+  <path fill="#2A1030"
+        transform="translate(64 56) rotate(-5) scale(0.86) translate(-64 -57.5)"
+        d="M6 60
+           C16 48 24 38 36 36 C50 34 58 45 64 58
+           C70 44 80 31 94 33 C108 35 118 46 122 54
+           C114 46 106 41 96 42 C86 43 76 60 67 84
+           C60 60 50 44 38 45 C26 46 14 52 6 60 Z"/>
 </svg>
