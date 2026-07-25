@@ -32,6 +32,40 @@ describe('sentencesIn', () => {
     ])
   })
 
+  it('does not split where the source html merely wrapped a line', () => {
+    // UAX #29 rule SB4 breaks after any line feed, so a pretty-printed page splits a
+    // sentence at every newline in its markup. Found by the extension suite against an
+    // indented fixture; invisible on Wikipedia, whose paragraphs are mostly one long line.
+    const el = block('')
+    el.textContent =
+      'A tide is caused by the combined effects of\n        gravitational forces exerted by the Moon. Next sentence here.'
+
+    expect(sentencesIn(el, 'en').map((s) => s.text)).toEqual([
+      'A tide is caused by the combined effects of gravitational forces exerted by the Moon.',
+      'Next sentence here.',
+    ])
+  })
+
+  it('reports text as rendered, with markup whitespace collapsed', () => {
+    // Offsets still index the raw textContent, because a Range is built over that.
+    const el = block('')
+    el.textContent = 'Spread\n   over\n   lines.'
+    const [only] = sentencesIn(el, 'en')
+
+    expect(only!.text).toBe('Spread over lines.')
+    expect(el.textContent!.slice(only!.start, only!.end)).toBe('Spread\n   over\n   lines.')
+  })
+
+  it('still splits a genuine boundary that happens to fall at a newline', () => {
+    const el = block('')
+    el.textContent = 'First sentence ends here.\n   Second one starts here.'
+
+    expect(sentencesIn(el, 'en').map((s) => s.text)).toEqual([
+      'First sentence ends here.',
+      'Second one starts here.',
+    ])
+  })
+
   it('does not split on the periods inside abbreviations or decimals', () => {
     // The reason segmentation uses Intl.Segmenter rather than splitting on `.` — this is
     // what a regex would get wrong, and why the citation fix goes around the segmenter

@@ -65,6 +65,38 @@ function pastCitation(text: string, index: number, depthBefore: number): number 
   return cursor + (following ? following[0].length : 0)
 }
 
+const TERMINATORS = '.!?…。！？'
+
+/**
+ * Whether the text before `index` actually finished a sentence.
+ *
+ * UAX #29 rule SB4 breaks after every paragraph separator, and a line feed is one — so a
+ * page whose HTML is pretty-printed splits mid-sentence at each source newline. That is a
+ * real boundary for the spec and a wrong one for prose, since the newline is markup
+ * whitespace the browser renders as a single space.
+ *
+ * Scanning back over whitespace, any citation run, and closing quotes/brackets, a genuine
+ * boundary lands on a terminator; a wrapped line lands on an ordinary word character.
+ */
+function endsSentence(text: string, index: number): boolean {
+  let cursor = index - 1
+
+  for (;;) {
+    while (cursor >= 0 && /\s/.test(text[cursor]!)) cursor -= 1
+    if (cursor >= 0 && text[cursor] === ']') {
+      const opened = text.lastIndexOf('[', cursor)
+      if (opened >= 0) {
+        cursor = opened - 1
+        continue
+      }
+    }
+    break
+  }
+
+  while (cursor >= 0 && /["'”’»)\]]/.test(text[cursor]!)) cursor -= 1
+  return cursor >= 0 && TERMINATORS.includes(text[cursor]!)
+}
+
 export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   const cached = segmentedBlocks.get(block)
   if (cached) return cached
@@ -82,9 +114,17 @@ export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   const starts: number[] = []
   for (const { index } of segmenterFor(locale).segment(text)) {
     const adjusted = pastCitation(text, index, depthAt[index] ?? 0)
+    if (starts.length === 0) {
+      starts.push(adjusted)
+      continue
+    }
     // A boundary pushed past a citation can land on or beyond the next one, which then has
     // nothing left to describe.
-    if (starts.length === 0 || adjusted > starts[starts.length - 1]!) starts.push(adjusted)
+    if (adjusted <= starts[starts.length - 1]!) continue
+    // A break the segmenter took at a line feed rather than at a terminator is markup
+    // whitespace, not prose — see endsSentence.
+    if (!endsSentence(text, adjusted)) continue
+    starts.push(adjusted)
   }
 
   const sentences: Sentence[] = []
@@ -99,9 +139,14 @@ export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
     // that followed it at the head of the next sentence.
     const offset = slice.length - slice.trimStart().length
     sentences.push({
+      // Offsets index the raw textContent, because that is what a Range is built over.
       start: start + offset,
       end: start + offset + trimmed.length,
-      text: trimmed,
+      // The text is the sentence as *rendered*, with markup whitespace collapsed the way the
+      // browser collapses it. Stored clippings and the lookup that relocates them both come
+      // from here, so they normalise together; leaving the newlines in would also break the
+      // Markdown export, where a raw line break escapes the blockquote.
+      text: trimmed.replace(/\s+/g, ' '),
     })
   })
 

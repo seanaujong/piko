@@ -21,7 +21,7 @@ npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
 ```
 
-**Two suites, split by what they need.** `npm test` runs both.
+**Three suites, split by what they need.** `npm test` runs all of them.
 
 - **`unit`** — `*.test.ts` under jsdom, colocated beside each module. Enough DOM for
   `DOMParser`, `textContent` and `Range`, which is all the pure layers touch. Covers the
@@ -30,8 +30,12 @@ npm run icons       # only after editing public/icons/icon.svg
 - **`geometry`** — `*.browser.test.ts` in real Chrome via Playwright, because it measures
   *layout*. jsdom reports every client rect as zero, so these assertions would pass there
   while proving nothing — which is precisely how the band bugs survived as long as they did.
-  Chrome runs through `channel: 'chrome'`, so no browser is downloaded; if the run reports a
-  missing executable, that config was lost, not that you need `playwright install`.
+  Chrome runs through `channel: 'chrome'`, so no browser is downloaded here.
+- **`e2e`** — `e2e/*.test.ts`, driving the **actually-loaded extension** in Chromium against
+  local fixture pages. The only suite that exercises the manifest, the background worker, the
+  message round-trip and `chrome.storage`. It rebuilds `dist/` first, so it always tests the
+  shipped bundle. **This replaces the manual reload-and-drag loop** — the most expensive step
+  in developing this project.
 
 **Still on eyes only:** clipboard writes and text-fragment activation. Neither is reachable
 from automation (see the traps below), so test the *payload* — `toMarkdown`,
@@ -44,8 +48,21 @@ passed with the bug reintroduced and was protecting nothing. A font-size contras
 made it real. Every ✅ below has been watched failing.
 
 ## Verifying a change in Chrome
-The real surface is a drag on a live page, and nothing about it is automated. Budget for
-this loop and know its traps — each one below has already cost an hour once.
+`npm test` now drives the loaded extension itself, so reach for the e2e suite first and keep
+the manual loop for judging how something *looks*. Two launch requirements there are
+non-obvious and were established by measurement, so don't "simplify" them:
+
+- **`channel: 'chromium'`, not `channel: 'chrome'`.** Branded Chrome ignores
+  `--load-extension` now; the extension never appears at all, and no `--disable-features`
+  incantation brought it back.
+- **Full Chromium, not the headless shell.** Plain `headless: true` resolves to
+  chrome-headless-shell, which has no extension support; pairing it with `channel: 'chromium'`
+  selects the complete browser in new-headless mode, which does.
+- **Clipping toggles, and the profile is shared across tests.** Clear `chrome.storage` in a
+  `beforeEach` through the service worker, or a test that re-clips an earlier test's sentence
+  silently un-clips it and reads zero.
+
+When you do go to the browser by hand, know its traps — each below has already cost an hour.
 
 **Every cycle:** `npm run build` → click reload on Piko's card at `chrome://extensions` →
 **refresh the test tab.** Skipping the refresh leaves an orphaned content script whose

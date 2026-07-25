@@ -25,6 +25,17 @@ export default defineConfig({
       },
       {
         test: {
+          name: 'e2e',
+          environment: 'node',
+          include: ['e2e/**/*.test.ts'],
+          testTimeout: 60_000,
+          hookTimeout: 120_000,
+          // One browser, one profile, one storage area — these tests share extension state.
+          fileParallelism: false,
+        },
+      },
+      {
+        test: {
           name: 'geometry',
           include: ['src/**/*.browser.test.ts'],
           browser: {

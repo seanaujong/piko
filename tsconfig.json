@@ -7,8 +7,8 @@
     "strict": true,
     "noUncheckedIndexedAccess": true,
     "skipLibCheck": true,
-    "types": ["chrome"],
+    "types": ["chrome", "node"],
     "noEmit": true
   },
-  "include": ["src"]
+  "include": ["src", "e2e", "vitest.config.ts"]
 }
