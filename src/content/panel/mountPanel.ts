@@ -81,21 +81,22 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   closeButton.setAttribute('aria-label', 'Close preview')
   closeButton.addEventListener('click', () => dispatch({ type: 'Dismissed' }))
 
-  // Two groups, pushed to opposite ends: what the preview *is* on the left, what to do with
-  // it on the right. Grouping them as elements rather than spacing them with a margin on one
-  // child is what keeps the arrangement from depending on a single declaration — an earlier
-  // version pushed the actions over with `margin-right: auto` on the new-tab button, and
-  // `.piko-icon-button`'s `all: initial` later in the sheet silently reset it.
+  // One of the two bars described in styles.ts: identity on the left, controls on the right,
+  // both groups holding a stated height so an appearing control cannot move the rest. Grouping
+  // them as elements rather than spacing them with a margin on one child is also what keeps
+  // the arrangement from depending on a single declaration — an earlier version pushed the
+  // actions over with `margin-right: auto` on the new-tab button, and `.piko-icon-button`'s
+  // `all: initial` later in the sheet silently reset it.
   const source = document.createElement('div')
-  source.className = 'piko-header-source'
+  source.className = 'piko-bar-lead piko-header-source'
   source.append(urlLabel, newTabButton)
 
   const actions = document.createElement('div')
-  actions.className = 'piko-header-actions'
+  actions.className = 'piko-bar-trail piko-header-actions'
   actions.append(clipsButton, toggleButton, closeButton)
 
   const header = document.createElement('div')
-  header.className = 'piko-header'
+  header.className = 'piko-bar piko-header'
   header.append(source, actions)
 
   const content = document.createElement('div')

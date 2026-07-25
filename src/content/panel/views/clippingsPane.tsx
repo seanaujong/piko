@@ -373,14 +373,9 @@ function Pane({
 
   return (
     <>
-      {/*
-        Two groups at opposite ends, the same arrangement the panel header uses: what this is
-        on the left, what to do with it on the right. Grouped as elements rather than spaced
-        with an auto margin on one child, which any later rule resetting that child can
-        silently undo.
-      */}
-      <div class="piko-clips-header">
-        <div class="piko-clips-heading">
+      {/* The same bar the panel header is — see the note on piko-bar in styles.ts. */}
+      <div class="piko-bar piko-clips-header">
+        <div class="piko-bar-lead piko-clips-heading">
           {/*
             Title and count are one label sharing a baseline; the group around them is what
             holds a steady height as Show all comes and goes. One element cannot do both — a
@@ -404,7 +399,7 @@ function Pane({
             </button>
           )}
         </div>
-        <div class="piko-clips-actions">
+        <div class="piko-bar-trail piko-clips-actions">
           {/*
             Only offered when the page in front of the reader has anything to do with the
             journal, and kept here rather than in the chip row because the row scrolls: a scope

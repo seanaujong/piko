@@ -24,6 +24,47 @@ export const PANEL_STYLES = `
   color: #1a1a1a;
 }
 
+/**
+ * The bar both headers are.
+ *
+ * Each is the same shape — something identifying on the left, controls on the right — and each
+ * was written separately, which is how the same bug landed in both: an optional control
+ * appearing changed a group's height, the bar re-centred it, and everything visibly jumped at
+ * the moment of the click.
+ *
+ * What stops that is consistent centring at every level, which is why these rules are here
+ * rather than copied twice. Each group centres its children and is itself centred, so a group
+ * growing moves nothing: its contents stay centred on the bar whatever height it takes. Build
+ * a new bar from these three classes rather than from a fourth private copy of them, and where
+ * a group needs some other alignment inside it — the journal's title and count share a
+ * baseline — give it a child of its own to do that in, so the centring above stays intact.
+ */
+.piko-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex: 0 0 auto;
+}
+
+.piko-bar-lead,
+.piko-bar-trail {
+  display: flex;
+  align-items: center;
+}
+
+/* Only the leading group shrinks: a long address gives up width to its own ellipsis rather
+   than crowding the controls. */
+.piko-bar-lead {
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Never shrinks — these are fixed-size controls, and an ellipsis through a button label is not
+   a legible fallback. */
+.piko-bar-trail {
+  flex: 0 0 auto;
+}
+
 /* Gated on data-preview, not on the host being visible: the docked rail also makes the host
    visible, and a scrim over the page would defeat the mode the rail accompanies. */
 .piko-backdrop {
@@ -81,42 +122,23 @@ export const PANEL_STYLES = `
   transform: translate(-50%, -50%) scale(1);
 }
 
-/* Two groups at opposite ends: what the preview is on the left, what to do with it on the
-   right. The split is structural rather than an auto margin on one child, so no later rule
-   can quietly undo it — see the note on piko-header-source. */
+/* The preview's bar: the address on the left, what to do with it on the right. */
 .piko-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: #f7f7f8;
-  flex: 0 0 auto;
 }
 
-/* The address and the button that acts on it. Only this group shrinks — a long URL gives up
-   width to its own ellipsis rather than crowding the controls.
-
-   The gap here is far smaller than the one between the header's two groups, because both
-   children already carry their own inner padding: the address pill extends 5px past its text
-   and the icon button centres a 13px glyph in a 22px box. A gap sized to look right between
-   bare edges reads as a hole between these two. */
+/* Much tighter than the gap between the two groups, because both children already carry their
+   own inner padding: the address pill extends 5px past its text and the icon button centres a
+   13px glyph in a 22px box. A gap sized for bare edges reads as a hole between these two. */
 .piko-header-source {
-  display: flex;
-  align-items: center;
   gap: 2px;
-  flex: 0 1 auto;
-  min-width: 0;
 }
 
-/* Reader/Live page and close. Never shrinks: these are fixed-size controls, and an ellipsis
-   through a button label is not a legible fallback. */
 .piko-header-actions {
-  display: flex;
-  align-items: center;
   gap: 8px;
-  flex: 0 0 auto;
 }
 
 /* The URL doubles as the copy-link control, so it needs a button's affordances — keyboard
@@ -182,6 +204,13 @@ export const PANEL_STYLES = `
 .piko-button.active {
   background: #4a3fe0;
   color: white;
+}
+
+/* An engaged button still answers the cursor. Without this it is the one control in the panel
+   that does not: the plain hover above is a single class, the same weight as .active, so the
+   later rule simply wins and the button goes inert exactly when it is switched on. */
+.piko-button.active:hover {
+  background: #3b31c9;
 }
 
 .piko-close {
@@ -395,26 +424,14 @@ export const PANEL_STYLES = `
   display: none;
 }
 
-/* The same two-group arrangement as the panel header: what this is, then what to do with it. */
+/* The journal's bar, the same shape as the preview's. */
 .piko-clips-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   gap: 12px;
   padding: 11px 13px 5px;
-  flex: 0 0 auto;
 }
 
-/* Baseline within the group, so the count sits on the title's line rather than on its box.
-   Stretched to the header's own height so that height never depends on what is in the group:
-   otherwise Show all appearing beside the count grows the group, the header re-centres it, and
-   the title visibly jumps at the moment a filter is applied. */
 .piko-clips-heading {
-  display: flex;
-  align-self: stretch;
-  align-items: center;
   gap: 8px;
-  min-width: 0;
 }
 
 /* The count sits on the title's baseline, not on its box — smaller numerals aligned by box
@@ -427,12 +444,9 @@ export const PANEL_STYLES = `
   min-width: 0;
 }
 
-/* Both children are icon buttons carrying their own padding — see piko-header-source. */
+/* All icon buttons, each carrying its own padding — see piko-header-source. */
 .piko-clips-actions {
-  display: flex;
-  align-items: center;
   gap: 2px;
-  flex: 0 0 auto;
 }
 
 .piko-clips-title {

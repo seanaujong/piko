@@ -237,6 +237,38 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  it('answers the cursor on a button that is switched on', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    const background = (): Promise<string> =>
+      page.evaluate(
+        `getComputedStyle(${SHADOW}.querySelector('.piko-mode-toggle')).backgroundColor`,
+      ) as Promise<string>
+
+    // Reader mode is the default, so this one is already engaged — which is exactly the state
+    // that went inert: `.piko-button.active` and `.piko-button:hover` are both one class, so
+    // the later of the two simply won and hovering an engaged button did nothing.
+    const pressed = await page.evaluate(
+      `${SHADOW}.querySelector('.piko-mode-toggle').classList.contains('active')`,
+    )
+    expect(pressed).toBe(true)
+
+    const resting = await background()
+
+    const box = (await page.evaluate(`(() => {
+      const r = ${SHADOW}.querySelector('.piko-mode-toggle').getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    })()`)) as { x: number; y: number }
+    await page.mouse.move(box.x, box.y)
+
+    await expect.poll(background, POLL).not.toBe(resting)
+
+    await page.close()
+  })
+
   it('ignores a same-page anchor rather than previewing the page you are on', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)
