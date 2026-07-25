@@ -88,13 +88,52 @@ export const PANEL_STYLES = `
   flex: 0 0 auto;
 }
 
+/* The URL doubles as the copy-link control, so it needs a button's affordances — keyboard
+   focus, a hover tint — while still reading as plain text at rest. */
 .piko-url {
-  flex: 1 1 auto;
+  all: initial;
+  box-sizing: border-box;
+  display: block;
+  /* Sized to its text, not to the header: a click target should be as wide as the thing it
+     looks like. */
+  flex: 0 1 auto;
+  min-width: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  color: #555;
+  text-align: left;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  color: #555;
+  padding: 3px 5px;
+  margin-left: -5px;
+  border-radius: 5px;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+/* Travels with the URL rather than with the panel controls, because it acts on the URL. The
+   auto margin sits after it, so Reader and close stay pinned to the far right. */
+.piko-url-open {
+  margin-right: auto;
+}
+
+.piko-url:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #1a1a1a;
+}
+
+.piko-url:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 1px;
+}
+
+.piko-url.is-done {
+  color: #2e9e5b;
+}
+
+.piko-url.is-failed {
+  color: #e53935;
 }
 
 .piko-button {
@@ -391,20 +430,29 @@ export const PANEL_STYLES = `
 
 .piko-clip {
   display: flex;
-  align-items: flex-start;
-  gap: 8px;
-  padding: 7px 8px;
+  flex-direction: column;
+  gap: 2px;
+  padding: 5px 8px 7px;
   margin-bottom: 5px;
   border-radius: 7px;
   border: 1px solid rgba(0, 0, 0, 0.07);
   background: #ffffff;
 }
 
+.piko-clip-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  /* Pulls the 22px buttons back toward the card edge so the row reads as metadata
+     rather than as a band of its own. */
+  margin-right: -3px;
+  min-height: 22px;
+}
+
 .piko-clip-when {
   flex: 0 0 auto;
   font-size: 10px;
   color: #9a9a94;
-  padding-top: 2px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -426,24 +474,58 @@ export const PANEL_STYLES = `
   white-space: nowrap;
 }
 
-.piko-clip-remove {
-  all: initial;
-  box-sizing: border-box;
-  cursor: pointer;
+/* Hidden buttons still occupy layout — opacity doesn't remove them from flow — so beside
+   the text they would reserve ~70px of a narrow pane's width permanently. In the meta row
+   they cost nothing horizontally, because the row's other occupant is a short timestamp. */
+.piko-clip-actions {
   flex: 0 0 auto;
-  font-family: inherit;
-  font-size: 11px;
-  color: #b0b0a8;
-  padding: 2px 4px;
+  display: flex;
+  gap: 2px;
   opacity: 0;
   transition: opacity 120ms ease;
 }
 
-.piko-clip:hover .piko-clip-remove,
-.piko-clip-remove:focus-visible {
+/* Revealed on hover to keep the list quiet, but focus-within keeps them reachable by
+   keyboard, where there is no hover to trigger. */
+.piko-clip:hover .piko-clip-actions,
+.piko-clip-actions:focus-within {
   opacity: 1;
 }
 
+.piko-icon-button {
+  all: initial;
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #b0b0a8;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.piko-icon-button:hover {
+  background: rgba(0, 0, 0, 0.06);
+  color: #4a4a45;
+}
+
+.piko-icon-button:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 1px;
+}
+
+.piko-icon-button.is-done {
+  color: #2e9e5b;
+}
+
+.piko-icon-button.is-failed {
+  color: #e53935;
+}
+
+/* After .piko-icon-button:hover — equal specificity, so source order decides. */
 .piko-clip-remove:hover {
   color: #e53935;
 }

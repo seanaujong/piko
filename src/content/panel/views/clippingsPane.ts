@@ -1,6 +1,9 @@
 import type { Clipping, ClippingsStore } from '../../state/clippings'
 import { gapBefore, tallyBySource, toMarkdown, visibleClippings } from '../../state/clippings'
+import type { LinkTarget } from '../../state/previewState'
 import { copyText } from '../clipboard'
+import { displayUrl } from '../formatUrl'
+import { flashResult, ICON, iconButton } from '../iconButton'
 
 export type ClippingsPane = {
   root: HTMLElement
@@ -29,8 +32,15 @@ const gapLabel = (ms: number): string => {
  * compose and are stateless where modes are exclusive and stateful, and because each chip
  * carries its own count the chip row *is* the by-source overview a grouping mode would give.
  * Sessions survive as dividers inside the stream, so the list never changes shape.
+ *
+ * `onPreview` reopens a clipping's source in the panel. That keeps the journal's only
+ * navigation inside Piko: the ways *out* of a source — a new tab, its URL — belong to the
+ * panel header, which owns the URL, rather than being duplicated onto every row.
  */
-export function createClippingsPane(store: ClippingsStore): ClippingsPane {
+export function createClippingsPane(
+  store: ClippingsStore,
+  onPreview: (target: LinkTarget) => void,
+): ClippingsPane {
   const activeSources = new Set<string>()
 
   const root = document.createElement('div')
@@ -148,20 +158,47 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
       body.className = 'piko-clip-body'
       body.textContent = clipping.text
 
+      // Spelling out "dragged from" cost more width than the URL it introduced, so the line
+      // truncated every time. The relationship moves to the tooltip, where it costs nothing.
       const source = document.createElement('span')
       source.className = 'piko-clip-source'
       source.textContent = clipping.originUrl
-        ? `${clipping.sourceTitle} · dragged from ${clipping.originUrl}`
+        ? `${clipping.sourceTitle} · ${displayUrl(clipping.originUrl)}`
+        : clipping.sourceTitle
+      source.title = clipping.originUrl
+        ? `${clipping.sourceTitle} — dragged from ${clipping.originUrl}`
         : clipping.sourceTitle
       body.appendChild(source)
 
-      const remove = document.createElement('button')
-      remove.className = 'piko-clip-remove'
-      remove.textContent = '✕'
-      remove.setAttribute('aria-label', 'Remove clipping')
+      // The sentence alone, not the Markdown blockquote: this button is the quick grab, and
+      // the header's Copy is the with-attribution export (see toMarkdown).
+      const copy = iconButton('Copy this clipping', ICON.copy)
+      copy.addEventListener('click', () => {
+        // Synchronous, inside the click handler — see clipboard.ts.
+        flashResult(copy, copyText(clipping.text), ICON.copy)
+      })
+
+      const open = iconButton(`Preview ${clipping.sourceTitle}`, ICON.preview)
+      open.addEventListener('click', () =>
+        onPreview({ url: clipping.sourceUrl, anchorText: clipping.sourceTitle }),
+      )
+
+      const remove = iconButton('Remove clipping', ICON.remove)
+      remove.classList.add('piko-clip-remove')
       remove.addEventListener('click', () => store.toggle(clipping))
 
-      entry.append(when, body, remove)
+      const actions = document.createElement('div')
+      actions.className = 'piko-clip-actions'
+      actions.append(copy, open, remove)
+
+      // Time and controls share one meta row above the text, so neither reserves a gutter
+      // beside it. In a pane this narrow the sentence needs the full width more than the
+      // metadata needs to sit inline with it.
+      const meta = document.createElement('div')
+      meta.className = 'piko-clip-meta'
+      meta.append(when, actions)
+
+      entry.append(meta, body)
       list.appendChild(entry)
     })
   }

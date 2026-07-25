@@ -116,6 +116,10 @@ because there is no test suite; shrinking it is the point.
   nothing you don't already have, and costs a user-facing install warning.
 - 👁 **`:host(:hover)`, never `:host:hover`** — the bare-chained form silently never
   matches in shadow-DOM CSS.
+- 👁 **No backticks inside `styles.ts`'s CSS comments.** The whole stylesheet is one
+  template literal, so quoting a property name the way you would in prose terminates the
+  string and reports `TS1005: ',' expected` at a line far from the actual mistake. Name
+  properties in plain words instead.
 - 👁 **Derive projections, don't store them.** Source tallies, visible sets, and session
   gaps are computed at point of use in `clippings.ts`. Caching them on state is how
   staleness bugs get in.

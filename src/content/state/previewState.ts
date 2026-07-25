@@ -13,7 +13,8 @@ export type PreviewState =
 export type Dispatch = (event: PreviewEvent) => void
 
 export type PreviewEvent =
-  | { type: 'DragStarted'; target: LinkTarget }
+  /** A preview was asked for — by a drag on the page, or by the clippings pane reopening a source. */
+  | { type: 'PreviewRequested'; target: LinkTarget }
   | { type: 'FrameCheckOk'; finalUrl: string; html: string | null }
   | { type: 'FrameCheckBlocked'; finalUrl: string; html: string }
   | { type: 'FrameCheckFailed'; reason: string }
@@ -31,7 +32,7 @@ export type PreviewEvent =
  */
 export function transition(state: PreviewState, event: PreviewEvent): PreviewState {
   switch (event.type) {
-    case 'DragStarted':
+    case 'PreviewRequested':
       return { kind: 'loading', target: event.target }
 
     case 'Dismissed':
