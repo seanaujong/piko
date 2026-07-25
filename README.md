@@ -106,11 +106,15 @@ npm run build       # esbuild → dist/ (content.js + background.js + manifest +
 npm run icons       # re-rasterize public/icons/icon.svg at 16/32/48/128
 ```
 
-Tests sit beside the modules they cover and run under jsdom, which is enough DOM for the
-reducer, the segmenter and the clippings projections. Highlight *geometry* is not covered —
-it measures client rects, and jsdom reports every rect as zero, so those invariants still
-rest on a manual pass in Chrome. That gap is the project's biggest, and `CLAUDE.md` marks
-exactly which rules fall in it.
+Tests sit beside the modules they cover, in two suites. The pure layers — the reducer, the
+segmenter, the clippings projections — run under jsdom. Highlight *geometry* runs in real
+Chrome, because it measures client rects and jsdom reports every rect as zero, which would
+make those assertions pass while proving nothing. Chrome is driven through the copy already
+installed, so nothing is downloaded.
+
+What still rests on a human: clipboard writes and whether the browser honours a
+scroll-to-text link. Their payloads are tested; only the browser's half isn't.
+`CLAUDE.md` marks exactly which rules fall where.
 
 ## Install
 

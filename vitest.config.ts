@@ -1,18 +1,43 @@
+import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 
 /**
- * jsdom, not node: the reducer inlines extraction (DOMParser + Readability), and sentence
- * segmentation reads `textContent` off real elements. Neither needs *layout* — they only
- * need a DOM to exist — which is exactly what jsdom provides and what keeps these tests
- * fast and deterministic.
+ * Two suites, split by what they need rather than by how fast they are.
  *
- * Anything that measures geometry (`lineBandsFor`, `lineRectsForSentence`) is deliberately
- * NOT covered here. jsdom reports every rect as zero, so a passing test would prove nothing;
- * those need a real engine and belong in a separate browser-driven suite.
+ * `unit` runs under jsdom — enough DOM for `DOMParser`, `textContent` and `Range`, which is
+ * all the pure layers touch.
+ *
+ * `geometry` runs in real Chrome because it measures *layout*. jsdom reports every client
+ * rect as zero, so these assertions would pass there while proving nothing — the exact
+ * failure mode that let the highlight-band bugs live as long as they did. Chrome is used
+ * via `channel: 'chrome'` so no browser is downloaded; it drives the one already installed.
  */
 export default defineConfig({
   test: {
-    environment: 'jsdom',
-    include: ['src/**/*.test.ts'],
+    projects: [
+      {
+        test: {
+          name: 'unit',
+          environment: 'jsdom',
+          include: ['src/**/*.test.ts'],
+          exclude: ['src/**/*.browser.test.ts'],
+        },
+      },
+      {
+        test: {
+          name: 'geometry',
+          include: ['src/**/*.browser.test.ts'],
+          browser: {
+            enabled: true,
+            // `channel: 'chrome'` drives the Chrome already installed rather than downloading
+            // Playwright's bundled build — no 150MB fetch, and it measures layout in the same
+            // engine the extension actually runs in.
+            provider: playwright({ launchOptions: { channel: 'chrome' } }),
+            headless: true,
+            instances: [{ browser: 'chromium' }],
+          },
+        },
+      },
+    ],
   },
 })

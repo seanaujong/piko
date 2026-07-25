@@ -21,21 +21,27 @@ npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
 ```
 
-**Shape of the suite.** Colocated `*.test.ts` beside each module, under jsdom — enough DOM
-for `DOMParser`, `textContent` and `Range`, which is all the pure layers need. Covered:
-the whole `transition` reducer including every fallback branch, sentence segmentation,
-the clippings projections, and URL formatting.
+**Two suites, split by what they need.** `npm test` runs both.
 
-**Deliberately not covered, and why.** Anything measuring geometry (`lineBandsFor`,
-`lineRectsForSentence`) needs real layout; jsdom reports every rect as zero, so a passing
-test there would prove nothing. Those need a browser-driven suite that doesn't exist yet —
-and they are exactly the invariants with the most precise measurements recorded below, so
-they are the highest-value thing to build next. Clipboard writes and text-fragment
-activation are likewise unverifiable here; test the *payload* (`toMarkdown`,
-`textFragmentUrl`) and leave the browser's half to a human.
+- **`unit`** — `*.test.ts` under jsdom, colocated beside each module. Enough DOM for
+  `DOMParser`, `textContent` and `Range`, which is all the pure layers touch. Covers the
+  whole `transition` reducer including every fallback and stale-event branch, sentence
+  segmentation, the clippings projections, and URL formatting.
+- **`geometry`** — `*.browser.test.ts` in real Chrome via Playwright, because it measures
+  *layout*. jsdom reports every client rect as zero, so these assertions would pass there
+  while proving nothing — which is precisely how the band bugs survived as long as they did.
+  Chrome runs through `channel: 'chrome'`, so no browser is downloaded; if the run reports a
+  missing executable, that config was lost, not that you need `playwright install`.
+
+**Still on eyes only:** clipboard writes and text-fragment activation. Neither is reachable
+from automation (see the traps below), so test the *payload* — `toMarkdown`,
+`textFragmentUrl` — and leave the browser's half to a human.
 
 **When adding an invariant, watch its test fail before trusting it.** Revert the fix, see
-red, restore. Both citation rules below were confirmed this way.
+red, restore. This is not ceremony: the first version of "extent comes from the band, not
+the sentence" used bold-vs-plain text, which Chrome reports at the *same* rect top — so it
+passed with the bug reintroduced and was protecting nothing. A font-size contrast was what
+made it real. Every ✅ below has been watched failing.
 
 ## Verifying a change in Chrome
 The real surface is a drag on a live page, and nothing about it is automated. Budget for
@@ -103,8 +109,8 @@ where the clippings pane lives, and where another pane would go.
 ## Conventions & invariants
 Tagged by how each is enforced: **✅ machine-checked** (a type or test fails the build),
 **👁 review-only** (nothing catches a violation — a human must). Shrinking the 👁 count is
-the point. What remains there is almost entirely geometry and browser-boundary behaviour,
-which is the case for a browser-driven suite rather than an argument that they're unguardable.
+the point. What remains is layering and browser-boundary behaviour: rules about *where* code
+belongs, which a test can't express, and effects that leave the page entirely.
 
 - ✅ **Rules live in the reducer, events stay mechanical.** If `transition()` grows a
   branch that encodes a *policy*, that's right; if an event's handling grows rule-based
@@ -119,15 +125,18 @@ which is the case for a browser-driven suite rather than an argument that they'r
   like an easy simplification into the content script and is not one.
 - 👁 **Never mutate article text to highlight it.** No wrapping in `<span>`s — paint an
   overlay. Rewriting the DOM breaks the extraction the content came from.
-- 👁 **Highlight bands come from the block's measured line structure, never a line-height
+- ✅ **Highlight bands come from the block's measured line structure, never a line-height
   grid and never the rects of the sentence being drawn.** Spacing inside one paragraph is
   not uniform (measured heights `26.4, 25.6, 37.4, 37, 28.9` on a single paragraph), and
   bold/superscript rects differ enough to shift a band by ~4px. `lineBandsFor` measures
   real lines and puts boundaries at gap midpoints so bands tile by construction.
-- 👁 **Merge client rects by visual line before painting.** `Range.getClientRects()`
+  `sentences.browser.test.ts` asserts a zero seam between every pair of adjacent bands,
+  including on a deliberately non-uniform paragraph; watched failing at 6px and 8px gaps.
+- ✅ **Merge client rects by visual line before painting.** `Range.getClientRects()`
   emits overlapping duplicates over inline markup — one measured sentence gave 11 raw
   rects with 6 overlapping — which paints as a dark patch on every link. Use
-  `lineRectsForSentence`, never raw rects.
+  `lineRectsForSentence`, never raw rects — the browser suite asserts one rect per line and
+  no overlap between them.
 - 👁 **Hit-test with `root.elementFromPoint()` on the shadow root, then rect containment.**
   `ShadowRoot` has no `caretRangeFromPoint`, and the document's version doesn't pierce the
   boundary — it returns the host's ancestor. Do not reintroduce a caret-based lookup.
