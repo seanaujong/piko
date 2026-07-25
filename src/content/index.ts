@@ -5,7 +5,7 @@ import type { LinkTarget, PreviewEvent, PreviewState } from './state/previewStat
 import { transition } from './state/previewState'
 
 let state: PreviewState = { kind: 'idle' }
-const panel = mountPanel(dispatch, startPreview)
+const panel = mountPanel(dispatch)
 
 function dispatch(event: PreviewEvent): void {
   state = transition(state, event)
@@ -63,11 +63,7 @@ function requestFrameabilityCheck(target: LinkTarget): void {
   }
 }
 
-/**
- * The one way a preview begins, whatever asked for it — a drag on the page, or the clippings
- * pane reopening a clipping's source. Both go through the same reducer event, so neither the
- * state machine nor the panel has to know which it was.
- */
+/** The one way a preview begins: name the request, then go ask whether the page can be framed. */
 function startPreview(target: LinkTarget): void {
   dispatch({ type: 'PreviewRequested', target })
   requestFrameabilityCheck(target)

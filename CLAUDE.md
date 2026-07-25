@@ -45,6 +45,13 @@ that message, this is why.
 - **Never `navigator.clipboard.readText()` to verify a copy landed.** It raises a permission
   prompt that freezes the renderer — a CDP call timed out at 45s this way. `copyText` is
   fire-and-forget by design, so a clipboard write can only be confirmed by a human pasting.
+- **Scroll-to-text fragments can't be verified from automation.** Navigating to a
+  `#:~:text=` URL through CDP does not activate the directive — the page loads at the top
+  with nothing highlighted, even for text that is verbatim on the page, because the
+  directive needs a browser- or user-initiated navigation. Clicking an injected anchor
+  didn't navigate at all. Verify the URL *construction* by running `textFragmentUrl` under
+  Node (`npx esbuild <file> --format=cjs`, then require it) and assert on the decoded
+  output; leave activation to a human click.
 - **A synthetic scroll wheel over the panel scrolls the host page, not the preview.** The
   wheel event doesn't route into the shadow tree. This looks exactly like a broken scroll
   container and is not one: `.piko-content` is the real scroll owner. Drive it with

@@ -464,14 +464,31 @@ export const PANEL_STYLES = `
   color: #2b2b2b;
 }
 
+/* A real anchor, so cmd-click and middle-click open a tab the way the reader expects and
+   the target is visible in the status bar before committing to it. */
 .piko-clip-source {
+  all: initial;
+  box-sizing: border-box;
   display: block;
   margin-top: 3px;
+  cursor: pointer;
+  font-family: inherit;
   font-size: 10px;
   color: #9a9a94;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  transition: color 120ms ease;
+}
+
+.piko-clip-source:hover {
+  color: #4a3fe0;
+  text-decoration: underline;
+}
+
+.piko-clip-source:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 1px;
 }
 
 /* Hidden buttons still occupy layout — opacity doesn't remove them from flow — so beside

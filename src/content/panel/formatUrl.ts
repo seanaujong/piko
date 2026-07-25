@@ -10,3 +10,16 @@ export function displayUrl(url: string): string {
     .replace(/^www\./, '')
     .replace(/\/$/, '')
 }
+
+/**
+ * Just the host, for places too narrow to hold a path. Falls back to the trimmed string
+ * rather than throwing — a clipping's stored URL is only ever as well-formed as the page it
+ * came from, and a malformed one should still render something.
+ */
+export function hostOf(url: string): string {
+  try {
+    return new URL(url).host.replace(/^www\./, '')
+  } catch {
+    return displayUrl(url)
+  }
+}

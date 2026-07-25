@@ -1,5 +1,5 @@
 import { createClippingsStore } from '../state/clippings'
-import type { Dispatch, LinkTarget, PreviewState } from '../state/previewState'
+import type { Dispatch, PreviewState } from '../state/previewState'
 import { copyText } from './clipboard'
 import { displayUrl } from './formatUrl'
 import { ICON, iconButton } from './iconButton'
@@ -19,7 +19,7 @@ export type PanelHandle = {
  * arbitrary page element, which could hijack `position: fixed`'s containing block via an
  * ancestor's transform/filter/will-change).
  */
-export function mountPanel(dispatch: Dispatch, onPreview: (target: LinkTarget) => void): PanelHandle {
+export function mountPanel(dispatch: Dispatch): PanelHandle {
   const host = document.createElement('div')
   host.setAttribute('data-hidden', '') // hidden until the first render() call proves otherwise
   const shadow = host.attachShadow({ mode: 'open' })
@@ -28,10 +28,6 @@ export function mountPanel(dispatch: Dispatch, onPreview: (target: LinkTarget) =
   styleEl.textContent = PANEL_STYLES
   shadow.appendChild(styleEl)
 
-  // The header owns the URL, so it owns the two ways out of it. Keeping them here rather
-  // than on every clipping row is what lets a clipping's own button mean "bring this back
-  // into the panel" instead of "leave".
-  //
   // The URL is already spelled out in full, so it IS the copy control — a separate icon
   // beside it would be a second affordance pointing at the same string. Opening it
   // elsewhere is a genuinely different action, so that keeps a button of its own.
@@ -76,7 +72,7 @@ export function mountPanel(dispatch: Dispatch, onPreview: (target: LinkTarget) =
   // The clippings journal spans previews rather than belonging to any one of them, so it's
   // created once with the panel and outlives every individual `render()`.
   const clippings = createClippingsStore()
-  const clippingsPane = createClippingsPane(clippings, onPreview)
+  const clippingsPane = createClippingsPane(clippings)
 
   const body = document.createElement('div')
   body.className = 'piko-body'

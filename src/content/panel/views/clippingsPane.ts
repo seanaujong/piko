@@ -1,9 +1,9 @@
 import type { Clipping, ClippingsStore } from '../../state/clippings'
 import { gapBefore, tallyBySource, toMarkdown, visibleClippings } from '../../state/clippings'
-import type { LinkTarget } from '../../state/previewState'
 import { copyText } from '../clipboard'
-import { displayUrl } from '../formatUrl'
+import { hostOf } from '../formatUrl'
 import { flashResult, ICON, iconButton } from '../iconButton'
+import { textFragmentUrl } from '../textFragment'
 
 export type ClippingsPane = {
   root: HTMLElement
@@ -32,15 +32,8 @@ const gapLabel = (ms: number): string => {
  * compose and are stateless where modes are exclusive and stateful, and because each chip
  * carries its own count the chip row *is* the by-source overview a grouping mode would give.
  * Sessions survive as dividers inside the stream, so the list never changes shape.
- *
- * `onPreview` reopens a clipping's source in the panel. That keeps the journal's only
- * navigation inside Piko: the ways *out* of a source — a new tab, its URL — belong to the
- * panel header, which owns the URL, rather than being duplicated onto every row.
  */
-export function createClippingsPane(
-  store: ClippingsStore,
-  onPreview: (target: LinkTarget) => void,
-): ClippingsPane {
+export function createClippingsPane(store: ClippingsStore): ClippingsPane {
   const activeSources = new Set<string>()
 
   const root = document.createElement('div')
@@ -158,16 +151,23 @@ export function createClippingsPane(
       body.className = 'piko-clip-body'
       body.textContent = clipping.text
 
-      // Spelling out "dragged from" cost more width than the URL it introduced, so the line
-      // truncated every time. The relationship moves to the tooltip, where it costs nothing.
-      const source = document.createElement('span')
+      // The way back to a clipping is a link out, not a preview: re-previewing in place
+      // would replace whatever the reader currently has open, and giving the panel a history
+      // to unwind is a lot of machinery for a pane that shows one page at a time. A new tab
+      // costs the reader nothing they had, and the text directive means it opens *at* the
+      // sentence rather than at the top of the article.
+      //
+      // It names the page the sentence lives on. The page it was dragged from is a different
+      // page, and inlining both without saying which was which read as one ambiguous line.
+      const source = document.createElement('a')
       source.className = 'piko-clip-source'
-      source.textContent = clipping.originUrl
-        ? `${clipping.sourceTitle} · ${displayUrl(clipping.originUrl)}`
-        : clipping.sourceTitle
+      source.href = textFragmentUrl(clipping.sourceUrl, clipping.text)
+      source.target = '_blank'
+      source.rel = 'noopener noreferrer'
+      source.textContent = `${clipping.sourceTitle} · ${hostOf(clipping.sourceUrl)}`
       source.title = clipping.originUrl
-        ? `${clipping.sourceTitle} — dragged from ${clipping.originUrl}`
-        : clipping.sourceTitle
+        ? `Open ${clipping.sourceTitle} at this sentence — dragged from ${clipping.originUrl}`
+        : `Open ${clipping.sourceTitle} at this sentence`
       body.appendChild(source)
 
       // The sentence alone, not the Markdown blockquote: this button is the quick grab, and
@@ -178,18 +178,13 @@ export function createClippingsPane(
         flashResult(copy, copyText(clipping.text), ICON.copy)
       })
 
-      const open = iconButton(`Preview ${clipping.sourceTitle}`, ICON.preview)
-      open.addEventListener('click', () =>
-        onPreview({ url: clipping.sourceUrl, anchorText: clipping.sourceTitle }),
-      )
-
       const remove = iconButton('Remove clipping', ICON.remove)
       remove.classList.add('piko-clip-remove')
       remove.addEventListener('click', () => store.toggle(clipping))
 
       const actions = document.createElement('div')
       actions.className = 'piko-clip-actions'
-      actions.append(copy, open, remove)
+      actions.append(copy, remove)
 
       // Time and controls share one meta row above the text, so neither reserves a gutter
       // beside it. In a pane this narrow the sentence needs the full width more than the

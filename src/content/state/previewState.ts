@@ -13,7 +13,7 @@ export type PreviewState =
 export type Dispatch = (event: PreviewEvent) => void
 
 export type PreviewEvent =
-  /** A preview was asked for — by a drag on the page, or by the clippings pane reopening a source. */
+  /** A preview was asked for. Named for what happened, not for the drag that currently causes it. */
   | { type: 'PreviewRequested'; target: LinkTarget }
   | { type: 'FrameCheckOk'; finalUrl: string; html: string | null }
   | { type: 'FrameCheckBlocked'; finalUrl: string; html: string }
