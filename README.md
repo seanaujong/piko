@@ -5,6 +5,7 @@ instead of opening a tab you'll never come back to, drag the hyperlink and the a
 opens over the page you're already on.
 
 - Drag a link → the article appears in a panel, in reader mode
+- Or click the toolbar icon → the page you're already on becomes clippable
 - Hover a sentence → it lights up
 - Click it → it's clipped to a journal that persists across reloads
 
@@ -77,6 +78,12 @@ segmentation, the line geometry, the clippings projections.
 ```
 
 Two things that fall out of this shape and are worth stating plainly:
+
+**One hit-tester, two surfaces.** Clipping a preview and clipping the live page run the same
+code with three options flipped: where pointer events come from (the host overlay is
+click-through, so they come from the document), whether marks repaint on scroll (a fixed
+overlay doesn't travel with the page), and whether the click is swallowed (a sentence on a
+real page is often inside a link). There is no second definition of what a sentence is.
 
 **Reader mode is the default; framing is the fallback.** Sentence highlighting only works
 over content Piko itself extracted — a framed page is a cross-origin iframe whose DOM is

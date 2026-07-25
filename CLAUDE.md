@@ -1,8 +1,10 @@
 # CLAUDE.md — Piko
 
 ## At a glance
-A Chrome MV3 extension: drag a hyperlink and the article opens in place, in reader mode,
-where hovering a sentence highlights it and clicking clips it to a persistent journal.
+A Chrome MV3 extension with two clipping surfaces over one hit-tester. **Drag a hyperlink**
+and the article opens in place, in reader mode. **Click the toolbar icon** and the page you
+are already on becomes clippable, with the journal docked beside it. On either surface,
+hovering a sentence highlights it and clicking clips it to a persistent journal.
 
 **The filter for any new feature** is engagement, not summarisation: *does this increase
 the reader's engagement, or perform it on their behalf?* This is the rule that keeps
@@ -117,6 +119,8 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | whether a page can be framed | `background/frameability.ts` (**not** the content script — see below) |
 | the message contract between the two | `shared/messages.ts`, then the `switch` in `background/index.ts` |
 | what the panel looks like | `content/panel/views/*` + `panel/styles.ts` |
+| clipping the live page | `content/panel/hostClipping.ts` |
+| what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
 
@@ -173,6 +177,18 @@ belongs, which a test can't express, and effects that leave the page entirely.
   template literal, so quoting a property name the way you would in prose terminates the
   string and reports `TS1005: ',' expected` at a line far from the actual mistake. Name
   properties in plain words instead.
+- 👁 **Two surfaces, one hit-tester.** The preview and the live page both go through
+  `attachSentenceHighlight`; the differences are three options (`events`, `repaintOnScroll`,
+  `suppressActivation`), not a second code path. If a change needs to know *which* surface it
+  is on, it probably belongs in one of those options instead.
+- 👁 **Host clipping is armed only while the reader asked for it.** Hit-testing every click on
+  every page would break ordinary browsing and make Piko something that happens *to* you. The
+  rail being visible IS the indicator that clicks are intercepted, so there is no invisible
+  mode to forget you are in.
+- ✅ **The backdrop belongs to the preview, not to the shadow host.** It is gated on
+  `data-preview`; the docked rail also makes the host visible, and a scrim over the page would
+  defeat the mode the rail accompanies. Covered by an e2e test asserting the backdrop stays
+  `pointer-events: none` while the rail is open.
 - ✅ **Derive projections, don't store them.** Source tallies, visible sets, and session
   gaps are computed at point of use in `clippings.ts`. Caching them on state is how
   staleness bugs get in.
