@@ -123,16 +123,12 @@ type ChipRowProps = {
   tallies: readonly SourceTally[]
   active: ReadonlySet<string>
   onToggle: (sourceUrl: string) => void
-  onReset: () => void
 }
 
 /** Past this many, one line of chips can no longer hold them and the row takes a second. */
 const CHIPS_PER_ROW = 4
 
-function ChipRow({ tallies, active, onToggle, onReset }: ChipRowProps) {
-  // A filter over a single source narrows nothing — it would just be noise. The row itself
-  // still renders, so the pane's spacing doesn't change as a second source appears.
-  const shown = tallies.length < 2 ? [] : tallies
+function ChipRow({ tallies: shown, active, onToggle }: ChipRowProps) {
   // Read once for the whole row, so two chips a millisecond either side of midnight cannot end
   // up in different bands within a single render.
   const now = Date.now()
@@ -189,13 +185,6 @@ function ChipRow({ tallies, active, onToggle, onReset }: ChipRowProps) {
           )
         })}
       </div>
-      {/* Outside the scroller on purpose: the control that clears a filter cannot be the one
-          thing you have to go looking for. */}
-      {shown.length > 0 && active.size > 0 && (
-        <button key="reset" class="piko-chip piko-chip-reset" onClick={onReset}>
-          Show all
-        </button>
-      )}
     </div>
   )
 }
@@ -260,6 +249,11 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
 
   const items = visibleClippings(all, active)
 
+  // A filter over a single source narrows nothing — it would just be noise. The chip row still
+  // renders empty, so the pane's spacing doesn't change as a second source appears.
+  const sources = sourcesInSessionOrder(all)
+  const filterable = sources.length < 2 ? [] : sources
+
   const toggleSource = (sourceUrl: string): void =>
     setActive((current) => {
       const next = new Set(current)
@@ -281,6 +275,17 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
           <span class="piko-clips-count">
             {active.size > 0 ? `${items.length}/${all.length}` : all.length}
           </span>
+          {/*
+            Beside the count rather than in the chip row, because it is that count's undo: the
+            narrowed "1/6" is what tells the reader a filter is on, and this is how it comes
+            off. In the row it also had to survive being squeezed by the chips it sits next to,
+            which is a fight a two-word label loses — it wrapped.
+          */}
+          {filterable.length > 0 && active.size > 0 && (
+            <button class="piko-chip piko-chip-reset" onClick={() => setActive(new Set())}>
+              Show all
+            </button>
+          )}
         </div>
         <div class="piko-clips-actions">
           {/*
@@ -298,12 +303,7 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
         </div>
       </div>
 
-      <ChipRow
-        tallies={sourcesInSessionOrder(all)}
-        active={active}
-        onToggle={toggleSource}
-        onReset={() => setActive(new Set())}
-      />
+      <ChipRow tallies={filterable} active={active} onToggle={toggleSource} />
 
       <div class="piko-clips-list">
         {all.length === 0 ? (

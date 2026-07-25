@@ -541,8 +541,14 @@ export const PANEL_STYLES = `
   font-weight: 600;
 }
 
+/* Sits on the header row beside the count. Centred rather than baseline-aligned with the
+   title, and never wrapped: at two words, a break turns it into a two-line block that pushes
+   the row taller than everything beside it. */
 .piko-chip-reset {
   border-style: dashed;
+  align-self: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .piko-chip-count {
