@@ -36,7 +36,7 @@ ignores each project's `include` and loads every bench into every project. They 
 answer design questions with numbers rather than intuition, and they have now overturned two
 guesses — relocation was assumed to be what would hurt first and is flat across 1/50/500
 clippings, and a single clip was assumed to be flat because keyed reconciliation touches one row,
-where it is linear in the whole journal (every render still builds a vnode per clipping). Run
+where it was linear in the whole journal until `ClipEntry` learned to refuse an update. Run
 with `--reporter=verbose` to see the tables. What each one *does* assert is only that it measured
 real work: that the segmenter reads its generated article back exactly, and that the pane it
 timed rendered every row and actually narrowed when filtered. A drifted generator or an empty
@@ -271,6 +271,16 @@ belongs, which a test can't express, and effects that leave the page entirely.
   error to trace. `readonly` blocks the obvious version at compile time; `clippings.test.ts`
   pins that a change yields a different array and that an earlier snapshot keeps its
   contents. This is the load-bearing half of the Preact port.
+- ✅ **A row refuses an update it doesn't need, so `ClipEntry`'s props must be reference-stable.**
+  Keying keeps the *nodes*; it does not keep the walk short — without the refusal, a redraw visits
+  a vnode per element of every row to find the one that changed, which is 9.0ms per clip at a
+  thousand clippings and 49.6ms at five thousand. `onRemove` therefore takes the clipping as an
+  argument rather than closing over it, so one function serves every row; rebuilding it per row
+  (`onRemove={() => store.toggle(clipping)}`) silently costs 5×, with the pane still working.
+  `clippingsPane.test.ts` counts row interiors through `options.diffed` against a first paint that
+  visits them all — watched failing at 4 of 4. The trade is that a row's relative time is fixed
+  from when it mounted; making it exact means giving the row the current minute, which hands the
+  full walk back on the first clip of each minute.
 - ✅ **Key clippings by source-plus-text, and keep one pane instance.** `keyOf` mirrors
   `isSame` in `clippings.ts`; if the two drift, reordering the list rebuilds nodes instead of
   moving them. `clippingsPane.test.ts` asserts a node survives being pushed down a row, and
