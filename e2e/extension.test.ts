@@ -288,6 +288,16 @@ describe('the loaded extension', () => {
       )
       expect(backdropBlocks).toBe(false)
 
+      // One pane instance, re-parented — not a second one rendered into the rail. A component
+      // framework that re-created its root on each render would quietly break this, and the
+      // journal would lose its filters and scroll every time the rail opened.
+      const paneCount = await page.evaluate(`${SHADOW}.querySelectorAll('.piko-clips').length`)
+      const paneIsInRail = await page.evaluate(
+        `${SHADOW}.querySelector('.piko-rail').contains(${SHADOW}.querySelector('.piko-clips'))`,
+      )
+      expect(paneCount).toBe(1)
+      expect(paneIsInRail).toBe(true)
+
       await page.close()
     })
 
