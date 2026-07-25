@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Clipping } from './clippings'
 import {
   createClippingsStore,
+  ageBandOf,
   gapBefore,
   SESSION_GAP_MS,
   sessionsOf,
@@ -125,8 +126,13 @@ describe('sessionsOf', () => {
 describe('sourcesInSessionOrder', () => {
   it('counts each source once, with its title', () => {
     expect(sourcesInSessionOrder(ITEMS)).toEqual([
-      { sourceUrl: ENCYCLOPEDIA, sourceTitle: 'Encyclopedia', count: 2 },
-      { sourceUrl: CHEMISTRY, sourceTitle: 'Chemical_energy', count: 1 },
+      {
+        sourceUrl: ENCYCLOPEDIA,
+        sourceTitle: 'Encyclopedia',
+        count: 2,
+        lastClippedAt: T0 - 60_000,
+      },
+      { sourceUrl: CHEMISTRY, sourceTitle: 'Chemical_energy', count: 1, lastClippedAt: T0 },
     ])
   })
 
@@ -229,5 +235,36 @@ describe('toMarkdown', () => {
 
     expect(markdown.match(/^> [A-Z]/gm)).toHaveLength(3)
     expect(markdown).toContain('\n\n> Second.')
+  })
+})
+
+describe('ageBandOf', () => {
+  // A fixed wall-clock moment, so "today" means the same thing whenever the suite runs.
+  const NOON = new Date(2026, 6, 25, 12, 0, 0).getTime()
+  const daysBefore = (days: number, hour = 12): number =>
+    new Date(2026, 6, 25 - days, hour, 0, 0).getTime()
+
+  it('counts calendar days, not elapsed hours', () => {
+    // Eleven last night is yesterday at nine this morning, thirteen hours later — the words
+    // describe the calendar, and an elapsed-hours rule would call this one "today".
+    const lateLastNight = new Date(2026, 6, 24, 23, 0, 0).getTime()
+    const thisMorning = new Date(2026, 6, 25, 9, 0, 0).getTime()
+
+    expect(ageBandOf(lateLastNight, thisMorning)).toBe('week')
+  })
+
+  it('places a moment in the span a reader would name', () => {
+    expect(ageBandOf(NOON, NOON)).toBe('today')
+    expect(ageBandOf(daysBefore(1), NOON)).toBe('week')
+    expect(ageBandOf(daysBefore(6), NOON)).toBe('week')
+    expect(ageBandOf(daysBefore(7), NOON)).toBe('month')
+    expect(ageBandOf(daysBefore(30), NOON)).toBe('month')
+    expect(ageBandOf(daysBefore(31), NOON)).toBe('older')
+  })
+
+  it('treats anything later than now as today rather than as the future', () => {
+    // Clock skew between the machine that stored a clipping and the one reading it back is a
+    // real possibility, and a negative day count must not fall through to the oldest band.
+    expect(ageBandOf(NOON + 60_000, NOON)).toBe('today')
   })
 })

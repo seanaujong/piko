@@ -401,7 +401,7 @@ export const PANEL_STYLES = `
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 11px 13px 9px;
+  padding: 11px 13px 5px;
   flex: 0 0 auto;
 }
 
@@ -442,7 +442,7 @@ export const PANEL_STYLES = `
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  padding: 0 13px 9px;
+  padding: 0 13px 4px;
   flex: 0 0 auto;
 }
 
@@ -474,10 +474,36 @@ export const PANEL_STYLES = `
   overflow-y: hidden;
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+  /* A lane for the scrollbar to draw in. macOS overlay scrollbars take no layout space, so
+     without this the bar is painted straight across the bottom row of chips. */
+  padding-bottom: 9px;
 }
 
 .piko-clips-chips[data-rows='2'] {
   grid-template-rows: auto auto;
+}
+
+/**
+ * Where one span of time gives way to the next, reading rightwards into the past.
+ *
+ * Set vertically because the row is two chips tall and only a few characters wide per column —
+ * a horizontal label would cost more scroll width than the chips it introduces, in the one
+ * dimension that is already scarce.
+ */
+.piko-chip-band {
+  grid-row: 1 / -1;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  writing-mode: vertical-rl;
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #a8a8a0;
+  white-space: nowrap;
+  border-left: 1px solid rgba(0, 0, 0, 0.11);
+  padding-left: 5px;
+  margin-left: 3px;
 }
 
 /* The only resting sign that the row continues: macOS overlay scrollbars show while scrolling

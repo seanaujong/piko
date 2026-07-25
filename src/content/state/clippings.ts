@@ -111,7 +111,50 @@ export function createClippingsStore(): ClippingsStore {
 
 // ---- derived views: pure functions over the stored array, nothing cached ----
 
-export type SourceTally = { sourceUrl: string; sourceTitle: string; count: number }
+export type SourceTally = {
+  sourceUrl: string
+  sourceTitle: string
+  count: number
+  /** The most recent clipping from this source — what places it in the row, and in time. */
+  lastClippedAt: number
+}
+
+/** How far back a source's most recent clipping is, in the terms a reader thinks in. */
+export type AgeBand = 'today' | 'week' | 'month' | 'older'
+
+/** Exhaustive by construction: a new band without a label stops compiling. */
+export const AGE_BAND_LABEL: Record<AgeBand, string> = {
+  today: 'Today',
+  week: 'This week',
+  month: 'This month',
+  older: 'Earlier',
+}
+
+const startOfDay = (at: number): number => {
+  const date = new Date(at)
+  date.setHours(0, 0, 0, 0)
+  return date.getTime()
+}
+
+/**
+ * Which band a moment falls in, relative to `now`.
+ *
+ * Counted in calendar days rather than elapsed hours, because that is what the words mean:
+ * something clipped at eleven last night is "yesterday" at nine this morning, not "today",
+ * however few hours have passed. Rounding the difference absorbs the hour that daylight saving
+ * adds or removes.
+ *
+ * `now` is a parameter rather than a call to `Date.now()` inside, so the boundaries can be
+ * tested at all — a function that reads the clock itself can only be tested at whatever time
+ * the suite happens to run.
+ */
+export function ageBandOf(at: number, now: number): AgeBand {
+  const days = Math.round((startOfDay(now) - startOfDay(at)) / 86_400_000)
+  if (days <= 0) return 'today'
+  if (days < 7) return 'week'
+  if (days < 31) return 'month'
+  return 'older'
+}
 
 /**
  * Whether two clippings adjacent in time belong to the same sitting.
@@ -184,13 +227,17 @@ export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTal
   const totals = new Map<string, SourceTally>()
   for (const clipping of clippings) {
     const existing = totals.get(clipping.sourceUrl)
-    if (existing) existing.count += 1
-    else
+    if (existing) {
+      existing.count += 1
+      existing.lastClippedAt = Math.max(existing.lastClippedAt, clipping.at)
+    } else {
       totals.set(clipping.sourceUrl, {
         sourceUrl: clipping.sourceUrl,
         sourceTitle: clipping.sourceTitle,
         count: 1,
+        lastClippedAt: clipping.at,
       })
+    }
   }
 
   const ordered: SourceTally[] = []

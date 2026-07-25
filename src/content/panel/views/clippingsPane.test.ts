@@ -97,6 +97,48 @@ describe('the chip row', () => {
     expect(chips(pane).map((c) => c.getAttribute('aria-pressed'))).toEqual(['true', 'false'])
   })
 
+  /**
+   * Timestamps here are relative to the real clock rather than to the suite's fixed `T0`,
+   * because the pane reads `Date.now()` to decide which span a source falls in — a fixture
+   * pinned to 2023 puts every chip in the same band and the row would render no rule at all.
+   */
+  describe('the rules between spans of time', () => {
+    const DAY = 86_400_000
+
+    const paneSpanning = (ages: readonly number[]) => {
+      const now = Date.now()
+      const store = createClippingsStore()
+      ages.forEach((days, index) => {
+        store.toggle(clip(`From ${index}.`, `https://example.com/${index}`, now - days * DAY))
+      })
+      const pane = createClippingsPane(store, { onClose: () => {} })
+      document.body.appendChild(pane.root)
+      return pane
+    }
+
+    const bands = (pane: { root: HTMLElement }): string[] =>
+      [...pane.root.querySelectorAll('.piko-chip-band')].map((el) => el.textContent ?? '')
+
+    it('names the span each rule opens, and never opens the leading one', () => {
+      // Today, this week, this month, earlier — one rule at each change, none before the first.
+      const pane = paneSpanning([0, 3, 20, 90])
+
+      expect(bands(pane)).toEqual(['This week', 'This month', 'Earlier'])
+    })
+
+    it('draws no rule when every source falls in one span', () => {
+      const pane = paneSpanning([0, 0])
+
+      expect(bands(pane)).toEqual([])
+    })
+
+    it('draws one rule for a span holding several sources, not one per source', () => {
+      const pane = paneSpanning([0, 40, 41, 42])
+
+      expect(bands(pane)).toEqual(['Earlier'])
+    })
+  })
+
   it('offers a reset only once a filter is active', async () => {
     const { pane } = paneWithTwoSources()
     expect(pane.root.querySelector('.piko-chip-reset')).toBeNull()

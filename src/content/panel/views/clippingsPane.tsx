@@ -1,7 +1,13 @@
 import { Fragment, render } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
-import { gapBefore, sourcesInSessionOrder, visibleClippings } from '../../state/clippings'
+import {
+  AGE_BAND_LABEL,
+  ageBandOf,
+  gapBefore,
+  sourcesInSessionOrder,
+  visibleClippings,
+} from '../../state/clippings'
 import { copyText } from '../clipboard'
 import { hostOf } from '../formatUrl'
 import { ICON } from '../iconButton'
@@ -127,6 +133,9 @@ function ChipRow({ tallies, active, onToggle, onReset }: ChipRowProps) {
   // A filter over a single source narrows nothing — it would just be noise. The row itself
   // still renders, so the pane's spacing doesn't change as a second source appears.
   const shown = tallies.length < 2 ? [] : tallies
+  // Read once for the whole row, so two chips a millisecond either side of midnight cannot end
+  // up in different bands within a single render.
+  const now = Date.now()
   const chips = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
 
@@ -153,21 +162,32 @@ function ChipRow({ tallies, active, onToggle, onReset }: ChipRowProps) {
         data-rows={shown.length > CHIPS_PER_ROW ? '2' : '1'}
         {...(overflowing ? { 'data-overflowing': '' } : {})}
       >
-        {shown.map((tally) => (
-          <button
-            key={tally.sourceUrl}
-            class="piko-chip"
-            // Spelled out rather than passed as a boolean: an unpressed chip must still carry
-            // `aria-pressed="false"`, not drop the attribute, or a screen reader stops
-            // announcing it as a toggle at all.
-            aria-pressed={active.has(tally.sourceUrl) ? 'true' : 'false'}
-            title={tally.sourceUrl}
-            onClick={() => onToggle(tally.sourceUrl)}
-          >
-            <span>{tally.sourceTitle}</span>
-            <span class="piko-chip-count">{tally.count}</span>
-          </button>
-        ))}
+        {shown.map((tally, index) => {
+          const band = ageBandOf(tally.lastClippedAt, now)
+          // Chips run newest-first, so bands can only get older along the row and each one is a
+          // single unbroken run. A rule marks where the next run starts, and names it: reading
+          // rightwards is moving back through the journal, so the label describes what follows
+          // it. The leading run needs no rule — it is where the reader already is.
+          const opensBand = index > 0 && ageBandOf(shown[index - 1]!.lastClippedAt, now) !== band
+
+          return (
+            <Fragment key={tally.sourceUrl}>
+              {opensBand && <span class="piko-chip-band">{AGE_BAND_LABEL[band]}</span>}
+              <button
+                class="piko-chip"
+                // Spelled out rather than passed as a boolean: an unpressed chip must still
+                // carry `aria-pressed="false"`, not drop the attribute, or a screen reader
+                // stops announcing it as a toggle at all.
+                aria-pressed={active.has(tally.sourceUrl) ? 'true' : 'false'}
+                title={tally.sourceUrl}
+                onClick={() => onToggle(tally.sourceUrl)}
+              >
+                <span>{tally.sourceTitle}</span>
+                <span class="piko-chip-count">{tally.count}</span>
+              </button>
+            </Fragment>
+          )
+        })}
       </div>
       {/* Outside the scroller on purpose: the control that clears a filter cannot be the one
           thing you have to go looking for. */}

@@ -112,7 +112,7 @@ describe('the clippings list under real layout', () => {
     // Two rows and the gap between them, with room for the scrollbar — and nowhere near the
     // eight-plus rows thirty chips wrap into.
     expect(chipHeight).toBeGreaterThan(0)
-    expect(row.getBoundingClientRect().height).toBeLessThan(chipHeight * 2.8)
+    expect(row.getBoundingClientRect().height).toBeLessThan(chipHeight * 3.4)
   })
 
   it('keeps focus inside the shadow root when a filter is toggled', async () => {
