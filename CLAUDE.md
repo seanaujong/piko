@@ -115,11 +115,19 @@ that message, this is why.
 **What a full manual pass covers,** in the order that finds bugs fastest: drag a link →
 reader mode renders → hover a sentence (bands tile the lines, no double-painting over
 links) → click it (mark persists, pane count increments) → clip from a second page (the
-source filter chips only appear at two or more sources) → toggle Live page and back (marks
-re-paint from a text match) → scroll (marks travel) → reload the tab (`chrome.storage.local`
-restores). Session dividers need two clippings more than 45 minutes apart, so they don't
-show up in a normal pass; lower `SESSION_GAP_MS` temporarily rather than faking a stored
-timestamp.
+source filter chips only appear at two or more sources) → open the search field and type
+(the list and the chip counts both narrow; Escape closes the search, not the preview) →
+press a span marker (the row keeps only that span) → on a page you have clipped from, the
+pin scope appears and its chips are outlined → toggle Live page and back (marks re-paint
+from a text match) → scroll (marks travel) → reload the tab (`chrome.storage.local`
+restores).
+
+Two things a normal pass won't reach, because both need a journal older than the sitting
+you are in: session dividers want two clippings more than 45 minutes apart, and the chip
+row's span markers want clippings in different spans — a fresh journal is all one span and
+renders a single `Today`. Lower `SESSION_GAP_MS` temporarily rather than faking a stored
+timestamp; for the spans there is no such dial, so trust `clippings.test.ts` and check the
+look rather than the logic.
 
 ## Where to make a change
 Layering and dependency direction are in `README.md`'s diagram. Practically:
