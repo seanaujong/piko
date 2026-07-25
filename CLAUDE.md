@@ -15,15 +15,27 @@ This file is the workflow map: how to build, how to verify, where to make a chan
 ## Build, run, verify
 ```sh
 npm install
-npm run typecheck   # tsc --noEmit — the only automatic gate that exists today
+npm run check       # THE GATE: typecheck + tests. Run before every commit.
+npm test            # Vitest alone. The authority — assert against a real run, don't mental-math.
 npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
 ```
 
-**There is no test suite.** `npm run typecheck` is the entire machine-checked gate, which
-is why almost every invariant below is tagged 👁. Treat adding the first tests as ordinary
-work rather than a project: `sentences.ts` is pure (text in, sentences/bands out) and its
-rules are already written down as measured numbers — they just need pinning.
+**Shape of the suite.** Colocated `*.test.ts` beside each module, under jsdom — enough DOM
+for `DOMParser`, `textContent` and `Range`, which is all the pure layers need. Covered:
+the whole `transition` reducer including every fallback branch, sentence segmentation,
+the clippings projections, and URL formatting.
+
+**Deliberately not covered, and why.** Anything measuring geometry (`lineBandsFor`,
+`lineRectsForSentence`) needs real layout; jsdom reports every rect as zero, so a passing
+test there would prove nothing. Those need a browser-driven suite that doesn't exist yet —
+and they are exactly the invariants with the most precise measurements recorded below, so
+they are the highest-value thing to build next. Clipboard writes and text-fragment
+activation are likewise unverifiable here; test the *payload* (`toMarkdown`,
+`textFragmentUrl`) and leave the browser's half to a human.
+
+**When adding an invariant, watch its test fail before trusting it.** Revert the fix, see
+red, restore. Both citation rules below were confirmed this way.
 
 ## Verifying a change in Chrome
 The real surface is a drag on a live page, and nothing about it is automated. Budget for
@@ -90,13 +102,15 @@ where the clippings pane lives, and where another pane would go.
 
 ## Conventions & invariants
 Tagged by how each is enforced: **✅ machine-checked** (a type or test fails the build),
-**👁 review-only** (nothing catches a violation — a human must). The 👁 count is high
-because there is no test suite; shrinking it is the point.
+**👁 review-only** (nothing catches a violation — a human must). Shrinking the 👁 count is
+the point. What remains there is almost entirely geometry and browser-boundary behaviour,
+which is the case for a browser-driven suite rather than an argument that they're unguardable.
 
-- 👁 **Rules live in the reducer, events stay mechanical.** If `transition()` grows a
+- ✅ **Rules live in the reducer, events stay mechanical.** If `transition()` grows a
   branch that encodes a *policy*, that's right; if an event's handling grows rule-based
   `if`s scattered elsewhere, the logic is in the wrong layer. `content/index.ts` folds and
-  renders — it decides nothing.
+  renders — it decides nothing. `previewState.test.ts` pins every branch, including the
+  stale-event refusals and the manual toggle's free round trip.
 - ✅ **`PreviewState` and `PreviewEvent` are discriminated unions** and `transition`'s
   `switch` is exhaustive. Adding a variant without handling it fails `npm run typecheck`.
   Keep it that way; don't add a `default:` case.
@@ -117,9 +131,10 @@ because there is no test suite; shrinking it is the point.
 - 👁 **Hit-test with `root.elementFromPoint()` on the shadow root, then rect containment.**
   `ShadowRoot` has no `caretRangeFromPoint`, and the document's version doesn't pierce the
   boundary — it returns the host's ancestor. Do not reintroduce a caret-based lookup.
-- 👁 **Don't regex-split sentences on `.`** `Intl.Segmenter` handles `U.S.`/`Fig. 2`/`3.5`
+- ✅ **Don't regex-split sentences on `.`** `Intl.Segmenter` handles `U.S.`/`Fig. 2`/`3.5`
   correctly; it also splits `.[15]` in two, which `sentencesIn` fixes by walking a
-  bracket-depth array and pushing boundaries past a citation run. Both halves matter.
+  bracket-depth array and pushing boundaries past a citation run. Both halves matter, and
+  `sentences.test.ts` covers both — watched failing as `knowledge.[` + `15] However`.
 - 👁 **Keep any clipboard write synchronous inside a real click handler, in the content
   script.** An `await` before it, or routing through the service worker, loses transient
   activation. `navigator.clipboard` is unavailable on `http://` pages (secure-context) —
@@ -128,11 +143,11 @@ because there is no test suite; shrinking it is the point.
   nothing you don't already have, and costs a user-facing install warning.
 - 👁 **`:host(:hover)`, never `:host:hover`** — the bare-chained form silently never
   matches in shadow-DOM CSS.
-- 👁 **No backticks inside `styles.ts`'s CSS comments.** The whole stylesheet is one
+- ✅ **No backticks inside `styles.ts`'s CSS comments.** The whole stylesheet is one
   template literal, so quoting a property name the way you would in prose terminates the
   string and reports `TS1005: ',' expected` at a line far from the actual mistake. Name
   properties in plain words instead.
-- 👁 **Derive projections, don't store them.** Source tallies, visible sets, and session
+- ✅ **Derive projections, don't store them.** Source tallies, visible sets, and session
   gaps are computed at point of use in `clippings.ts`. Caching them on state is how
   staleness bugs get in.
 

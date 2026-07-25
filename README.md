@@ -100,14 +100,17 @@ comments next to the code they constrain. `CLAUDE.md` is the contributor's orien
 
 ```sh
 npm install
+npm run check       # the gate: typecheck + tests
+npm test            # Vitest alone
 npm run build       # esbuild → dist/ (content.js + background.js + manifest + icons)
-npm run typecheck   # tsc --noEmit
 npm run icons       # re-rasterize public/icons/icon.svg at 16/32/48/128
 ```
 
-There is **no automated test suite yet** — verification is a manual pass in Chrome. That's
-the biggest known gap in the project, not a deliberate choice; `sentences.ts` in particular
-is pure and full of measured invariants that deserve pinning.
+Tests sit beside the modules they cover and run under jsdom, which is enough DOM for the
+reducer, the segmenter and the clippings projections. Highlight *geometry* is not covered —
+it measures client rects, and jsdom reports every rect as zero, so those invariants still
+rest on a manual pass in Chrome. That gap is the project's biggest, and `CLAUDE.md` marks
+exactly which rules fall in it.
 
 ## Install
 

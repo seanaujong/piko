@@ -5,7 +5,9 @@
   "description": "Drag-to-preview Chrome extension",
   "scripts": {
     "build": "node esbuild.config.mjs",
+    "check": "npm run typecheck && npm run test",
     "icons": "node scripts/render-icons.mjs",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,6 +18,8 @@
     "@types/chrome": "^0.0.287",
     "@types/dompurify": "^3.0.5",
     "esbuild": "^0.28.1",
-    "typescript": "^5.6.0"
+    "jsdom": "^29.1.1",
+    "typescript": "^5.6.0",
+    "vitest": "^4.1.10"
   }
 }

@@ -1,0 +1,83 @@
+import { describe, expect, it } from 'vitest'
+import { rangeForSentence, sentencesIn } from './sentences'
+
+/** Sentences are read off a real element, since that is what the hit-tester passes. */
+function block(html: string): HTMLElement {
+  const el = document.createElement('p')
+  el.innerHTML = html
+  return el
+}
+
+const textsIn = (html: string): string[] => sentencesIn(block(html), 'en').map((s) => s.text)
+
+describe('sentencesIn', () => {
+  it('keeps a footnote marker attached to the sentence it references', () => {
+    // UAX #29 classifies `[` as Close punctuation and breaks after the run following a
+    // terminator, so the segmenter alone yields `knowledge.[` + `15] However…`. Correct per
+    // the spec, wrong for a citation, which belongs to the sentence before it.
+    expect(textsIn('A claim about knowledge.[15] However, others disagree.')).toEqual([
+      'A claim about knowledge.[15]',
+      'However, others disagree.',
+    ])
+  })
+
+  it('keeps a run of several markers together', () => {
+    expect(textsIn('A claim.[3][5] Another claim.')).toEqual(['A claim.[3][5]', 'Another claim.'])
+  })
+
+  it('handles a lettered marker mid-sentence without splitting there', () => {
+    expect(textsIn('An encyclopedia[a] is a reference work. It is long.')).toEqual([
+      'An encyclopedia[a] is a reference work.',
+      'It is long.',
+    ])
+  })
+
+  it('does not split on the periods inside abbreviations or decimals', () => {
+    // The reason segmentation uses Intl.Segmenter rather than splitting on `.` — this is
+    // what a regex would get wrong, and why the citation fix goes around the segmenter
+    // rather than replacing it.
+    expect(textsIn('The U.S. ratified it. See Fig. 2 for the 3.5 percent case.')).toEqual([
+      'The U.S. ratified it.',
+      'See Fig. 2 for the 3.5 percent case.',
+    ])
+  })
+
+  it('reads through inline markup as one continuous string', () => {
+    expect(textsIn('An <a href="#">encyclopedia</a> is a <b>reference</b> work. Next.')).toEqual([
+      'An encyclopedia is a reference work.',
+      'Next.',
+    ])
+  })
+
+  it('trims the gap between sentences out of both offsets and text', () => {
+    const [first] = sentencesIn(block('First one.   Second one.'), 'en')
+
+    expect(first!.text).toBe('First one.')
+    expect(first!.start).toBe(0)
+    expect(first!.end).toBe('First one.'.length)
+  })
+
+  it('drops empty segments rather than emitting blank sentences', () => {
+    expect(textsIn('   ')).toEqual([])
+    expect(textsIn('One.    ')).toEqual(['One.'])
+  })
+})
+
+describe('rangeForSentence', () => {
+  it('spans the text nodes an offset range crosses', () => {
+    const el = block('An <a href="#">encyclopedia</a> is a <b>reference</b> work. Next.')
+    const [first] = sentencesIn(el, 'en')
+    const range = rangeForSentence(el, first!.start, first!.end)
+
+    expect(range).not.toBeNull()
+    expect(range!.toString()).toBe('An encyclopedia is a reference work.')
+  })
+
+  it('locates a sentence that starts partway through a text node', () => {
+    const el = block('First one. Second one.')
+    const [, second] = sentencesIn(el, 'en')
+    const range = rangeForSentence(el, second!.start, second!.end)
+
+    expect(range!.toString()).toBe('Second one.')
+  })
+})
