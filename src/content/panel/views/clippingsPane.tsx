@@ -1,7 +1,7 @@
 import { Fragment, render } from 'preact'
 import { useEffect, useLayoutEffect, useState } from 'preact/hooks'
 import type { Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
-import { gapBefore, tallyBySource, toMarkdown, visibleClippings } from '../../state/clippings'
+import { gapBefore, sourcesInSessionOrder, visibleClippings } from '../../state/clippings'
 import { copyText } from '../clipboard'
 import { hostOf } from '../formatUrl'
 import { ICON } from '../iconButton'
@@ -113,34 +113,6 @@ function CopyIconButton({ label, onCopy }: { label: string; onCopy: () => boolea
   )
 }
 
-/**
- * The pane's two header controls, in the order they escalate: export what you are looking at,
- * then put the pane away. Both are icons, because the close control has no honest word for
- * it — "Close" would read as closing the preview it sits inside.
- */
-function PaneActions({ items, onClose }: { items: readonly Clipping[]; onClose: () => void }) {
-  return (
-    <div class="piko-clips-actions">
-      {items.length > 0 && (
-        <CopyIconButton
-          label="Copy these clippings as Markdown"
-          // The with-attribution export of everything currently visible (see `toMarkdown`),
-          // where a clipping's own button copies that one sentence bare.
-          onCopy={() => copyText(toMarkdown(items))}
-        />
-      )}
-      <button
-        class="piko-icon-button piko-clips-close"
-        title="Close clippings"
-        aria-label="Close clippings"
-        onClick={onClose}
-      >
-        <Icon parts={ICON.remove} />
-      </button>
-    </div>
-  )
-}
-
 type ChipRowProps = {
   tallies: readonly SourceTally[]
   active: ReadonlySet<string>
@@ -190,10 +162,8 @@ function ClipEntry({ clipping, onRemove }: { clipping: Clipping; onRemove: () =>
       <div class="piko-clip-meta">
         <span class="piko-clip-when">{relativeTime(clipping.at)}</span>
         <div class="piko-clip-actions">
-          {/*
-            The sentence alone, not the Markdown blockquote: this button is the quick grab,
-            and the header's Copy is the with-attribution export.
-          */}
+          {/* The sentence alone — the clipboard is the door out of the journal, one clip at a
+              time, so what lands there is the text and not a wrapper around it. */}
           <CopyIconButton label="Copy this clipping" onCopy={() => copyText(clipping.text)} />
           <button
             class="piko-icon-button piko-clip-remove"
@@ -263,11 +233,24 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
             {active.size > 0 ? `${items.length}/${all.length}` : all.length}
           </span>
         </div>
-        <PaneActions items={items} onClose={onClose} />
+        <div class="piko-clips-actions">
+          {/*
+            An icon, because the control has no honest one-word label — "Close" beside an
+            article would read as closing the preview the pane sits inside.
+          */}
+          <button
+            class="piko-icon-button piko-clips-close"
+            title="Close clippings"
+            aria-label="Close clippings"
+            onClick={onClose}
+          >
+            <Icon parts={ICON.remove} />
+          </button>
+        </div>
       </div>
 
       <ChipRow
-        tallies={tallyBySource(all)}
+        tallies={sourcesInSessionOrder(all)}
         active={active}
         onToggle={toggleSource}
         onReset={() => setActive(new Set())}

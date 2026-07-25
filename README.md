@@ -72,7 +72,7 @@ segmentation, the line geometry, the clippings projections.
 ┌─────────────────────────────────────────────────────────────────────┐
 │ state/clippings.ts                              pure core + storage │
 │ createClippingsStore → chrome.storage.local                         │
-│ tallyBySource · visibleClippings · gapBefore · toMarkdown           │
+│ sessionsOf · sourcesInSessionOrder · visibleClippings · toMarkdown  │
 │ Every projection is derived at point of use, not stored.            │
 └─────────────────────────────────────────────────────────────────────┘
 ```

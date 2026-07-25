@@ -64,6 +64,18 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   toggleButton.className = 'piko-button piko-mode-toggle'
   toggleButton.addEventListener('click', () => dispatch({ type: 'ManualModeToggled' }))
 
+  // The pane's own close button can put it away, so something has to bring it back — and the
+  // header is where the panel's other reversible switch already lives. Being a toggle rather
+  // than a one-way "show" is what keeps the two controls from disagreeing: `active` reflects
+  // whether the pane is up, whichever control last changed it.
+  const clipsButton = document.createElement('button')
+  clipsButton.className = 'piko-button piko-clips-toggle'
+  clipsButton.textContent = 'Clippings'
+  clipsButton.addEventListener('click', () => {
+    paneDismissed = !paneDismissed
+    refreshPane()
+  })
+
   const closeButton = document.createElement('button')
   closeButton.className = 'piko-button piko-close'
   closeButton.textContent = '✕'
@@ -81,7 +93,7 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
 
   const actions = document.createElement('div')
   actions.className = 'piko-header-actions'
-  actions.append(toggleButton, closeButton)
+  actions.append(clipsButton, toggleButton, closeButton)
 
   const header = document.createElement('div')
   header.className = 'piko-header'
@@ -139,6 +151,8 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   let detachHostClipping: (() => void) | null = null
   /** Reset when the preview closes, so a dismissal lasts the preview it was made in. */
   let paneDismissed = false
+  /** Whether the preview currently on screen is one a sentence can be clipped from. */
+  let previewIsClippable = false
   /** The page's own inline margin, held while the rail is borrowing space from it. */
   let pageMarginRight: string | null = null
 
@@ -159,7 +173,20 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
 
   function dismissPaneForThisPreview(): void {
     paneDismissed = true
-    clippingsPane.root.toggleAttribute('data-hidden', true)
+    refreshPane()
+  }
+
+  /**
+   * The pane is worth offering when there is clipping to do or something already clipped;
+   * within that, whether it is up is the reader's to decide. Splitting the two is what lets a
+   * dismissal be remembered without also having to remember an empty journal.
+   */
+  function refreshPane(): void {
+    const worthOffering = previewIsClippable || clippings.all().length > 0
+    const showing = worthOffering && !paneDismissed
+    clippingsPane.root.toggleAttribute('data-hidden', !showing)
+    clipsButton.style.display = worthOffering ? 'inline-block' : 'none'
+    clipsButton.classList.toggle('active', showing)
   }
 
   /**
@@ -271,11 +298,8 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
 
     // Clipping only happens in reader mode, so the pane earns its width there unconditionally;
     // in framed mode it appears only when there's already something to review.
-    const clippable = state.kind === 'ready' && state.content.mode === 'extracted'
-    clippingsPane.root.toggleAttribute(
-      'data-hidden',
-      paneDismissed || (!clippable && clippings.all().length === 0),
-    )
+    previewIsClippable = state.kind === 'ready' && state.content.mode === 'extracted'
+    refreshPane()
   }
 
   return {

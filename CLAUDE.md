@@ -202,9 +202,19 @@ belongs, which a test can't express, and effects that leave the page entirely.
   `data-preview`; the docked rail also makes the host visible, and a scrim over the page would
   defeat the mode the rail accompanies. Covered by an e2e test asserting the backdrop stays
   `pointer-events: none` while the rail is open.
-- ✅ **Derive projections, don't store them.** Source tallies, visible sets, and session
-  gaps are computed at point of use in `clippings.ts`. Caching them on state is how
+- ✅ **Derive projections, don't store them.** Sittings, source ordering, visible sets and
+  divider gaps are computed at point of use in `clippings.ts`. Caching them on state is how
   staleness bugs get in.
+- ✅ **The session rule lives in `sameSitting`, and only there.** Both readers — the list's
+  dividers (`gapBefore`) and the chip row's ordering (`sourcesInSessionOrder`, via
+  `sessionsOf`) — ask that predicate rather than comparing against `SESSION_GAP_MS`
+  themselves. A second inline comparison is how the dividers and the chips start disagreeing
+  about where a sitting ended.
+- ✅ **Chips are ordered by sitting, not by count.** Count-ordering answers "what have I
+  clipped most, ever?" and buries the article open right now; bare recency answers the right
+  question but re-sorts under the cursor mid-click. Within a sitting the order is arrival and
+  holds still as counts grow. `clippings.test.ts` pins all three; the ordering assertions were
+  watched failing against the count sort.
 - ✅ **The store hands out snapshots — never mutate the array in place.** `all()` returns a
   fresh `readonly Clipping[]` on every change, and the pane holds that reference in
   `useState`. An in-place `push` or `splice` would leave the reference equal, Preact would

@@ -113,20 +113,98 @@ export function createClippingsStore(): ClippingsStore {
 
 export type SourceTally = { sourceUrl: string; sourceTitle: string; count: number }
 
-/** Source chips double as the overview — each carries its own count — and as the filter. */
-export function tallyBySource(clippings: readonly Clipping[]): SourceTally[] {
-  const tallies = new Map<string, SourceTally>()
+/**
+ * Whether two clippings adjacent in time belong to the same sitting.
+ *
+ * The one place the session rule lives. Both readers of it — the dividers inside the list and
+ * the ordering of the source chips — ask this rather than comparing against `SESSION_GAP_MS`
+ * themselves, so there is no second copy of the rule to drift.
+ */
+const sameSitting = (newer: Clipping, older: Clipping): boolean =>
+  newer.at - older.at <= SESSION_GAP_MS
+
+/** A run of clippings taken without a long enough pause to read as a break. */
+export type Session = {
+  /** Newest first, the order the pane renders in. */
+  items: readonly Clipping[]
+  startedAt: number
+  endedAt: number
+}
+
+/**
+ * The journal split into sittings, newest first.
+ *
+ * A research burst is a topic operationally, and unlike a topic it costs no hand-maintenance —
+ * it falls straight out of the timestamps. Deriving the whole partition rather than only the
+ * boundary between two neighbours is what lets more than one reader share the rule: the list's
+ * dividers want the boundaries, the chip row wants the buckets.
+ */
+export function sessionsOf(clippings: readonly Clipping[]): Session[] {
+  const newestFirst = [...clippings].sort((a, b) => b.at - a.at)
+  const sessions: Session[] = []
+  let sitting: Clipping[] = []
+
+  const close = (): void => {
+    if (sitting.length === 0) return
+    sessions.push({
+      items: sitting,
+      startedAt: sitting[sitting.length - 1]!.at,
+      endedAt: sitting[0]!.at,
+    })
+  }
+
+  for (const clipping of newestFirst) {
+    const previous = sitting[sitting.length - 1]
+    if (previous && !sameSitting(previous, clipping)) {
+      close()
+      sitting = []
+    }
+    sitting.push(clipping)
+  }
+  close()
+
+  return sessions
+}
+
+/**
+ * Source chips, ordered by the sitting the reader last used each source in.
+ *
+ * They double as the overview — each carries its own count — and as the filter. Ordering them
+ * by total count made the row answer "what have I clipped most, ever?", which buries the
+ * article open right now under a page worked over last week. Ordering by bare recency answers
+ * the right question but re-sorts on every clip, so chips slide out from under the cursor that
+ * is aiming at them. Bucketing by sitting gets both: the sitting you are in leads, and inside
+ * it chips sit in the order you first reached each source and stay put as you keep clipping.
+ *
+ * The count stays the total across the whole journal, not the count within the sitting — the
+ * chip filters the journal, so a number describing anything narrower would be a lie about what
+ * clicking it shows.
+ */
+export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTally[] {
+  const totals = new Map<string, SourceTally>()
   for (const clipping of clippings) {
-    const existing = tallies.get(clipping.sourceUrl)
+    const existing = totals.get(clipping.sourceUrl)
     if (existing) existing.count += 1
     else
-      tallies.set(clipping.sourceUrl, {
+      totals.set(clipping.sourceUrl, {
         sourceUrl: clipping.sourceUrl,
         sourceTitle: clipping.sourceTitle,
         count: 1,
       })
   }
-  return [...tallies.values()].sort((a, b) => b.count - a.count)
+
+  const ordered: SourceTally[] = []
+  const placed = new Set<string>()
+  for (const session of sessionsOf(clippings)) {
+    // Oldest first within the sitting: the order the reader arrived at each source.
+    for (let index = session.items.length - 1; index >= 0; index -= 1) {
+      const { sourceUrl } = session.items[index]!
+      if (placed.has(sourceUrl)) continue
+      placed.add(sourceUrl)
+      ordered.push(totals.get(sourceUrl)!)
+    }
+  }
+  return ordered
 }
 
 /** Newest first, narrowed to `sources` when that set is non-empty. */
@@ -141,16 +219,17 @@ export function visibleClippings(
 
 /**
  * Sessions are rendered as dividers inside the one chronological list rather than as a
- * separate grouping mode, so temporal structure stays visible without the list changing
- * shape. A research burst is a topic operationally, and unlike a topic it costs no
- * hand-maintenance — it falls straight out of the timestamps.
+ * separate grouping mode, so temporal structure stays visible without the list changing shape.
+ *
+ * Asks the same `sameSitting` question `sessionsOf` does, over whatever list is on screen —
+ * which is the filtered one, so dividers describe the sitting structure of what the reader is
+ * actually looking at rather than of the whole journal.
  */
 export function gapBefore(items: readonly Clipping[], index: number): number | null {
   const previous = items[index - 1]
   const current = items[index]
   if (!previous || !current) return null
-  const gap = previous.at - current.at
-  return gap > SESSION_GAP_MS ? gap : null
+  return sameSitting(previous, current) ? null : previous.at - current.at
 }
 
 export function toMarkdown(items: readonly Clipping[]): string {

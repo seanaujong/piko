@@ -217,6 +217,31 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  it('puts the clippings pane back after it has been closed', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    const paneHidden = (): Promise<boolean> =>
+      page.evaluate(
+        `${SHADOW}.querySelector('.piko-clips').hasAttribute('data-hidden')`,
+      ) as Promise<boolean>
+
+    expect(await paneHidden()).toBe(false)
+
+    // Closing from inside the pane leaves the article the full width of the panel...
+    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-close').click()`)
+    await expect.poll(paneHidden, POLL).toBe(true)
+
+    // ...and the header keeps the way back. Without it the pane is gone for the life of the
+    // preview, since nothing else on screen refers to it.
+    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-toggle').click()`)
+    await expect.poll(paneHidden, POLL).toBe(false)
+
+    await page.close()
+  })
+
   it('ignores a same-page anchor rather than previewing the page you are on', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)

@@ -4,7 +4,8 @@ import {
   createClippingsStore,
   gapBefore,
   SESSION_GAP_MS,
-  tallyBySource,
+  sessionsOf,
+  sourcesInSessionOrder,
   toMarkdown,
   visibleClippings,
 } from './clippings'
@@ -75,22 +76,101 @@ describe('the store', () => {
   })
 })
 
-describe('tallyBySource', () => {
+/**
+ * Two sittings: four clippings from one page in a long stretch yesterday, then a single one
+ * from another page just now. Ordering by count and ordering by sitting disagree about this
+ * journal, which is what makes it worth asserting on.
+ */
+const YESTERDAY = T0 - SESSION_GAP_MS * 3
+const ACROSS_SITTINGS: Clipping[] = [
+  clip('Now.', CHEMISTRY, T0),
+  clip('Late.', ENCYCLOPEDIA, YESTERDAY),
+  clip('Middle.', ENCYCLOPEDIA, YESTERDAY - 60_000),
+  clip('Early.', ENCYCLOPEDIA, YESTERDAY - 120_000),
+  clip('Earliest.', ENCYCLOPEDIA, YESTERDAY - 180_000),
+]
+
+describe('sessionsOf', () => {
+  it('splits where a pause is long enough to read as a break', () => {
+    const sessions = sessionsOf(ACROSS_SITTINGS)
+
+    expect(sessions.map((s) => s.items.length)).toEqual([1, 4])
+  })
+
+  it('orders sittings newest first, and each sitting newest first inside', () => {
+    const [newest, older] = sessionsOf(ACROSS_SITTINGS)
+
+    expect(newest!.items.map((c) => c.text)).toEqual(['Now.'])
+    expect(older!.items.map((c) => c.text)).toEqual(['Late.', 'Middle.', 'Early.', 'Earliest.'])
+  })
+
+  it('reports when each sitting began and ended', () => {
+    const [, older] = sessionsOf(ACROSS_SITTINGS)
+
+    expect(older!.startedAt).toBe(YESTERDAY - 180_000)
+    expect(older!.endedAt).toBe(YESTERDAY)
+  })
+
+  it('keeps one sitting together at exactly the threshold', () => {
+    const items = [clip('Now.', CHEMISTRY, T0), clip('Earlier.', CHEMISTRY, T0 - SESSION_GAP_MS)]
+
+    expect(sessionsOf(items)).toHaveLength(1)
+  })
+
+  it('has no sittings when there is nothing clipped', () => {
+    expect(sessionsOf([])).toEqual([])
+  })
+})
+
+describe('sourcesInSessionOrder', () => {
   it('counts each source once, with its title', () => {
-    expect(tallyBySource(ITEMS)).toEqual([
+    expect(sourcesInSessionOrder(ITEMS)).toEqual([
       { sourceUrl: ENCYCLOPEDIA, sourceTitle: 'Encyclopedia', count: 2 },
       { sourceUrl: CHEMISTRY, sourceTitle: 'Chemical_energy', count: 1 },
     ])
   })
 
-  it('puts the most-clipped source first, not the most recent', () => {
-    // The chip row is an overview as well as a filter, so it leads with where the reader has
-    // actually been working — even though the list below it is ordered by time.
-    expect(tallyBySource(ITEMS).map((t) => t.count)).toEqual([2, 1])
+  it('leads with the sitting the reader is in, not with the most-clipped source', () => {
+    // The whole point of the ordering. Chemistry has a single clipping against Encyclopedia's
+    // four, and still comes first, because it is the page being worked on now — a row ranked
+    // by total count buries today's article under last week's.
+    expect(sourcesInSessionOrder(ACROSS_SITTINGS).map((t) => [t.sourceTitle, t.count])).toEqual([
+      ['Chemical_energy', 1],
+      ['Encyclopedia', 4],
+    ])
+  })
+
+  it('orders within one sitting by arrival, and holds that order as counts grow', () => {
+    // Chips are click targets. Re-sorting by count inside a sitting slides them out from under
+    // the cursor aiming at them, so within a sitting the order is the one the reader walked.
+    const arrived = [
+      clip('Second source, third clip.', CHEMISTRY, T0),
+      clip('Second source, second clip.', CHEMISTRY, T0 - 30_000),
+      clip('Second source, first clip.', CHEMISTRY, T0 - 60_000),
+      clip('First source.', ENCYCLOPEDIA, T0 - 90_000),
+    ]
+
+    expect(sourcesInSessionOrder(arrived).map((t) => t.sourceTitle)).toEqual([
+      'Encyclopedia',
+      'Chemical_energy',
+    ])
+  })
+
+  it('places a source by its most recent sitting, counting all of them', () => {
+    const returned = [
+      ...ACROSS_SITTINGS,
+      // The reader comes back to Encyclopedia in the newest sitting, after Chemistry.
+      clip('Back again.', ENCYCLOPEDIA, T0 + 60_000),
+    ]
+
+    expect(sourcesInSessionOrder(returned).map((t) => [t.sourceTitle, t.count])).toEqual([
+      ['Chemical_energy', 1],
+      ['Encyclopedia', 5],
+    ])
   })
 
   it('is empty for no clippings, which is what hides the chip row', () => {
-    expect(tallyBySource([])).toEqual([])
+    expect(sourcesInSessionOrder([])).toEqual([])
   })
 })
 
