@@ -1,6 +1,6 @@
 import { Fragment, render } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
-import type { Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
+import type { AgeBand, Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
 import {
   AGE_BAND_LABEL,
   ageBandOf,
@@ -123,15 +123,16 @@ type ChipRowProps = {
   tallies: readonly SourceTally[]
   active: ReadonlySet<string>
   onToggle: (sourceUrl: string) => void
+  band: AgeBand | null
+  onBand: (band: AgeBand) => void
+  /** Read once by the pane, so every span in one render is judged against the same instant. */
+  now: number
 }
 
 /** Past this many, one line of chips can no longer hold them and the row takes a second. */
 const CHIPS_PER_ROW = 4
 
-function ChipRow({ tallies: shown, active, onToggle }: ChipRowProps) {
-  // Read once for the whole row, so two chips a millisecond either side of midnight cannot end
-  // up in different bands within a single render.
-  const now = Date.now()
+function ChipRow({ tallies: shown, active, onToggle, band, onBand, now }: ChipRowProps) {
   const chips = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
 
@@ -159,16 +160,29 @@ function ChipRow({ tallies: shown, active, onToggle }: ChipRowProps) {
         {...(overflowing ? { 'data-overflowing': '' } : {})}
       >
         {shown.map((tally, index) => {
-          const band = ageBandOf(tally.lastClippedAt, now)
-          // Chips run newest-first, so bands can only get older along the row and each one is a
-          // single unbroken run. A rule marks where the next run starts, and names it: reading
-          // rightwards is moving back through the journal, so the label describes what follows
-          // it. The leading run needs no rule — it is where the reader already is.
-          const opensBand = index > 0 && ageBandOf(shown[index - 1]!.lastClippedAt, now) !== band
+          const span = ageBandOf(tally.lastClippedAt, now)
+          // Chips run newest-first, so spans can only get older along the row and each one is a
+          // single unbroken run. A marker opens each run and names it: reading rightwards is
+          // moving back through the journal, so the label describes what follows it.
+          //
+          // Including the first, which as a plain separator needed none — nothing precedes it
+          // to separate from. As a control it does: without a marker on the leading run, the
+          // span the reader is actually in would be the one span they could not select.
+          const opensSpan =
+            index === 0 || ageBandOf(shown[index - 1]!.lastClippedAt, now) !== span
 
           return (
             <Fragment key={tally.sourceUrl}>
-              {opensBand && <span class="piko-chip-band">{AGE_BAND_LABEL[band]}</span>}
+              {opensSpan && (
+                <button
+                  class="piko-chip-band"
+                  aria-pressed={band === span ? 'true' : 'false'}
+                  title={`Show only what you clipped ${AGE_BAND_LABEL[span].toLowerCase()}`}
+                  onClick={() => onBand(span)}
+                >
+                  {AGE_BAND_LABEL[span]}
+                </button>
+              )}
               <button
                 class="piko-chip"
                 // Spelled out rather than passed as a boolean: an unpressed chip must still
@@ -287,8 +301,24 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
   const [active, setActive] = useState<ReadonlySet<string>>(new Set())
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
+  const [band, setBand] = useState<AgeBand | null>(null)
 
-  const items = visibleClippings(all, active, searching ? query : '')
+  // Read once per render, so a chip and the list cannot land on opposite sides of midnight.
+  const now = Date.now()
+  const items = visibleClippings(all, {
+    sources: active,
+    query: searching ? query : '',
+    band,
+    now,
+  })
+
+  // The chip row's two narrowings, and the one control that clears them. The query has its own
+  // way out — closing the field — so it is not swept up here.
+  const narrowed = active.size > 0 || band !== null
+  const clearRowFilters = (): void => {
+    setActive(new Set())
+    setBand(null)
+  }
 
   // A filter over a single source narrows nothing — it would just be noise. The chip row still
   // renders empty, so the pane's spacing doesn't change as a second source appears.
@@ -314,7 +344,7 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
         <div class="piko-clips-heading">
           <div class="piko-clips-title">Clippings</div>
           <span class="piko-clips-count">
-            {active.size > 0 ? `${items.length}/${all.length}` : all.length}
+            {items.length === all.length ? all.length : `${items.length}/${all.length}`}
           </span>
           {/*
             Beside the count rather than in the chip row, because it is that count's undo: the
@@ -322,8 +352,8 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
             off. In the row it also had to survive being squeezed by the chips it sits next to,
             which is a fight a two-word label loses — it wrapped.
           */}
-          {filterable.length > 0 && active.size > 0 && (
-            <button class="piko-chip piko-chip-reset" onClick={() => setActive(new Set())}>
+          {narrowed && (
+            <button class="piko-chip piko-chip-reset" onClick={clearRowFilters}>
               Show all
             </button>
           )}
@@ -369,7 +399,15 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
         />
       )}
 
-      <ChipRow tallies={filterable} active={active} onToggle={toggleSource} />
+      <ChipRow
+        tallies={filterable}
+        active={active}
+        onToggle={toggleSource}
+        band={band}
+        // Selecting the span already showing is how the reader gets back out of it.
+        onBand={(chosen) => setBand((current) => (current === chosen ? null : chosen))}
+        now={now}
+      />
 
       <div class="piko-clips-list">
         {all.length === 0 ? (

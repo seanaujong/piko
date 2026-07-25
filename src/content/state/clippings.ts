@@ -255,11 +255,30 @@ export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTal
 }
 
 /**
- * Newest first, narrowed by source and by query — each ignored when empty.
+ * Everything currently narrowing the journal. Each is ignored when absent or empty.
  *
- * The two narrowings compose rather than replace: sources are a union (two chips show both),
- * and the query intersects with whatever that leaves, because "these two pages" and "the word
- * tide" are answers to different questions and a reader asking both means both.
+ * Named as one thing because they are one thing to the reader — the state of "what am I
+ * looking at" — and because three of them arriving as positional arguments would make every
+ * call site a puzzle.
+ */
+export type JournalFilters = {
+  /** A union: selecting two chips shows both. Empty means every source. */
+  sources?: ReadonlySet<string>
+  /** Case-insensitive substring of the text or the source title. Empty means every clipping. */
+  query?: string
+  /** One span of time. Null means every span. */
+  band?: AgeBand | null
+  /** What the spans are measured against; only consulted when a band is set. */
+  now?: number
+}
+
+/**
+ * Newest first, narrowed by whichever filters are set.
+ *
+ * They intersect rather than replace one another: "these two pages", "the word tide" and "this
+ * week" answer different questions, and a reader asking two of them means both. Sources are
+ * the exception and are a union among themselves, because two chips is one question — "either
+ * of these".
  *
  * A plain scan over the text. A thousand clippings is a few hundred kilobytes of string, which
  * is measured at a quarter of a millisecond to walk — an index would be machinery guarding
@@ -267,12 +286,11 @@ export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTal
  */
 export function visibleClippings(
   clippings: readonly Clipping[],
-  sources: ReadonlySet<string>,
-  query = '',
+  { sources, query = '', band = null, now = Date.now() }: JournalFilters = {},
 ): Clipping[] {
   const needle = query.trim().toLowerCase()
   return clippings
-    .filter((c) => sources.size === 0 || sources.has(c.sourceUrl))
+    .filter((c) => sources === undefined || sources.size === 0 || sources.has(c.sourceUrl))
     .filter(
       (c) =>
         needle === '' ||
@@ -280,6 +298,7 @@ export function visibleClippings(
         // The title too: "where did I read that" is as common a question as "what did it say".
         c.sourceTitle.toLowerCase().includes(needle),
     )
+    .filter((c) => band === null || ageBandOf(c.at, now) === band)
     .sort((a, b) => b.at - a.at)
 }
 

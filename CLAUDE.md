@@ -136,6 +136,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
+| what narrows the journal (source, query, span) | `JournalFilters` + `visibleClippings` in `clippings.ts` |
 
 The panel's `.piko-body` is a flex row deliberately built to take a second child; that's
 where the clippings pane lives, and where another pane would go.
@@ -222,6 +223,15 @@ belongs, which a test can't express, and effects that leave the page entirely.
   `sessionsOf`) — ask that predicate rather than comparing against `SESSION_GAP_MS`
   themselves. A second inline comparison is how the dividers and the chips start disagreeing
   about where a sitting ended.
+- ✅ **Every narrowing of the journal goes through `visibleClippings`.** Source chips, the
+  search query and the time span are one `JournalFilters` object, and they intersect — except
+  sources, which union among themselves because two chips is one question. A second filtering
+  path is how the count in the header starts disagreeing with the list under it.
+- 👁 **Escape inside a text field belongs to the field.** The panel's dismiss listener captures
+  on the document, so it runs *before* any handler in the field and `stopPropagation` there
+  cannot beat it — the guard has to live in `mountPanel`. It reads `event.composedPath()[0]`
+  rather than `event.target`, because shadow-DOM retargeting reports the host from outside the
+  tree. Covered by an e2e test that types a search and presses Escape.
 - ✅ **Chips are ordered by sitting, not by count.** Count-ordering answers "what have I
   clipped most, ever?" and buries the article open right now; bare recency answers the right
   question but re-sorts under the cursor mid-click. Within a sitting the order is arrival and

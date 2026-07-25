@@ -119,23 +119,58 @@ describe('the chip row', () => {
     const bands = (pane: { root: HTMLElement }): string[] =>
       [...pane.root.querySelectorAll('.piko-chip-band')].map((el) => el.textContent ?? '')
 
-    it('names the span each rule opens, and never opens the leading one', () => {
-      // Today, this week, this month, earlier — one rule at each change, none before the first.
+    it('marks every span the row passes through, the leading one included', () => {
+      // The leading marker is what a plain separator would not need and a control does: without
+      // it the span the reader is actually in is the one span they cannot select.
       const pane = paneSpanning([0, 3, 20, 90])
 
-      expect(bands(pane)).toEqual(['This week', 'This month', 'Earlier'])
+      expect(bands(pane)).toEqual(['Today', 'This week', 'This month', 'Earlier'])
     })
 
-    it('draws no rule when every source falls in one span', () => {
+    it('marks the one span when every source falls inside it', () => {
       const pane = paneSpanning([0, 0])
 
-      expect(bands(pane)).toEqual([])
+      expect(bands(pane)).toEqual(['Today'])
     })
 
-    it('draws one rule for a span holding several sources, not one per source', () => {
+    it('marks a span once however many sources it holds', () => {
       const pane = paneSpanning([0, 40, 41, 42])
 
-      expect(bands(pane)).toEqual(['Earlier'])
+      expect(bands(pane)).toEqual(['Today', 'Earlier'])
+    })
+
+    it('narrows to a span when its marker is pressed, and back out when pressed again', async () => {
+      const pane = paneSpanning([0, 40])
+      const marker = (label: string): HTMLButtonElement =>
+        [...pane.root.querySelectorAll<HTMLButtonElement>('.piko-chip-band')].find(
+          (el) => el.textContent === label,
+        )!
+
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
+
+      await settle(() => marker('Today').click())
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(1)
+      expect(marker('Today').getAttribute('aria-pressed')).toBe('true')
+      expect(marker('Earlier').getAttribute('aria-pressed')).toBe('false')
+
+      // Selecting the span already showing is the way back out — there is no separate clear.
+      await settle(() => marker('Today').click())
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
+      expect(marker('Today').getAttribute('aria-pressed')).toBe('false')
+    })
+
+    it('offers Show all once a span is selected, and clears it', async () => {
+      const pane = paneSpanning([0, 40])
+      expect(pane.root.querySelector('.piko-chip-reset')).toBeNull()
+
+      await settle(() =>
+        pane.root.querySelector<HTMLButtonElement>('.piko-chip-band')!.click(),
+      )
+      const reset = pane.root.querySelector<HTMLButtonElement>('.piko-chip-reset')!
+      expect(reset).not.toBeNull()
+
+      await settle(() => reset.click())
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
     })
   })
 

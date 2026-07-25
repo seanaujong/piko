@@ -182,44 +182,59 @@ describe('sourcesInSessionOrder', () => {
 
 describe('visibleClippings', () => {
   it('shows everything when no source is selected', () => {
-    expect(visibleClippings(ITEMS, new Set())).toEqual(ITEMS)
+    expect(visibleClippings(ITEMS)).toEqual(ITEMS)
   })
 
   it('narrows to one source', () => {
-    const visible = visibleClippings(ITEMS, new Set([ENCYCLOPEDIA]))
+    const visible = visibleClippings(ITEMS, { sources: new Set([ENCYCLOPEDIA]) })
 
     expect(visible.map((c) => c.text)).toEqual(['Second.', 'First.'])
   })
 
   it('composes selections rather than replacing them', () => {
     // The reason this is a filter set and not a grouping mode: two chips select the union.
-    const visible = visibleClippings(ITEMS, new Set([ENCYCLOPEDIA, CHEMISTRY]))
+    const visible = visibleClippings(ITEMS, { sources: new Set([ENCYCLOPEDIA, CHEMISTRY]) })
 
     expect(visible).toHaveLength(3)
   })
 
   it('narrows to the clippings holding the query, whatever its case', () => {
-    const visible = visibleClippings(ITEMS, new Set(), 'SECOND')
+    const visible = visibleClippings(ITEMS, { query: 'SECOND' })
 
     expect(visible.map((c) => c.text)).toEqual(['Second.'])
   })
 
   it('searches the source title as well as the text', () => {
     // "Where did I read that" is as common a question as "what did it say".
-    const visible = visibleClippings(ITEMS, new Set(), 'chemical')
+    const visible = visibleClippings(ITEMS, { query: 'chemical' })
 
     expect(visible.map((c) => c.text)).toEqual(['Third.'])
   })
 
   it('intersects a query with a source selection rather than replacing it', () => {
     // Both narrowings answer different questions; a reader asking both means both.
-    expect(visibleClippings(ITEMS, new Set([ENCYCLOPEDIA]), 'Third')).toEqual([])
-    expect(visibleClippings(ITEMS, new Set([CHEMISTRY]), 'Third')).toHaveLength(1)
+    expect(visibleClippings(ITEMS, { sources: new Set([ENCYCLOPEDIA]), query: 'Third' })).toEqual([])
+    expect(visibleClippings(ITEMS, { sources: new Set([CHEMISTRY]), query: 'Third' })).toHaveLength(1)
+  })
+
+  it('narrows to one span of time, measured against the moment it is given', () => {
+    const now = T0 + 40 * 86_400_000
+    // ITEMS were all clipped within two minutes of T0, so forty days on they are all "older"
+    // and none of them are "today".
+    expect(visibleClippings(ITEMS, { band: 'older', now })).toHaveLength(3)
+    expect(visibleClippings(ITEMS, { band: 'today', now })).toEqual([])
+  })
+
+  it('intersects a span with the other narrowings', () => {
+    const now = T0 + 40 * 86_400_000
+
+    expect(visibleClippings(ITEMS, { band: 'older', now, query: 'Second' })).toHaveLength(1)
+    expect(visibleClippings(ITEMS, { band: 'today', now, query: 'Second' })).toEqual([])
   })
 
   it('ignores a query that is only whitespace', () => {
     // A field the reader has cleared back to spaces must not read as "nothing matches".
-    expect(visibleClippings(ITEMS, new Set(), '   ')).toHaveLength(3)
+    expect(visibleClippings(ITEMS, { query: '   ' })).toHaveLength(3)
   })
 })
 

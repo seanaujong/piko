@@ -528,6 +528,10 @@ export const PANEL_STYLES = `
  * dimension that is already scarce.
  */
 .piko-chip-band {
+  all: initial;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-family: inherit;
   grid-row: 1 / -1;
   align-self: stretch;
   display: flex;
@@ -541,6 +545,30 @@ export const PANEL_STYLES = `
   border-left: 1px solid rgba(0, 0, 0, 0.11);
   padding-left: 5px;
   margin-left: 3px;
+  transition: color 120ms ease, border-color 120ms ease;
+}
+
+/* Nothing precedes the leading marker, so a rule there would read as a stray line against the
+   edge rather than as a division between two spans. */
+.piko-chip-band:first-child {
+  border-left: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+
+.piko-chip-band:hover {
+  color: #4a4a45;
+}
+
+.piko-chip-band:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 1px;
+}
+
+.piko-chip-band[aria-pressed='true'] {
+  color: #4a3fe0;
+  border-left-color: #4a3fe0;
+  font-weight: 600;
 }
 
 /* The only resting sign that the row continues: macOS overlay scrollbars show while scrolling
