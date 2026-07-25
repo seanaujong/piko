@@ -40,7 +40,14 @@ const isSame = (a: Clipping, b: Clipping): boolean =>
   a.sourceUrl === b.sourceUrl && a.text === b.text
 
 export function createClippingsStore(): ClippingsStore {
-  let clippings: Clipping[] = []
+  /**
+   * Replaced wholesale on every change rather than mutated, so `all()` returns a snapshot of
+   * one moment: a caller holding an earlier array keeps seeing exactly what it was handed.
+   * That is what lets a reader tell two versions apart by identity alone, without the store
+   * having to describe what changed. `readonly` is the enforcement — an in-place `push` or
+   * `splice` here stops compiling.
+   */
+  let clippings: readonly Clipping[] = []
   const listeners = new Set<() => void>()
 
   const notify = (): void => {
@@ -66,8 +73,10 @@ export function createClippingsStore(): ClippingsStore {
       if (!Array.isArray(loaded) || loaded.length === 0) return
       // Anything already clipped this page wins over the stored copy it predates.
       const seen = clippings
-      clippings = [...(loaded as Clipping[]).filter((l) => !seen.some((c) => isSame(c, l))), ...seen]
-      clippings.sort((a, b) => a.at - b.at)
+      clippings = [
+        ...(loaded as Clipping[]).filter((l) => !seen.some((c) => isSame(c, l))),
+        ...seen,
+      ].sort((a, b) => a.at - b.at)
       notify()
     })
   } catch {
@@ -79,8 +88,10 @@ export function createClippingsStore(): ClippingsStore {
 
     toggle(clipping) {
       const index = clippings.findIndex((c) => isSame(c, clipping))
-      if (index >= 0) clippings.splice(index, 1)
-      else clippings.push(clipping)
+      clippings =
+        index >= 0
+          ? [...clippings.slice(0, index), ...clippings.slice(index + 1)]
+          : [...clippings, clipping]
       persist()
       notify()
     },

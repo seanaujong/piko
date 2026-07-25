@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest'
 import type { Clipping } from './clippings'
-import { gapBefore, SESSION_GAP_MS, tallyBySource, toMarkdown, visibleClippings } from './clippings'
+import {
+  createClippingsStore,
+  gapBefore,
+  SESSION_GAP_MS,
+  tallyBySource,
+  toMarkdown,
+  visibleClippings,
+} from './clippings'
 
 const T0 = 1_700_000_000_000
 
@@ -21,6 +28,52 @@ const ITEMS: Clipping[] = [
   clip('Second.', ENCYCLOPEDIA, T0 - 60_000),
   clip('First.', ENCYCLOPEDIA, T0 - 120_000),
 ]
+
+describe('the store', () => {
+  /**
+   * Every reader of the journal is a projection over `all()`, so what the store hands out has
+   * to be a snapshot of one moment rather than a live view onto its working array. A caller
+   * that holds a reference across a change and sees it rewrite itself has no way to tell that
+   * anything happened — which is precisely what a UI needs to know.
+   */
+  it('hands out a new array on every change, leaving earlier snapshots alone', () => {
+    const store = createClippingsStore()
+    store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+
+    const snapshot = store.all()
+    store.toggle(clip('Second.', ENCYCLOPEDIA, T0 + 60_000))
+
+    expect(store.all()).not.toBe(snapshot)
+    expect(snapshot.map((c) => c.text)).toEqual(['First.'])
+    expect(store.all().map((c) => c.text)).toEqual(['First.', 'Second.'])
+  })
+
+  it('leaves an earlier snapshot alone when a clipping is removed', () => {
+    const store = createClippingsStore()
+    const first = clip('First.', ENCYCLOPEDIA, T0)
+    store.toggle(first)
+    store.toggle(clip('Second.', ENCYCLOPEDIA, T0 + 60_000))
+
+    const snapshot = store.all()
+    store.toggle(first) // toggling an existing clipping removes it
+
+    expect(snapshot).toHaveLength(2)
+    expect(store.all()).toHaveLength(1)
+  })
+
+  it('notifies subscribers, and stops once they unsubscribe', () => {
+    const store = createClippingsStore()
+    let notifications = 0
+    const unsubscribe = store.subscribe(() => (notifications += 1))
+
+    store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+    expect(notifications).toBe(1)
+
+    unsubscribe()
+    store.toggle(clip('Second.', ENCYCLOPEDIA, T0 + 60_000))
+    expect(notifications).toBe(1)
+  })
+})
 
 describe('tallyBySource', () => {
   it('counts each source once, with its title', () => {
