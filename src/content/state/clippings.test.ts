@@ -7,7 +7,6 @@ import {
   SESSION_GAP_MS,
   sessionsOf,
   sourcesInSessionOrder,
-  toMarkdown,
   visibleClippings,
 } from './clippings'
 
@@ -257,23 +256,6 @@ describe('gapBefore', () => {
     const items = [clip('Now.', CHEMISTRY, T0), clip('Earlier.', CHEMISTRY, T0 - SESSION_GAP_MS)]
 
     expect(gapBefore(items, 1)).toBeNull()
-  })
-})
-
-describe('toMarkdown', () => {
-  it('quotes each clipping and attributes it to its source', () => {
-    // This string IS the copy feature — whether Chrome's clipboard accepts it is Chrome's
-    // problem, so the payload is what earns a test.
-    expect(toMarkdown([clip('A sentence.', ENCYCLOPEDIA, T0, 'Encyclopedia')])).toBe(
-      `## Piko clippings\n\n> A sentence.\n>\n> — Encyclopedia · ${ENCYCLOPEDIA}\n`,
-    )
-  })
-
-  it('separates multiple clippings with a blank line', () => {
-    const markdown = toMarkdown(ITEMS)
-
-    expect(markdown.match(/^> [A-Z]/gm)).toHaveLength(3)
-    expect(markdown).toContain('\n\n> Second.')
   })
 })
 

@@ -32,11 +32,6 @@ function segmenterFor(locale: string): Intl.Segmenter {
  */
 const segmentedBlocks = new WeakMap<HTMLElement, Sentence[]>()
 
-/**
- * Only the block under the cursor is ever segmented, and only once. A long article runs to
- * well over a thousand sentences; segmenting all of them up front, or attaching a listener
- * per sentence, would make per-frame cost scale with article length for no benefit.
- */
 /** Footnote markers trailing a sentence, as `[15]` or `[3][5]` or `[a]`. */
 const TRAILING_CITATIONS = /^(?:\[[^[\]]{0,24}\])+/
 
@@ -97,6 +92,20 @@ function endsSentence(text: string, index: number): boolean {
   return cursor >= 0 && TERMINATORS.includes(text[cursor]!)
 }
 
+/**
+ * One block's prose, split into sentences.
+ *
+ * `Intl.Segmenter` does the splitting, not a regex over `.` — a full stop is a sentence
+ * boundary far less often than it looks, and the segmenter already knows that `U.S.`, `Fig. 2`
+ * and `3.5` are not three sentences each. What it gets wrong is narrower and is corrected in
+ * two places below: it breaks after a citation run (`pastCitation`) and after every line feed
+ * (`endsSentence`). Both corrections are load-bearing, and replacing the whole thing with a
+ * split on punctuation trades two known bugs for a great many unknown ones.
+ *
+ * Only the block under the cursor is ever segmented, and only once. A long article runs to
+ * well over a thousand sentences; segmenting all of them up front, or attaching a listener per
+ * sentence, would make per-frame cost scale with article length for no benefit.
+ */
 export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   const cached = segmentedBlocks.get(block)
   if (cached) return cached

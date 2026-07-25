@@ -6,8 +6,8 @@
  * stream" are two reads of the same array rather than two things to keep in sync.
  *
  * Clicking a sentence never touches the clipboard. A clipboard holds one item and overwrites
- * whatever the reader already had in it, so it can't be the journal; it's the door out of one
- * (see `toMarkdown`).
+ * whatever the reader already had in it, so it can't be the journal; it's the door out of one,
+ * taken a clipping at a time from the copy button on each row.
  */
 
 export type Clipping = {
@@ -352,11 +352,4 @@ export function gapBefore(items: readonly Clipping[], index: number): number | n
   const current = items[index]
   if (!previous || !current) return null
   return sameSitting(previous, current) ? null : previous.at - current.at
-}
-
-export function toMarkdown(items: readonly Clipping[]): string {
-  const body = items
-    .map((c) => `> ${c.text}\n>\n> — ${c.sourceTitle} · ${c.sourceUrl}`)
-    .join('\n\n')
-  return `## Piko clippings\n\n${body}\n`
 }

@@ -28,10 +28,12 @@ segmentation, the line geometry, the clippings projections.
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │ content/index.ts                           the shell (impure) · DOM │
-│ holds PreviewState; wires drag → dispatch → render.                 │
-│ Decides nothing itself — every choice is the reducer's.             │
+│ Two ways in: a hyperlink dragged out of the page, or the            │
+│ toolbar icon on the page you are already reading. Folds             │
+│ events into PreviewState and renders the result — it                │
+│ decides nothing itself; every choice is the reducer's.              │
 └─────────────────────────────────────────────────────────────────────┘
-                                   │  CHECK_FRAMEABILITY  ── shared/messages.ts, the seam
+                                   │ a drag: CHECK_FRAMEABILITY ── shared/messages.ts, the seam
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ background/frameability.ts                         impure · network │
@@ -41,7 +43,7 @@ segmentation, the line geometry, the clippings projections.
 │ Returns the html either way, so a later fallback to                 │
 │ reader mode costs no second round-trip.                             │
 └─────────────────────────────────────────────────────────────────────┘
-                                   │  FRAME_OK | FRAME_BLOCKED | UNSUPPORTED_CONTENT | FETCH_ERROR
+                                   │ FRAME_OK | FRAME_BLOCKED | UNSUPPORTED_CONTENT | FETCH_ERROR
                                    ▼
 ───────────────── the core — REDUCE → DERIVE → RENDER ─────────────────
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -51,39 +53,47 @@ segmentation, the line geometry, the clippings projections.
 │ PreviewState/PreviewEvent are discriminated unions, so              │
 │ an unhandled case fails the typecheck, not the user.                │
 └─────────────────────────────────────────────────────────────────────┘
-                                   │  resolving 'ready' runs both, synchronously
-                                   ▼
-┌───────────────────────────────┐     ┌───────────────────────────────┐
-│ extraction/extract.ts         │     │ extraction/sentences.ts       │
-│ Readability + DOMPurify       │     │ segmentation + line geometry  │
-│ html → ExtractedArticle       │     │ sentencesIn · lineBandsFor    │
-│ (textContent + safe HTML)     │     │ sentenceAtPoint               │
-└───────────────────────────────┘     └───────────────────────────────┘
-                                   │  ExtractedArticle + the sentence index
+                                   │ resolving 'ready' extracts, synchronously
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ panel/views/*                                    shell · shadow DOM │
-│ loadingView · framedView · extractedView · errorView                │
-│ clippingsPane.tsx — the one Preact view; keyed by clipping          │
-│ One shadow root; the host page's CSS can't reach in.                │
+│ extraction/extract.ts                                          pure │
+│ Readability + DOMPurify, inlined into the reducer because           │
+│ it is synchronous work over html already fetched.                   │
+│ html → ExtractedArticle (textContent + safe HTML)                   │
 └─────────────────────────────────────────────────────────────────────┘
-                                   │  a click over extracted content clips the sentence under it
+──────────────────── two surfaces, one hit-tester ─────────────────────
+┌───────────────────────────────┐     ┌───────────────────────────────┐
+│ panel/views/*                 │     │ panel/hostClipping.ts         │
+│ the dragged article, in       │     │ the page itself — skips all   │
+│ the panel's own scrolling     │     │ of the above; nothing was     │
+│ container                     │     │ fetched and nothing framed    │
+└───────────────────────────────┘     └───────────────────────────────┘
+                └──────────────────┬──────────────────┘
+                                   ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ panel/highlight.ts + extraction/sentences.ts                   pure │
+│ attachSentenceHighlight paints bands into an overlay;               │
+│ sentencesIn · lineBandsFor · sentenceAtPoint decide where           │
+│ a sentence is. The surfaces differ by three options, not            │
+│ by a second definition of what a sentence is.                       │
+└─────────────────────────────────────────────────────────────────────┘
+                                   │ a click clips the sentence under it
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ state/clippings.ts                              pure core + storage │
 │ createClippingsStore → chrome.storage.local                         │
-│ sessionsOf · sourcesInSessionOrder · visibleClippings · toMarkdown  │
+│ sessionsOf · sourcesInSessionOrder · visibleClippings               │
 │ Every projection is derived at point of use, not stored.            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-Two things that fall out of this shape and are worth stating plainly:
+Four things that fall out of this shape and are worth stating plainly:
 
-**One hit-tester, two surfaces.** Clipping a preview and clipping the live page run the same
-code with three options flipped: where pointer events come from (the host overlay is
-click-through, so they come from the document), whether marks repaint on scroll (a fixed
-overlay doesn't travel with the page), and whether the click is swallowed (a sentence on a
-real page is often inside a link). There is no second definition of what a sentence is.
+**The two surfaces meet at one hit-tester.** The three options they differ by are where pointer
+events come from (the host overlay is click-through, so they come from the document), whether
+marks repaint on scroll (a fixed overlay doesn't travel with the page), and whether the click is
+swallowed (a sentence on a real page is often inside a link). Everything else is shared, which
+is why a sentence means the same thing on both.
 
 **Reader mode is the default; framing is the fallback.** Sentence highlighting only works
 over content Piko itself extracted — a framed page is a cross-origin iframe whose DOM is
@@ -106,10 +116,15 @@ spacing inside a paragraph is not uniform — an inline image or a large-font sp
 by a dozen pixels — so the bands are derived from real line rects, never from a
 `line-height` lattice.
 
-For exact shapes and signatures, read the source: `previewState.ts` is the whole state
-machine in one file, and `sentences.ts` carries the segmentation and geometry rules in
-comments next to the code they constrain. `CLAUDE.md` is the contributor's orientation map
-— how to build, how to verify a change in a real browser, and where to make one.
+**Rationale lives next to the code it governs.** Every rule that holds this shape together is
+argued in the docblocks of the file that owns it — why bands come from measured lines, why the
+frameability check can only run in the worker, why one row refuses a redraw. `CLAUDE.md` keeps
+the *index* of those rules: one line each, with the file that carries the argument and the test
+that fails when it's broken. Read the index to find the rule, the source to understand it, and
+the colocated `*.test.ts` for a worked example — `previewState.ts` is the whole state machine in
+one file, and `sentences.ts` carries the segmentation and geometry rules inline. `CLAUDE.md` is
+also the contributor's workflow map: how to build, how to verify a change in a real browser, and
+where to make one.
 
 ## Develop
 

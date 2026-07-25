@@ -1,3 +1,21 @@
+/**
+ * The panel's whole stylesheet, as one template literal.
+ *
+ * Two properties of that arrangement govern every edit here.
+ *
+ * **Source order decides who wins.** Almost every selector below is a single class, so rules
+ * are of equal specificity and the later one takes it. Two of them — `.piko-button` and
+ * `.piko-icon-button` — declare `all: initial`, which does not merely override the properties
+ * it repeats: it wipes *every* property an earlier rule set on the same element, layout ones
+ * included. That is how the header's `margin-right: auto` spacer stopped working while still
+ * being present in the sheet. Prefer expressing an arrangement structurally, in a wrapper
+ * element with its own flex rules, over a property on one child that a later reset can erase.
+ * Where source order genuinely is the mechanism, say so — `.piko-clip-remove:hover` does.
+ *
+ * **A backtick inside a CSS comment ends the stylesheet.** Quoting a property name the way
+ * prose would terminates the template literal, and the failure surfaces as `TS1005: ',' expected`
+ * at a line far from the mistake. Name properties in plain words.
+ */
 import { PANEL_HEIGHT_VH, PANEL_MAX_WIDTH_PX, PANEL_WIDTH_VW, PANEL_Z_INDEX } from '../../shared/constants'
 
 // `:host { all: initial }` resets inherited CSS properties (color, font-family, custom

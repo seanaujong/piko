@@ -39,7 +39,14 @@ const gapLabel = (ms: number): string => {
   return days === 1 ? 'the day before' : `${days} days earlier`
 }
 
-/** Identity of a clipping, mirroring `isSame` in clippings.ts — source plus text, nothing else. */
+/**
+ * Identity of a clipping, mirroring `isSame` in clippings.ts — source plus text, nothing else.
+ *
+ * The two have to agree. Keys are what let a redraw *move* a row rather than rebuild it, and a
+ * key the store would call the same clipping while this file calls it a different one turns
+ * every reorder into a rebuild — taking each row's scroll position, focus and copy confirmation
+ * with it, which is the whole reason this pane is rendered by Preact at all.
+ */
 const keyOf = (clipping: Clipping): string => `${clipping.sourceUrl}\u0000${clipping.text}`
 
 /**

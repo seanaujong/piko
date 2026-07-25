@@ -1,3 +1,11 @@
+/**
+ * The content script: folds events into `PreviewState` and renders the result.
+ *
+ * It decides nothing. Every choice about what a preview shows belongs to `transition`, and this
+ * file's job is to notice things — a drag, a response from the background worker, the toolbar
+ * icon — and say so. What it does own is the request lifecycle around those messages, which is
+ * a concern about the network rather than about the reader: see `generation` below.
+ */
 import type {
   CheckFrameabilityRequest,
   CheckFrameabilityResponse,

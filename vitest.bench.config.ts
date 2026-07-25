@@ -10,6 +10,13 @@ import { defineConfig, type TestProjectConfiguration } from 'vitest/config'
  *
  * Same split as the suites, for the same reason: what runs on the page is measured in real
  * Chrome, because jsdom lays nothing out and would report zero-cost geometry.
+ *
+ * Run with `vitest run`, never `vitest bench`. These are ordinary tests that print, so
+ * `benchmark.include` never applies to them and `vitest bench` ignores each project's `include`
+ * — loading every bench file into every project, which puts `journal.bench.ts` and its
+ * Playwright import into a browser project and fails while optimising `fsevents`. The error
+ * names a native module and has nothing to do with the bench being run. `npm run bench` has it
+ * right; the mistake is reachable only by typing the command out by hand.
  */
 /**
  * A bench that measures layout, launched the way the geometry suite is. Shared rather than

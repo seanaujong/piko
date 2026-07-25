@@ -1,3 +1,17 @@
+/**
+ * Whether a page will let itself be framed, answered from the background service worker.
+ *
+ * The worker is the only place this question *can* be answered. A `fetch()` from page context
+ * cannot read `X-Frame-Options` or a `frame-ancestors` directive at all — response headers are
+ * withheld from the page's own JavaScript whatever the request's CORS mode, so a content script
+ * asking the same question gets a body with no headers attached to it. Folding this into the
+ * content script looks like an easy simplification and is not one; the check would compile,
+ * run, and quietly report every page as frameable.
+ *
+ * The fetched html rides back on the answer either way, blocked or not. Reader mode needs that
+ * html, and a preview that fell back to it after a refusal would otherwise pay for the same
+ * page twice.
+ */
 import type { CheckFrameabilityResponse } from '../shared/messages'
 import { FRAMEABILITY_FETCH_TIMEOUT_MS } from '../shared/constants'
 

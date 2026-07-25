@@ -1,3 +1,18 @@
+/**
+ * What the preview shows, as a pure fold over events.
+ *
+ * Every rule about what the reader sees lives in `transition` and nowhere else. Events are
+ * mechanical — each one reports that something happened, and none of them decides what it
+ * means. The content script that folds them holds no policy of its own: it dispatches, renders
+ * the result, and is free of any question about reader-vs-framed or which failure falls back to
+ * what. A rule-shaped `if` growing outside this file is the signal that a decision has escaped
+ * the layer that owns it.
+ *
+ * `PreviewState` and `PreviewEvent` are discriminated unions and the `switch` below is
+ * exhaustive over `PreviewEvent`, so adding a variant without handling it fails the typecheck
+ * rather than falling through at runtime. Keep it that way: a `default:` case would make the
+ * compiler stop asking, and turn the next added event into a silent no-op.
+ */
 import { extractArticle, type ExtractedArticle } from '../extraction/extract'
 
 export type LinkTarget = { url: string; anchorText?: string }
