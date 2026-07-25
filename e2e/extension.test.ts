@@ -163,6 +163,60 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  it('groups the address left and the controls right, across the header', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    const box = (selector: string): Promise<{ left: number; right: number; width: number }> =>
+      page.evaluate(`(() => {
+        const el = ${SHADOW}.querySelector(${JSON.stringify(selector)})
+        const r = el.getBoundingClientRect()
+        return { left: r.left, right: r.right, width: r.width }
+      })()`) as Promise<{ left: number; right: number; width: number }>
+
+    // The panel scales from 0.85 to 1 over 180ms as it opens, and every rect read mid-flight
+    // comes back multiplied by the current scale — an 8px gap measures 6.8. Settle first.
+    await page.waitForFunction(
+      () => {
+        const host = [...document.documentElement.children].find((e) => e.shadowRoot)
+        const panel = host?.shadowRoot?.querySelector('.piko-panel')
+        return panel !== null && getComputedStyle(panel!).transform.startsWith('matrix(1, 0, 0, 1')
+      },
+      undefined,
+      { timeout: 5_000 },
+    )
+
+    const header = await box('.piko-header')
+    const url = await box('.piko-url')
+    const openInTab = await box('.piko-url-open')
+    const toggle = await box('.piko-mode-toggle')
+    const close = await box('.piko-close')
+
+    // Stated first so a hidden control fails as "the toggle isn't showing" rather than as a
+    // baffling comparison against a zero-width rect at the origin.
+    expect(toggle.width).toBeGreaterThan(0)
+
+    // Each group sits tight against its own edge...
+    expect(url.left - header.left).toBeLessThan(16)
+    expect(header.right - close.right).toBeLessThan(16)
+
+    // ...and tight within itself. This pair is what actually distinguishes two groups from
+    // four loose children: `justify-content: space-between` alone spreads a flat header to the
+    // same two edges, but pushes every neighbour ~230px apart on the way. Measured at 8px
+    // grouped versus 233px flat, so the threshold is nowhere near either.
+    expect(openInTab.left - url.right).toBeLessThan(12)
+    expect(close.left - toggle.right).toBeLessThan(12)
+
+    // All the slack collects between the groups instead.
+    expect(toggle.left - openInTab.right).toBeGreaterThan(40)
+
+    // Left open, this tab shadows the next test's: the toolbar press finds its target by URL,
+    // and two tabs at the same address make which one receives it a coin toss.
+    await page.close()
+  })
+
   it('ignores a same-page anchor rather than previewing the page you are on', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)

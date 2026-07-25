@@ -81,13 +81,36 @@ export const PANEL_STYLES = `
   transform: translate(-50%, -50%) scale(1);
 }
 
+/* Two groups at opposite ends: what the preview is on the left, what to do with it on the
+   right. The split is structural rather than an auto margin on one child, so no later rule
+   can quietly undo it — see the note on piko-header-source. */
 .piko-header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: space-between;
+  gap: 12px;
   padding: 10px 12px;
   border-bottom: 1px solid rgba(0, 0, 0, 0.08);
   background: #f7f7f8;
+  flex: 0 0 auto;
+}
+
+/* The address and the button that acts on it. Only this group shrinks — a long URL gives up
+   width to its own ellipsis rather than crowding the controls. */
+.piko-header-source {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+/* Reader/Live page and close. Never shrinks: these are fixed-size controls, and an ellipsis
+   through a button label is not a legible fallback. */
+.piko-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   flex: 0 0 auto;
 }
 
@@ -115,11 +138,6 @@ export const PANEL_STYLES = `
   transition: background-color 120ms ease, color 120ms ease;
 }
 
-/* Travels with the URL rather than with the panel controls, because it acts on the URL. The
-   auto margin sits after it, so Reader and close stay pinned to the far right. */
-.piko-url-open {
-  margin-right: auto;
-}
 
 .piko-url:hover {
   background: rgba(0, 0, 0, 0.06);

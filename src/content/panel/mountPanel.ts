@@ -60,7 +60,7 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   })
 
   const toggleButton = document.createElement('button')
-  toggleButton.className = 'piko-button'
+  toggleButton.className = 'piko-button piko-mode-toggle'
   toggleButton.addEventListener('click', () => dispatch({ type: 'ManualModeToggled' }))
 
   const closeButton = document.createElement('button')
@@ -69,9 +69,22 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   closeButton.setAttribute('aria-label', 'Close preview')
   closeButton.addEventListener('click', () => dispatch({ type: 'Dismissed' }))
 
+  // Two groups, pushed to opposite ends: what the preview *is* on the left, what to do with
+  // it on the right. Grouping them as elements rather than spacing them with a margin on one
+  // child is what keeps the arrangement from depending on a single declaration — an earlier
+  // version pushed the actions over with `margin-right: auto` on the new-tab button, and
+  // `.piko-icon-button`'s `all: initial` later in the sheet silently reset it.
+  const source = document.createElement('div')
+  source.className = 'piko-header-source'
+  source.append(urlLabel, newTabButton)
+
+  const actions = document.createElement('div')
+  actions.className = 'piko-header-actions'
+  actions.append(toggleButton, closeButton)
+
   const header = document.createElement('div')
   header.className = 'piko-header'
-  header.append(urlLabel, newTabButton, toggleButton, closeButton)
+  header.append(source, actions)
 
   const content = document.createElement('div')
   content.className = 'piko-content'
