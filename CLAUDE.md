@@ -36,92 +36,25 @@ opens with what it measures and why that number is the interesting one; `vitest.
 says why they're kept out of the gate and why the command is `vitest run` rather than
 `vitest bench`.
 
-**Three suites, split by what they need.** `npm test` runs all of them.
+**Three suites, split by what each needs.** `npm test` runs all of them; `vitest.config.ts` is
+where each one's requirement is argued.
 
-- **`unit`** — `*.test.ts` under jsdom, colocated beside each module. Enough DOM for
-  `DOMParser`, `textContent` and `Range`, which is all the pure layers touch. Covers the
-  whole `transition` reducer including every fallback and stale-event branch, sentence
-  segmentation, the clippings projections, and URL formatting.
-- **`geometry`** — `*.browser.test.ts` in real Chrome via Playwright, because it measures
-  *layout*. jsdom reports every client rect as zero, so these assertions would pass there
-  while proving nothing — which is precisely how the band bugs survived as long as they did.
-  Chrome runs through `channel: 'chrome'`, so no browser is downloaded here.
-- **`e2e`** — `e2e/*.test.ts`, driving the **actually-loaded extension** in Chromium against
-  local fixture pages. The only suite that exercises the manifest, the background worker, the
-  message round-trip and `chrome.storage`. It rebuilds `dist/` first, so it always tests the
-  shipped bundle. **This replaces the manual reload-and-drag loop** — the most expensive step
-  in developing this project.
+| Suite | Runs | Needs |
+|---|---|---|
+| `unit` | `src/**/*.test.ts` | jsdom — enough DOM for `DOMParser`, `textContent` and `Range` |
+| `geometry` | `src/**/*.browser.test.ts` | real Chrome, because it measures *layout*; jsdom reports every rect as zero |
+| `e2e` | `e2e/*.test.ts` | the actually-loaded extension — the only suite reaching the manifest, the worker and `chrome.storage` |
 
-Two effects reach past all three suites and stay on eyes only — see *What only a human can
-guard* under Conventions & invariants.
+The e2e suite rebuilds `dist/` first, so it always tests the shipped bundle, and **it replaces
+the manual reload-and-drag loop** — the most expensive step in developing this project. Its two
+non-obvious launch requirements are documented where they are enforced, in `e2e/harness.ts`.
 
 ## Verifying a change in Chrome
-`npm test` now drives the loaded extension itself, so reach for the e2e suite first and keep
-the manual loop for judging how something *looks*. Two launch requirements there are
-non-obvious and were established by measurement, so don't "simplify" them:
-
-- **`channel: 'chromium'`, not `channel: 'chrome'`.** Branded Chrome ignores
-  `--load-extension` now; the extension never appears at all, and no `--disable-features`
-  incantation brought it back.
-- **Full Chromium, not the headless shell.** Plain `headless: true` resolves to
-  chrome-headless-shell, which has no extension support; pairing it with `channel: 'chromium'`
-  selects the complete browser in new-headless mode, which does.
-- **Clipping toggles, and the profile is shared across tests.** Clear `chrome.storage` in a
-  `beforeEach` through the service worker, or a test that re-clips an earlier test's sentence
-  silently un-clips it and reads zero.
-
-When you do go to the browser by hand, know its traps — each below has already cost an hour.
-
-**Every cycle:** `npm run build` → click reload on Piko's card at `chrome://extensions` →
-**refresh the test tab.** Skipping the refresh leaves an orphaned content script whose
-`chrome.runtime` is dead; a retry won't recover it, only a real refresh will. Piko fails
-loudly here ("Piko was updated — refresh this page") rather than hanging, so if you see
-that message, this is why.
-
-**Driving it with browser automation** (Claude-in-Chrome and similar):
-
-- **Don't use `left_click_drag` — dispatch the drag events.** The mouse-drag automation is
-  unreliable at firing `dragend` (three consecutive failures on one run). `startDragTracking`
-  never checks `isTrusted`, so a synthetic pair drives the real flow every time:
-  `a.dispatchEvent(new DragEvent('dragstart', {bubbles: true}))` then the same with
-  `'dragend'`. This is the harness to reach for first, not a fallback.
-- **Never `navigator.clipboard.readText()` to verify a copy landed.** It raises a permission
-  prompt that freezes the renderer — a CDP call timed out at 45s this way. `copyText` is
-  fire-and-forget by design, so a clipboard write can only be confirmed by a human pasting.
-- **Scroll-to-text fragments can't be verified from automation.** Navigating to a
-  `#:~:text=` URL through CDP does not activate the directive — the page loads at the top
-  with nothing highlighted, even for text that is verbatim on the page, because the
-  directive needs a browser- or user-initiated navigation. Clicking an injected anchor
-  didn't navigate at all. Verify the URL *construction* by running `textFragmentUrl` under
-  Node (`npx esbuild <file> --format=cjs`, then require it) and assert on the decoded
-  output; leave activation to a human click.
-- **A synthetic scroll wheel over the panel scrolls the host page, not the preview.** The
-  wheel event doesn't route into the shadow tree. This looks exactly like a broken scroll
-  container and is not one: `.piko-content` is the real scroll owner. Drive it with
-  `content.scrollTop = …` or `el.scrollIntoView()` inside the shadow root. Do not conclude
-  from this that human scrolling is broken — that has never been shown.
-- **A blank-looking reader pane is usually a large lead image still loading**, not failed
-  extraction. Check `.piko-article`'s `textContent.length` before believing a screenshot.
-- Everything lives in one open shadow root on a `<div>` appended to `document.documentElement`
-  — reach it with `[...document.documentElement.children].find(e => e.shadowRoot).shadowRoot`.
-- Don't trigger `alert`/`confirm`; a modal dialog freezes the automation channel.
-
-**What a full manual pass covers,** in the order that finds bugs fastest: drag a link →
-reader mode renders → hover a sentence (bands tile the lines, no double-painting over
-links) → click it (mark persists, pane count increments) → clip from a second page (the
-source filter chips only appear at two or more sources) → open the search field and type
-(the list and the chip counts both narrow; Escape closes the search, not the preview) →
-press a span marker (the row keeps only that span) → on a page you have clipped from, the
-pin scope appears and its chips are outlined → toggle Live page and back (marks re-paint
-from a text match) → scroll (marks travel) → reload the tab (`chrome.storage.local`
-restores).
-
-Two things a normal pass won't reach, because both need a journal older than the sitting
-you are in: session dividers want two clippings more than 45 minutes apart, and the chip
-row's span markers want clippings in different spans — a fresh journal is all one span and
-renders a single `Today`. Lower `SESSION_GAP_MS` temporarily rather than faking a stored
-timestamp; for the spans there is no such dial, so trust `clippings.test.ts` and check the
-look rather than the logic.
+What the suites cannot do is judge how something *looks*, and two effects leave the browser
+entirely (see *What only a human can guard* below). **`e2e/MANUAL.md` is the procedure for all
+of it** — the reload cycle, the traps that bite when an agent drives Chrome, the pass that finds
+bugs fastest, and the two things a fresh journal can never show you. Read it before driving a
+real browser; every trap in it has already cost an hour.
 
 ## Where to make a change
 Layering and dependency direction are in `README.md`'s diagram. Practically:
@@ -215,6 +148,9 @@ after touching either path; the traps that make them unreachable from automation
 
 ## Pointers
 - `README.md` — architecture diagram, layering, install, permissions.
+- `e2e/MANUAL.md` — verifying by hand: the reload cycle, the browser-automation traps, the
+  manual pass, and what a fresh journal can't show you. The complement to the e2e suite it
+  sits beside.
 - **Before starting, check `.claude/handoffs/TODO.md`** — the living handoff carrying
   current status, next step, and the decisions-and-rejected-alternatives log (why there's
   no LLM, why the name, what's been measured and shelved). It is local and gitignored, so

@@ -2,7 +2,7 @@ import { playwright } from '@vitest/browser-playwright'
 import { defineConfig } from 'vitest/config'
 
 /**
- * Two suites, split by what they need rather than by how fast they are.
+ * Three suites, split by what they need rather than by how fast they are.
  *
  * `unit` runs under jsdom — enough DOM for `DOMParser`, `textContent` and `Range`, which is
  * all the pure layers touch.
@@ -11,6 +11,12 @@ import { defineConfig } from 'vitest/config'
  * rect as zero, so these assertions would pass there while proving nothing — the exact
  * failure mode that let the highlight-band bugs live as long as they did. Chrome is used
  * via `channel: 'chrome'` so no browser is downloaded; it drives the one already installed.
+ *
+ * `e2e` runs the actually-loaded extension in a browser that installed it, which is the only
+ * way to reach the manifest, the background worker, the message round-trip and
+ * `chrome.storage` at all. It is also the slowest by an order of magnitude, and it is in the
+ * gate anyway: it replaces a manual reload-and-drag loop that cost far more. `e2e/harness.ts`
+ * owns the launch requirements; `e2e/MANUAL.md` covers what even this suite cannot check.
  */
 export default defineConfig({
   test: {

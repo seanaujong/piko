@@ -143,9 +143,9 @@ which would make those assertions pass while proving nothing. And `e2e/` drives 
 loaded extension against local fixture pages, covering the manifest, the background worker
 and `chrome.storage` — it rebuilds `dist/` first, so it always tests the shipped bundle.
 
-What still rests on a human: clipboard writes and whether the browser honours a
-scroll-to-text link. Their payloads are tested; only the browser's half isn't.
-`CLAUDE.md` marks exactly which rules fall where.
+What still rests on a human: clipboard writes, whether the browser honours a scroll-to-text
+link, and whether anything *looks* right. `CLAUDE.md` marks which rules fall where, and
+`e2e/MANUAL.md` is the procedure for checking them by hand.
 
 ## Install
 
