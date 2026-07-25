@@ -37,20 +37,73 @@ const segmentedBlocks = new WeakMap<HTMLElement, Sentence[]>()
  * well over a thousand sentences; segmenting all of them up front, or attaching a listener
  * per sentence, would make per-frame cost scale with article length for no benefit.
  */
+/** Footnote markers trailing a sentence, as `[15]` or `[3][5]` or `[a]`. */
+const TRAILING_CITATIONS = /^(?:\[[^[\]]{0,24}\])+/
+
+/**
+ * Moves a boundary that landed inside a bracket to just past the whole citation run.
+ *
+ * UAX #29 classifies `[` as Close punctuation and breaks *after* the run of Close characters
+ * following a terminator, so `knowledge.[15] However` segments as `knowledge.[` + `15] However`.
+ * That is correct per the spec — but a footnote marker is not punctuation belonging to the
+ * following sentence, it is a reference attached to the one before it.
+ */
+function pastCitation(text: string, index: number, depthBefore: number): number {
+  if (depthBefore <= 0) return index
+
+  let depth = depthBefore
+  let cursor = index
+  while (depth > 0 && cursor < text.length) {
+    const char = text[cursor]
+    if (char === '[') depth += 1
+    else if (char === ']') depth -= 1
+    cursor += 1
+  }
+
+  // `.[3][5]` breaks inside the first bracket, so keep going while more markers follow.
+  const following = TRAILING_CITATIONS.exec(text.slice(cursor))
+  return cursor + (following ? following[0].length : 0)
+}
+
 export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   const cached = segmentedBlocks.get(block)
   if (cached) return cached
 
   const text = block.textContent ?? ''
-  const sentences: Sentence[] = []
-  for (const { segment, index } of segmenterFor(locale).segment(text)) {
-    // Trailing whitespace belongs to the gap between sentences, not to the highlight —
-    // leaving it in paints a ragged block of colour past the final full stop.
-    const trimmed = segment.replace(/\s+$/, '')
-    if (trimmed.length > 0) {
-      sentences.push({ start: index, end: index + trimmed.length, text: trimmed })
-    }
+
+  // Bracket depth at every index, computed in one pass so each boundary is an O(1) lookup.
+  const depthAt = new Int32Array(text.length + 1)
+  for (let i = 0; i < text.length; i += 1) {
+    const char = text[i]
+    const delta = char === '[' ? 1 : char === ']' ? -1 : 0
+    depthAt[i + 1] = Math.max(0, depthAt[i]! + delta)
   }
+
+  const starts: number[] = []
+  for (const { index } of segmenterFor(locale).segment(text)) {
+    const adjusted = pastCitation(text, index, depthAt[index] ?? 0)
+    // A boundary pushed past a citation can land on or beyond the next one, which then has
+    // nothing left to describe.
+    if (starts.length === 0 || adjusted > starts[starts.length - 1]!) starts.push(adjusted)
+  }
+
+  const sentences: Sentence[] = []
+  starts.forEach((start, position) => {
+    const slice = text.slice(start, starts[position + 1] ?? text.length)
+    const trimmed = slice.trim()
+    if (trimmed.length === 0) return
+
+    // Whitespace either side belongs to the gap between sentences, not to the sentence: left
+    // in, it paints a ragged edge past the full stop and rides along into the clipped text.
+    // Leading space matters here because pushing a boundary past a citation leaves the space
+    // that followed it at the head of the next sentence.
+    const offset = slice.length - slice.trimStart().length
+    sentences.push({
+      start: start + offset,
+      end: start + offset + trimmed.length,
+      text: trimmed,
+    })
+  })
 
   segmentedBlocks.set(block, sentences)
   return sentences
