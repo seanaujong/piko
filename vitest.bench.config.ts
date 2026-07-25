@@ -27,6 +27,17 @@ export default defineConfig({
           },
         },
       },
+      {
+        test: {
+          name: 'journal',
+          include: ['bench/journal.bench.ts'],
+          environment: 'node',
+          testTimeout: 300_000,
+          hookTimeout: 300_000,
+          // One browser, one profile, one storage area.
+          fileParallelism: false,
+        },
+      },
     ],
   },
 })

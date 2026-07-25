@@ -1,11 +1,12 @@
-import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
-import { chromium, type BrowserContext, type Page } from 'playwright'
+import type { BrowserContext, Page } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import {
+  buildExtension,
+  launchWithExtension,
+  serveFixtures,
+  SHADOW,
+  type FixtureServer,
+} from './harness'
 
 /**
  * The whole extension, end to end, in a browser that actually loaded it.
@@ -15,51 +16,18 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
  * skip. It replaces the manual "reload at chrome://extensions and drag a link" loop, which
  * was the single most expensive step in developing this project.
  *
- * Two hard-won launch requirements, both measured rather than assumed:
- *  - `channel: 'chromium'`, NOT `channel: 'chrome'`. Branded Chrome now ignores
- *    `--load-extension`, and no amount of `--disable-features` brought it back — the
- *    extension simply never appears in chrome://extensions.
- *  - Full Chromium, not the headless shell. `headless: true` alone resolves to
- *    chrome-headless-shell, which has no extension support at all; pairing it with
- *    `channel: 'chromium'` selects the complete browser in new-headless mode, which does.
+ * How the browser has to be launched, and why, is in `harness.ts`.
  */
 
-const HERE = path.dirname(fileURLToPath(import.meta.url))
-const ROOT = path.join(HERE, '..')
-const DIST = path.join(ROOT, 'dist')
-const FIXTURES = path.join(HERE, 'fixtures')
-
-let server: Server
+let server: FixtureServer
 let context: BrowserContext
 let base: string
 
 beforeAll(async () => {
-  // Always exercise the shipped bundle rather than the source it was built from.
-  execFileSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'ignore' })
-
-  server = createServer((request, response) => {
-    const requested = (request.url === '/' ? '/index.html' : (request.url ?? '/')).split('?')[0]!
-    const file = path.join(FIXTURES, path.basename(requested))
-    if (!existsSync(file)) {
-      response.writeHead(404)
-      response.end('not found')
-      return
-    }
-    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
-    response.end(readFileSync(file))
-  })
-  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
-  base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
-
-  context = await chromium.launchPersistentContext('', {
-    channel: 'chromium',
-    headless: true,
-    args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
-  })
-
-  if (context.serviceWorkers().length === 0) {
-    await context.waitForEvent('serviceworker', { timeout: 20_000 })
-  }
+  buildExtension()
+  server = await serveFixtures()
+  base = server.base
+  context = await launchWithExtension()
 }, 120_000)
 
 afterAll(async () => {
@@ -76,9 +44,6 @@ beforeEach(async () => {
   const [worker] = context.serviceWorkers()
   await worker?.evaluate(() => chrome.storage.local.clear())
 })
-
-/** Everything the panel renders lives in one open shadow root on a child of <html>. */
-const SHADOW = `[...document.documentElement.children].find(e => e.shadowRoot).shadowRoot`
 
 /**
  * Drives the real gesture. `startDragTracking` never checks `isTrusted`, so dispatching the

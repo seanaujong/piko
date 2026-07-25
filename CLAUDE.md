@@ -21,7 +21,19 @@ npm run check       # THE GATE: typecheck + tests. Run before every commit.
 npm test            # Vitest alone. The authority — assert against a real run, don't mental-math.
 npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
+npm run bench       # measurements, NOT in the gate — see below
 ```
+
+**`npm run bench` prints, it doesn't assert.** Two benches over a generated 220-paragraph
+article: `bench/reading.bench.ts` measures what a store change costs on the page (the
+relocation walk, and `repaint()` at up to 200 marks) in real Chrome, and
+`bench/journal.bench.ts` measures what the journal costs to persist, in the loaded extension's
+own service worker. They stay out of `npm run check` because timing bounds on a shared machine
+are a flake generator; they exist to answer design questions with numbers rather than
+intuition, and they have already overturned one guess — relocation was assumed to be the thing
+that would hurt first, and it is flat across 1/50/500 clippings. Run with `--reporter=verbose`
+to see the tables. The reading bench asserts one thing: that the segmenter reads its generated
+article back exactly, so a drifted generator fails loudly instead of timing fictional work.
 
 **Three suites, split by what they need.** `npm test` runs all of them.
 
