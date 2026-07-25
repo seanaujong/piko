@@ -132,57 +132,65 @@ export function lineRectsForSentence(
   // grid from its neighbours, reopening the gaps as a ragged step.
   const lineBox = lineBoxHeight(block)
 
-  // An inline image or inline-block is far taller than a line box, so it must not be mistaken
-  // for the body text and anchor the band — one thumbnail would otherwise stretch every line
-  // of the sentence to its height.
+  // An inline image or inline-block is far taller than a line box; it gets no grid slot and
+  // keeps whatever extent it measured, so a thumbnail can't stretch the lines around it.
   const isTextLike = (height: number): boolean => height <= lineBox * 1.5
 
-  type Building = LineRect & { refCentre: number | null; refHeight: number }
-  const lines: Building[] = []
+  const blockStyle = getComputedStyle(block)
+  const gridOrigin =
+    block.getBoundingClientRect().top +
+    (Number.parseFloat(blockStyle.paddingTop) || 0) +
+    (Number.parseFloat(blockStyle.borderTopWidth) || 0)
+
+  /**
+   * Which line box a rect sits in. Every line in a block is exactly one line box tall, so the
+   * rect's vertical centre divided by the line box *is* the line number. A superscript sits a
+   * few pixels above the body text's centre, but that's a fraction of a line box, so it rounds
+   * to the same slot — which is what puts it on the line it belongs to rather than its own.
+   */
+  const lineIndexOf = (rect: DOMRect): number =>
+    Math.max(0, Math.round((rect.top + rect.height / 2 - gridOrigin - lineBox / 2) / lineBox))
+
+  /**
+   * Grouping *is* the snap. An earlier version grouped by overlapping vertical bands and then
+   * snapped, which let a raised superscript open its own band — two entries for one visual
+   * line, and after snapping two identical rects that double-darkened the translucent mark.
+   *
+   * Deriving the slot arithmetically makes tiling structural rather than measured: bold text
+   * reports a fractionally taller rect than regular and a superscript a much shorter one, and
+   * neither can move a band. Even a slightly wrong grid origin shifts every band equally,
+   * which is invisible, where per-line drift is exactly what reopened the seams.
+   */
+  const slots = new Map<number, { left: number; right: number }>()
+  const freeStanding: LineRect[] = []
 
   for (const rect of rects) {
-    const centre = rect.top + rect.height / 2
-    const line = lines.find((candidate) => centre >= candidate.top && centre <= candidate.bottom)
-
-    if (!line) {
-      lines.push({
-        left: rect.left,
-        right: rect.right,
-        top: rect.top,
-        bottom: rect.bottom,
-        refCentre: isTextLike(rect.height) ? centre : null,
-        refHeight: isTextLike(rect.height) ? rect.height : 0,
-      })
+    if (!isTextLike(rect.height) || lineBox <= 0) {
+      freeStanding.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })
       continue
     }
 
-    line.left = Math.min(line.left, rect.left)
-    line.right = Math.max(line.right, rect.right)
-    line.top = Math.min(line.top, rect.top)
-    line.bottom = Math.max(line.bottom, rect.bottom)
-    if (isTextLike(rect.height) && rect.height > line.refHeight) {
-      line.refHeight = rect.height
-      line.refCentre = centre
+    const index = lineIndexOf(rect)
+    const slot = slots.get(index)
+    if (slot) {
+      slot.left = Math.min(slot.left, rect.left)
+      slot.right = Math.max(slot.right, rect.right)
+    } else {
+      slots.set(index, { left: rect.left, right: rect.right })
     }
   }
 
-  // Every band is one line box tall and centred on its body text, so consecutive lines tile
-  // with no seam whatever inline markup they contain. Client rects cover the text rather than
-  // the line box, and at any line-height above 1 the difference is dead space — which showed
-  // up both as stripes through the highlight and as a strip the cursor could cross without
-  // hitting any rect, dropping the hover on every line change.
-  return lines.map((line) => {
-    // A line with no text-like rect on it at all (an image on its own line) keeps its measured
-    // extent — there is no body text there to align to.
-    const centre = line.refCentre ?? (line.top + line.bottom) / 2
-    const height = Math.max(lineBox, line.refHeight, line.refCentre === null ? line.bottom - line.top : 0)
-    return {
-      left: line.left,
-      right: line.right,
-      top: centre - height / 2,
-      bottom: centre + height / 2,
-    }
-  })
+  // Client rects cover the text, not the line box, so at any line-height above 1 the leftover
+  // is dead space. That showed up both as stripes through the highlight and as a strip the
+  // cursor could cross without hitting any rect, dropping the hover on every line change.
+  const banded = [...slots.entries()]
+    .sort(([a], [b]) => a - b)
+    .map(([index, slot]) => {
+      const top = gridOrigin + index * lineBox
+      return { left: slot.left, right: slot.right, top, bottom: top + lineBox }
+    })
+
+  return [...banded, ...freeStanding]
 }
 
 const containsPoint = (rect: LineRect, x: number, y: number): boolean =>
