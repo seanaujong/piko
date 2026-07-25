@@ -1,0 +1,19 @@
+export type CheckFrameabilityRequest = {
+  type: 'CHECK_FRAMEABILITY'
+  targetUrl: string
+  /** window.location.origin of the tab doing the dragging — frame-ancestors/XFO must be evaluated against this, not the extension's own origin. */
+  pageOrigin: string
+}
+
+export type CheckFrameabilityResponse =
+  // `html` is included even when framing is allowed, not just when it's blocked: it's what
+  // lets a later IframeTimedOut or a manual toggle-to-reader fall back to extraction without
+  // a second network round-trip. Non-HTML targets (e.g. a PDF) carry `html: null` — there's
+  // nothing for Readability to parse, so those can only ever stay framed or show an error.
+  | { type: 'FRAME_OK'; finalUrl: string; html: string | null }
+  | { type: 'FRAME_BLOCKED'; html: string; finalUrl: string }
+  | { type: 'UNSUPPORTED_CONTENT'; finalUrl: string; contentType: string }
+  | { type: 'FETCH_ERROR'; reason: string }
+
+export type ExtensionRequest = CheckFrameabilityRequest
+export type ExtensionResponse = CheckFrameabilityResponse

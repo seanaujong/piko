@@ -1,0 +1,20 @@
+{
+  "manifest_version": 3,
+  "name": "LockIn",
+  "version": "0.1.0",
+  "description": "Drag a link to preview its content in place, instead of opening a tab.",
+  "icons": {
+    "128": "icons/icon128.png"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "host_permissions": ["<all_urls>"]
+}
