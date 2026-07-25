@@ -9,12 +9,18 @@
 
 export type Sample = { median: number; min: number; max: number; runs: number }
 
-export function measure(runs: number, body: () => void): Sample {
+/**
+ * `between` runs after every sample and is not timed, for paths that have to undo themselves
+ * before they can be repeated: mounting a pane a second time means tearing down the first, and
+ * that teardown is not what is being asked about.
+ */
+export function measure(runs: number, body: () => void, between?: () => void): Sample {
   const samples: number[] = []
   for (let run = 0; run < runs; run += 1) {
     const started = performance.now()
     body()
     samples.push(performance.now() - started)
+    between?.()
   }
   samples.sort((a, b) => a - b)
   return {

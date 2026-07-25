@@ -1,5 +1,5 @@
 import { playwright } from '@vitest/browser-playwright'
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type TestProjectConfiguration } from 'vitest/config'
 
 /**
  * The benches, kept out of `npm test` on purpose.
@@ -11,22 +11,30 @@ import { defineConfig } from 'vitest/config'
  * Same split as the suites, for the same reason: what runs on the page is measured in real
  * Chrome, because jsdom lays nothing out and would report zero-cost geometry.
  */
+/**
+ * A bench that measures layout, launched the way the geometry suite is. Shared rather than
+ * repeated so the two browser benches cannot drift into launching different browsers and
+ * reporting numbers nobody can compare.
+ */
+const inChrome = (name: string, file: string): TestProjectConfiguration => ({
+  test: {
+    name,
+    include: [file],
+    testTimeout: 120_000,
+    browser: {
+      enabled: true,
+      provider: playwright({ launchOptions: { channel: 'chrome' } }),
+      headless: true,
+      instances: [{ browser: 'chromium' }],
+    },
+  },
+})
+
 export default defineConfig({
   test: {
     projects: [
-      {
-        test: {
-          name: 'reading',
-          include: ['bench/reading.bench.ts'],
-          testTimeout: 120_000,
-          browser: {
-            enabled: true,
-            provider: playwright({ launchOptions: { channel: 'chrome' } }),
-            headless: true,
-            instances: [{ browser: 'chromium' }],
-          },
-        },
-      },
+      inChrome('reading', 'bench/reading.bench.ts'),
+      inChrome('pane', 'bench/pane.bench.ts'),
       {
         test: {
           name: 'journal',
