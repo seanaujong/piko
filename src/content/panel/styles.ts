@@ -405,12 +405,21 @@ export const PANEL_STYLES = `
   flex: 0 0 auto;
 }
 
-/* Baseline within the group, so the count sits on the title's line rather than on its box. */
+/* Baseline within the group, so the count sits on the title's line rather than on its box.
+   Stretched to the header's own height so that height never depends on what is in the group:
+   otherwise Show all appearing beside the count grows the group, the header re-centres it, and
+   the title visibly jumps at the moment a filter is applied. */
 .piko-clips-heading {
   display: flex;
-  align-items: baseline;
+  align-self: stretch;
+  align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+/* Set against the title's text rather than its box, now that the group is centred as a whole. */
+.piko-clips-count {
+  align-self: baseline;
 }
 
 /* Both children are icon buttons carrying their own padding — see piko-header-source. */
@@ -468,8 +477,9 @@ export const PANEL_STYLES = `
   border-color: #4a3fe0;
 }
 
-/* Reads as engaged while the field below it is open, the same way the mode toggle does. */
-.piko-clips-find.is-on {
+/* Read as engaged while what they control is on, the same way the mode toggle does. */
+.piko-clips-find.is-on,
+.piko-clips-here.is-on {
   color: #4a3fe0;
 }
 
@@ -565,12 +575,6 @@ export const PANEL_STYLES = `
   outline-offset: 1px;
 }
 
-/* The page in front of the reader, which is a different kind of claim from a span of time —
-   it says where you are, not when you were. */
-.piko-chip-band.is-here {
-  color: #4a3fe0;
-}
-
 .piko-chip-band[aria-pressed='true'] {
   color: #4a3fe0;
   border-left-color: #4a3fe0;
@@ -620,6 +624,13 @@ export const PANEL_STYLES = `
   align-self: center;
   white-space: nowrap;
   flex: 0 0 auto;
+}
+
+/* Belongs to the page the reader is on. Marked rather than moved: the row's order is time, and
+   pulling a source out of its place puts the same span on both sides of another one. */
+.piko-chip.is-here {
+  border-color: rgba(74, 63, 224, 0.45);
+  color: #4a4a45;
 }
 
 .piko-chip-count {

@@ -232,6 +232,11 @@ belongs, which a test can't express, and effects that leave the page entirely.
   cannot beat it — the guard has to live in `mountPanel`. It reads `event.composedPath()[0]`
   rather than `event.target`, because shadow-DOM retargeting reports the host from outside the
   tree. Covered by an e2e test that types a search and presses Escape.
+- ✅ **The chip row is ordered by time and nothing else.** Reading rightwards is moving back
+  through the journal, and every marker in it names a span. Pulling a source out of its place —
+  the page you are on, say — puts the same span on both sides of another one and breaks the
+  only thing the row promises. "Here" is therefore a scope in the pane's header, not a group in
+  the row; the chips it covers are *marked* (`is-here`), not moved.
 - ✅ **Span labels are one short word, because vertical text's length is its height.** The
   markers sit in a row two chips tall, so a label longer than that gets squashed where the row
   is full and stretches the row — and every chip in it — where it isn't. `This month` needed

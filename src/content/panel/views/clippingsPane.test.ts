@@ -261,34 +261,39 @@ describe('the chip row', () => {
     const markers = (pane: { root: HTMLElement }): string[] =>
       [...pane.root.querySelectorAll('.piko-chip-band')].map((el) => el.textContent ?? '')
 
-    it('leads the row with this page and what was dragged off it', () => {
-      // Elsewhere leads on arrival order alone; the page in front of the reader is the one
-      // thing the row should not bury behind it.
+    const scope = (pane: { root: HTMLElement }): HTMLButtonElement | null =>
+      pane.root.querySelector<HTMLButtonElement>('.piko-clips-here')
+
+    it('marks the page and what was dragged off it, leaving the row in time order', () => {
+      // The order is untouched: pulling these to the front would put the same span on both
+      // sides of another one, and the row's whole claim is that rightwards is backwards in time.
       const pane = paneOnPage(PAGE)
-
-      expect(titles(pane)).toEqual(['Reference work', 'Encyclopedia', 'Elsewhere'])
-      expect(markers(pane)[0]).toBe('Here')
-    })
-
-    it('falls back to plain sitting order when the reader is nowhere in particular', () => {
-      const pane = paneOnPage(null)
 
       expect(titles(pane)).toEqual(['Elsewhere', 'Reference work', 'Encyclopedia'])
-      expect(markers(pane)).not.toContain('Here')
+      expect(
+        [...pane.root.querySelectorAll('.piko-chip.is-here span:first-child')].map(
+          (el) => el.textContent,
+        ),
+      ).toEqual(['Reference work', 'Encyclopedia'])
     })
 
-    it('narrows to the page and its links when the marker is pressed', async () => {
+    it('offers no scope at all when the reader is nowhere in particular', () => {
+      const pane = paneOnPage(null)
+
+      expect(scope(pane)).toBeNull()
+      expect(pane.root.querySelectorAll('.piko-chip.is-here')).toHaveLength(0)
+    })
+
+    it('narrows to the page and its links when the scope is pressed', async () => {
       const pane = paneOnPage(PAGE)
-      const marker = (): HTMLButtonElement =>
-        pane.root.querySelector<HTMLButtonElement>('.piko-chip-band')!
 
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(3)
 
-      await settle(() => marker().click())
+      await settle(() => scope(pane)!.click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
-      expect(marker().getAttribute('aria-pressed')).toBe('true')
+      expect(scope(pane)!.getAttribute('aria-pressed')).toBe('true')
 
-      await settle(() => marker().click())
+      await settle(() => scope(pane)!.click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(3)
     })
   })

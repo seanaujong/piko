@@ -128,6 +128,29 @@ describe('the clippings list under real layout', () => {
   })
 })
 
+describe('the header under real layout', () => {
+  /**
+   * Applying a filter puts a Show all button on the header row, and the row must not move when
+   * it appears. It did: the heading group grew to the button's height, the header re-centred it,
+   * and the title jumped 3px at the exact moment the reader clicked something.
+   */
+  it('does not shift when Show all joins the row', async () => {
+    const { shadow } = mountPane(MANY)
+    const title = shadow.querySelector<HTMLElement>('.piko-clips-title')!
+    const header = shadow.querySelector<HTMLElement>('.piko-clips-header')!
+
+    const before = { title: title.getBoundingClientRect().top, header: header.getBoundingClientRect().height }
+
+    const chip = shadow.querySelector<HTMLButtonElement>('.piko-chip:not(.piko-chip-reset)')!
+    await act(() => chip.click())
+
+    // Guards the fixture: no button, no shift to detect.
+    expect(shadow.querySelector('.piko-chip-reset')).not.toBeNull()
+    expect(title.getBoundingClientRect().top).toBe(before.title)
+    expect(header.getBoundingClientRect().height).toBe(before.header)
+  })
+})
+
 describe('the span markers under real layout', () => {
   it('never sets a label taller than the row it stands in', () => {
     const DAY = 86_400_000

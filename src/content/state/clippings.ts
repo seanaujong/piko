@@ -144,7 +144,12 @@ export const AGE_BAND_LABEL: Record<AgeBand, string> = {
  * Sources that belong to the page the reader is looking at — either the clipping was taken
  * there, or it was taken from a link dragged out of it.
  *
- * Both count as "associated with this page", and both are recorded rather than guessed:
+ * Kept as a scope the reader turns on rather than as a reordering of the row. Hoisting these
+ * to the front was the first attempt and it broke what the row is: chips run newest-first so
+ * that reading rightwards is moving back in time, and pulling a source out of its place puts
+ * the same span on both sides of another one. The row stays a timeline; this narrows it.
+ *
+ * Both relations count as "associated with this page", and both are recorded rather than guessed:
  * `originUrl` is where the reader was standing when they dragged, so the second relation is
  * the reading trail itself. The alternative — scanning the page's anchors for anything ever
  * clipped — was measured and rejected before: one Wikipedia article carries 2,695 of them, and
@@ -255,10 +260,7 @@ export function sessionsOf(clippings: readonly Clipping[]): Session[] {
  * chip filters the journal, so a number describing anything narrower would be a lie about what
  * clicking it shows.
  */
-export function sourcesInSessionOrder(
-  clippings: readonly Clipping[],
-  here: ReadonlySet<string> = new Set(),
-): SourceTally[] {
+export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTally[] {
   const totals = new Map<string, SourceTally>()
   for (const clipping of clippings) {
     const existing = totals.get(clipping.sourceUrl)
@@ -286,15 +288,7 @@ export function sourcesInSessionOrder(
       ordered.push(totals.get(sourceUrl)!)
     }
   }
-
-  // Where the reader is standing comes first, whenever it was last used. Sitting order is a
-  // good answer to "what am I working on" only until the reader opens something they worked on
-  // last month, at which point the page in front of them is the one thing the row should not
-  // bury. Within each part the sitting order is untouched.
-  return [
-    ...ordered.filter((t) => here.has(t.sourceUrl)),
-    ...ordered.filter((t) => !here.has(t.sourceUrl)),
-  ]
+  return ordered
 }
 
 /**
