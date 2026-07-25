@@ -113,22 +113,31 @@ function CopyIconButton({ label, onCopy }: { label: string; onCopy: () => boolea
   )
 }
 
-/** The with-attribution export of everything currently visible (see `toMarkdown`). */
-function CopyAllButton({ items }: { items: readonly Clipping[] }) {
-  const [flash, report] = useFlash()
-
+/**
+ * The pane's two header controls, in the order they escalate: export what you are looking at,
+ * then put the pane away. Both are icons, because the close control has no honest word for
+ * it — "Close" would read as closing the preview it sits inside.
+ */
+function PaneActions({ items, onClose }: { items: readonly Clipping[]; onClose: () => void }) {
   return (
-    <button
-      class="piko-button piko-clips-copy"
-      style={{ display: items.length > 0 ? 'inline-block' : 'none' }}
-      onClick={() => {
-        if (items.length === 0) return
-        // Synchronous, inside the click handler — see clipboard.ts.
-        report(copyText(toMarkdown(items)))
-      }}
-    >
-      {flash === 'done' ? 'Copied' : flash === 'failed' ? 'Blocked' : 'Copy'}
-    </button>
+    <div class="piko-clips-actions">
+      {items.length > 0 && (
+        <CopyIconButton
+          label="Copy these clippings as Markdown"
+          // The with-attribution export of everything currently visible (see `toMarkdown`),
+          // where a clipping's own button copies that one sentence bare.
+          onCopy={() => copyText(toMarkdown(items))}
+        />
+      )}
+      <button
+        class="piko-icon-button piko-clips-close"
+        title="Close clippings"
+        aria-label="Close clippings"
+        onClick={onClose}
+      >
+        <Icon parts={ICON.remove} />
+      </button>
+    </div>
   )
 }
 
@@ -226,7 +235,7 @@ function ClipEntry({ clipping, onRemove }: { clipping: Clipping; onRemove: () =>
   )
 }
 
-function Pane({ store }: { store: ClippingsStore }) {
+function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }) {
   const all = useClippings(store)
   const [active, setActive] = useState<ReadonlySet<string>>(new Set())
 
@@ -241,12 +250,20 @@ function Pane({ store }: { store: ClippingsStore }) {
 
   return (
     <>
+      {/*
+        Two groups at opposite ends, the same arrangement the panel header uses: what this is
+        on the left, what to do with it on the right. Grouped as elements rather than spaced
+        with an auto margin on one child, which any later rule resetting that child can
+        silently undo.
+      */}
       <div class="piko-clips-header">
-        <div class="piko-clips-title">Clippings</div>
-        <span class="piko-clips-count">
-          {active.size > 0 ? `${items.length}/${all.length}` : all.length}
-        </span>
-        <CopyAllButton items={items} />
+        <div class="piko-clips-heading">
+          <div class="piko-clips-title">Clippings</div>
+          <span class="piko-clips-count">
+            {active.size > 0 ? `${items.length}/${all.length}` : all.length}
+          </span>
+        </div>
+        <PaneActions items={items} onClose={onClose} />
       </div>
 
       <ChipRow
@@ -283,12 +300,20 @@ function Pane({ store }: { store: ClippingsStore }) {
  *
  * The host element is created here rather than rendered, because `mountPanel` owns its
  * `data-hidden` attribute; Preact manages the children below it and leaves the element alone.
+ *
+ * What closing the pane *means* is the caller's to decide, and it genuinely differs by where
+ * the pane is docked — inside a preview it is one column of two, while in the rail its
+ * visibility is the only signal that clicks on the page are being intercepted. The pane knows
+ * it has a close button; it does not know which of those two it is.
  */
-export function createClippingsPane(store: ClippingsStore): ClippingsPane {
+export function createClippingsPane(
+  store: ClippingsStore,
+  { onClose }: { onClose: () => void },
+): ClippingsPane {
   const root = document.createElement('div')
   root.className = 'piko-clips'
 
-  const paint = (): void => render(<Pane store={store} />, root)
+  const paint = (): void => render(<Pane store={store} onClose={onClose} />, root)
 
   paint()
 

@@ -46,7 +46,7 @@ function mountPane(items: readonly Clipping[]) {
   const store = createClippingsStore()
   for (const item of items) store.toggle(item)
 
-  const pane = createClippingsPane(store)
+  const pane = createClippingsPane(store, { onClose: () => {} })
 
   // Stands in for `.piko-body`, which is what gives the pane a bounded height to scroll within.
   const body = document.createElement('div')

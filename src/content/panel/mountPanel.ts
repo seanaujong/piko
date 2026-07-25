@@ -1,3 +1,4 @@
+import { RAIL_GUTTER } from '../../shared/constants'
 import { createClippingsStore } from '../state/clippings'
 import type { Dispatch, PreviewState } from '../state/previewState'
 import { copyText } from './clipboard'
@@ -92,7 +93,17 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   // The clippings journal spans previews rather than belonging to any one of them, so it's
   // created once with the panel and outlives every individual `render()`.
   const clippings = createClippingsStore()
-  const clippingsPane = createClippingsPane(clippings)
+  const clippingsPane = createClippingsPane(clippings, {
+    onClose() {
+      // Closing means different things on the two surfaces, and only the panel knows which one
+      // the pane is docked in. In the rail the pane's visibility IS the signal that clicks are
+      // being intercepted, so putting it away has to disarm clipping too — a rail that closed
+      // while the page stayed armed would be exactly the invisible mode this design avoids.
+      // Inside a preview it is one column of two, and closing it just widens the article.
+      if (detachHostClipping) stopHostClipping()
+      else dismissPaneForThisPreview()
+    },
+  })
 
   const body = document.createElement('div')
   body.className = 'piko-body'
@@ -126,6 +137,10 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   let isOpen = false
   let cleanupCurrentView: (() => void) | null = null
   let detachHostClipping: (() => void) | null = null
+  /** Reset when the preview closes, so a dismissal lasts the preview it was made in. */
+  let paneDismissed = false
+  /** The page's own inline margin, held while the rail is borrowing space from it. */
+  let pageMarginRight: string | null = null
 
   document.addEventListener(
     'keydown',
@@ -142,10 +157,45 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     if (clippingsPane.root.parentElement !== parent) parent.appendChild(clippingsPane.root)
   }
 
+  function dismissPaneForThisPreview(): void {
+    paneDismissed = true
+    clippingsPane.root.toggleAttribute('data-hidden', true)
+  }
+
+  /**
+   * The rail takes its width out of the page's layout rather than sitting on top of it. An
+   * overlay would cover the very sentences the mode exists to let you click, and a page's
+   * right-hand furniture — infoboxes, thumbnails, floated figures — is exactly what lands
+   * under it.
+   *
+   * Applied without a transition on purpose. Marks are absolute boxes positioned from rects
+   * measured once, so reflowing the page under them over 180ms would slide the text out from
+   * beneath every mark for the length of the animation.
+   */
+  function reserveRailSpace(): void {
+    const root = document.documentElement
+    if (pageMarginRight === null) pageMarginRight = root.style.marginRight
+    // Measured rather than assumed: the rail's width is capped at a fraction of the viewport,
+    // so on a narrow window it is narrower than its nominal size.
+    root.style.marginRight = `${rail.getBoundingClientRect().width + RAIL_GUTTER * 2}px`
+  }
+
+  function releaseRailSpace(): void {
+    if (pageMarginRight === null) return
+    document.documentElement.style.marginRight = pageMarginRight
+    pageMarginRight = null
+  }
+
+  // The rail is capped in viewport units, so its width changes as the window does.
+  window.addEventListener('resize', () => {
+    if (detachHostClipping) reserveRailSpace()
+  })
+
   function stopHostClipping(): void {
     detachHostClipping?.()
     detachHostClipping = null
     rail.toggleAttribute('data-hidden', true)
+    releaseRailSpace()
     dockPaneIn(body)
   }
 
@@ -157,6 +207,9 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     rail.toggleAttribute('data-hidden', false)
     clippingsPane.root.toggleAttribute('data-hidden', false)
     host.toggleAttribute('data-hidden', false)
+    // Before the hit-tester attaches: it measures the page as laid out, and everything it
+    // measures moves when the margin lands.
+    reserveRailSpace()
     detachHostClipping = attachHostClipping(hostSurface, clippings)
     clippingsPane.render()
   }
@@ -167,6 +220,9 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
 
     if (state.kind === 'idle') {
       isOpen = false
+      // A dismissal is scoped to the preview it was made in: the next drag is a new reading,
+      // and the pane has no affordance of its own to come back with.
+      paneDismissed = false
       host.toggleAttribute('data-preview', false)
       // The rail keeps the shadow host visible when the modal is not showing.
       host.toggleAttribute('data-hidden', detachHostClipping === null)
@@ -216,7 +272,10 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     // Clipping only happens in reader mode, so the pane earns its width there unconditionally;
     // in framed mode it appears only when there's already something to review.
     const clippable = state.kind === 'ready' && state.content.mode === 'extracted'
-    clippingsPane.root.toggleAttribute('data-hidden', !clippable && clippings.all().length === 0)
+    clippingsPane.root.toggleAttribute(
+      'data-hidden',
+      paneDismissed || (!clippable && clippings.all().length === 0),
+    )
   }
 
   return {

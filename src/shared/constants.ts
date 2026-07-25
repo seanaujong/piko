@@ -10,3 +10,8 @@ export const PANEL_Z_INDEX = 2_147_483_647
 export const PANEL_WIDTH_VW = 80
 export const PANEL_HEIGHT_VH = 80
 export const PANEL_MAX_WIDTH_PX = 1400
+
+// The rail's inset from the viewport edges. Shared because the page's reserved margin is
+// computed from it in mountPanel and drawn from it in styles — two places that must agree or
+// the page sits under the rail by exactly the difference.
+export const RAIL_GUTTER = 12

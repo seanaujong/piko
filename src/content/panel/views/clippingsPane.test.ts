@@ -34,7 +34,7 @@ function paneWithTwoSources() {
   store.toggle(clip('Second.', ENCYCLOPEDIA, T0 - 60_000))
   store.toggle(clip('Third.', CHEMISTRY, T0))
 
-  const pane = createClippingsPane(store)
+  const pane = createClippingsPane(store, { onClose: () => {} })
   // Focus only moves for elements that are actually in the document.
   document.body.appendChild(pane.root)
   return { store, pane }

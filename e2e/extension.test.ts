@@ -355,6 +355,37 @@ describe('the loaded extension', () => {
       await page.close()
     })
 
+    it('takes its width out of the page rather than sitting on top of it', async () => {
+      const page = await context.newPage()
+      await page.goto(`${base}/article.html`)
+
+      const pageRight = (): Promise<number> =>
+        page.evaluate(
+          '[...document.querySelectorAll("article p")].pop().getBoundingClientRect().right',
+        ) as Promise<number>
+
+      const before = await pageRight()
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(false)
+
+      // The page gives up real width, rather than the rail being drawn over what was there.
+      await expect.poll(pageRight, POLL).toBeLessThan(before)
+
+      // And gives up enough: no prose is left underneath the rail, which is the whole failure
+      // this replaces — a right-hand figure or infobox reading through the journal.
+      const railLeft = (await page.evaluate(
+        `${SHADOW}.querySelector('.piko-rail').getBoundingClientRect().left`,
+      )) as number
+      expect(await pageRight()).toBeLessThanOrEqual(railLeft)
+
+      // Handing the page back restores exactly what was borrowed.
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(true)
+      await expect.poll(pageRight, POLL).toBe(before)
+
+      await page.close()
+    })
+
     it('clips a sentence from the page the reader is already on', async () => {
       const page = await context.newPage()
       await page.goto(`${base}/article.html`)

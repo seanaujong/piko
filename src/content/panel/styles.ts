@@ -1,4 +1,10 @@
-import { PANEL_HEIGHT_VH, PANEL_MAX_WIDTH_PX, PANEL_WIDTH_VW, PANEL_Z_INDEX } from '../../shared/constants'
+import {
+  PANEL_HEIGHT_VH,
+  PANEL_MAX_WIDTH_PX,
+  PANEL_WIDTH_VW,
+  PANEL_Z_INDEX,
+  RAIL_GUTTER,
+} from '../../shared/constants'
 
 // `:host { all: initial }` resets inherited CSS properties (color, font-family, custom
 // properties/--vars) before they cross into our shadow tree — shadow DOM isolates
@@ -96,11 +102,16 @@ export const PANEL_STYLES = `
 }
 
 /* The address and the button that acts on it. Only this group shrinks — a long URL gives up
-   width to its own ellipsis rather than crowding the controls. */
+   width to its own ellipsis rather than crowding the controls.
+
+   The gap here is far smaller than the one between the header's two groups, because both
+   children already carry their own inner padding: the address pill extends 5px past its text
+   and the icon button centres a 13px glyph in a 22px box. A gap sized to look right between
+   bare edges reads as a hole between these two. */
 .piko-header-source {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 2px;
   flex: 0 1 auto;
   min-width: 0;
 }
@@ -199,9 +210,9 @@ export const PANEL_STYLES = `
  */
 .piko-rail {
   position: absolute;
-  top: 12px;
-  right: 12px;
-  bottom: 12px;
+  top: ${RAIL_GUTTER}px;
+  right: ${RAIL_GUTTER}px;
+  bottom: ${RAIL_GUTTER}px;
   width: 320px;
   max-width: 40vw;
   box-sizing: border-box;
@@ -386,11 +397,29 @@ export const PANEL_STYLES = `
   display: none;
 }
 
+/* The same two-group arrangement as the panel header: what this is, then what to do with it. */
 .piko-clips-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 11px 13px 9px;
+  flex: 0 0 auto;
+}
+
+/* Baseline within the group, so the count sits on the title's line rather than on its box. */
+.piko-clips-heading {
   display: flex;
   align-items: baseline;
   gap: 8px;
-  padding: 11px 13px 9px;
+  min-width: 0;
+}
+
+/* Both children are icon buttons carrying their own padding — see piko-header-source. */
+.piko-clips-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
   flex: 0 0 auto;
 }
 
@@ -408,11 +437,6 @@ export const PANEL_STYLES = `
   font-variant-numeric: tabular-nums;
 }
 
-.piko-clips-copy {
-  margin-left: auto;
-  font-size: 12px;
-  padding: 3px 9px;
-}
 
 .piko-clips-filters {
   display: flex;
@@ -607,8 +631,9 @@ export const PANEL_STYLES = `
   color: #e53935;
 }
 
-/* After .piko-icon-button:hover — equal specificity, so source order decides. */
-.piko-clip-remove:hover {
+/* Both after .piko-icon-button:hover — equal specificity, so source order decides. */
+.piko-clip-remove:hover,
+.piko-clips-close:hover {
   color: #e53935;
 }
 `
