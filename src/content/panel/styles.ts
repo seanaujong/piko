@@ -417,9 +417,14 @@ export const PANEL_STYLES = `
   min-width: 0;
 }
 
-/* Set against the title's text rather than its box, now that the group is centred as a whole. */
-.piko-clips-count {
-  align-self: baseline;
+/* The count sits on the title's baseline, not on its box — smaller numerals aligned by box
+   ride visibly high beside the word. Its own element rather than a rule on the count, because
+   a lone baseline item inside the stretched heading aligns to the top of that box instead. */
+.piko-clips-label {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
 }
 
 /* Both children are icon buttons carrying their own padding — see piko-header-source. */

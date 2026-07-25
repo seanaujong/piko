@@ -381,10 +381,17 @@ function Pane({
       */}
       <div class="piko-clips-header">
         <div class="piko-clips-heading">
-          <div class="piko-clips-title">Clippings</div>
-          <span class="piko-clips-count">
-            {items.length === all.length ? all.length : `${items.length}/${all.length}`}
-          </span>
+          {/*
+            Title and count are one label sharing a baseline; the group around them is what
+            holds a steady height as Show all comes and goes. One element cannot do both — a
+            baseline group inside a stretched box aligns to its top rather than its middle.
+          */}
+          <div class="piko-clips-label">
+            <div class="piko-clips-title">Clippings</div>
+            <span class="piko-clips-count">
+              {items.length === all.length ? all.length : `${items.length}/${all.length}`}
+            </span>
+          </div>
           {/*
             Beside the count rather than in the chip row, because it is that count's undo: the
             narrowed "1/6" is what tells the reader a filter is on, and this is how it comes
