@@ -64,7 +64,7 @@ segmentation, the line geometry, the clippings projections.
 ┌─────────────────────────────────────────────────────────────────────┐
 │ panel/views/*                                    shell · shadow DOM │
 │ loadingView · framedView · extractedView · errorView                │
-│ clippingsPane — chronological, source-filtered                      │
+│ clippingsPane.tsx — the one Preact view; keyed by clipping          │
 │ One shadow root; the host page's CSS can't reach in.                │
 └─────────────────────────────────────────────────────────────────────┘
                                    │  a click over extracted content clips the sentence under it
@@ -90,6 +90,14 @@ over content Piko itself extracted — a framed page is a cross-origin iframe wh
 unreadable, so there is nothing to hit-test. Defaulting to the frame would have hidden the
 whole clipping feature behind a toggle. Framing survives as the escape hatch for pages
 Readability can't make sense of.
+
+**Exactly one view uses a framework.** The clippings pane is rendered by Preact; every other
+view builds DOM directly, and that split is deliberate rather than a migration half-done. The
+pane is the only thing here that redraws repeatedly against changing data, and each of its
+rows carries state the data doesn't describe — scroll position, keyboard focus, a copy
+confirmation mid-countdown. Keyed reconciliation moves those nodes instead of rebuilding
+them, so the state rides along. Everything else renders once per preview, where a framework
+would buy nothing and cost a layer.
 
 **No text is ever mutated to highlight it.** Wrapping sentences in `<span>`s would rewrite
 the article's DOM and break the extraction it came from. Instead a separate overlay layer

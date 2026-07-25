@@ -119,6 +119,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | whether a page can be framed | `background/frameability.ts` (**not** the content script — see below) |
 | the message contract between the two | `shared/messages.ts`, then the `switch` in `background/index.ts` |
 | what the panel looks like | `content/panel/views/*` + `panel/styles.ts` |
+| the clippings pane's markup or behaviour | `content/panel/views/clippingsPane.tsx` — the one Preact component |
 | clipping the live page | `content/panel/hostClipping.ts` |
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
@@ -126,6 +127,18 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 
 The panel's `.piko-body` is a flex row deliberately built to take a second child; that's
 where the clippings pane lives, and where another pane would go.
+
+**One Preact component, not a framework.** `clippingsPane.tsx` is the only view rendered by
+Preact; `loadingView`, `framedView`, `extractedView` and `errorView` are plain DOM builders
+and there is no plan to convert them. The pane earned it by being the only view that
+re-renders repeatedly against changing data, where keyed reconciliation keeps each clipping's
+own node alive across a redraw — and with the node go the reader's scroll position, keyboard
+focus, and any copy confirmation still counting down. Rebuilding that list by hand dropped all
+three. JSX is configured in `tsconfig.json` (`jsx: react-jsx`, `jsxImportSource: preact`) and
+mirrored in `esbuild.config.mjs`, so a new `.tsx` file needs no further setup; `preact` is a
+runtime dependency and ships inside `content.js`. Before reaching for it in a *new* view, ask
+what state a node is carrying that a rebuild would lose — if the answer is none, plain DOM is
+the cheaper boundary.
 
 ## Conventions & invariants
 Tagged by how each is enforced: **✅ machine-checked** (a type or test fails the build),
@@ -192,6 +205,26 @@ belongs, which a test can't express, and effects that leave the page entirely.
 - ✅ **Derive projections, don't store them.** Source tallies, visible sets, and session
   gaps are computed at point of use in `clippings.ts`. Caching them on state is how
   staleness bugs get in.
+- ✅ **The store hands out snapshots — never mutate the array in place.** `all()` returns a
+  fresh `readonly Clipping[]` on every change, and the pane holds that reference in
+  `useState`. An in-place `push` or `splice` would leave the reference equal, Preact would
+  see no change, and the journal would simply stop redrawing — a silent failure with no
+  error to trace. `readonly` blocks the obvious version at compile time; `clippings.test.ts`
+  pins that a change yields a different array and that an earlier snapshot keeps its
+  contents. This is the load-bearing half of the Preact port.
+- ✅ **Key clippings by source-plus-text, and keep one pane instance.** `keyOf` mirrors
+  `isSame` in `clippings.ts`; if the two drift, reordering the list rebuilds nodes instead of
+  moving them. `clippingsPane.test.ts` asserts a node survives being pushed down a row, and
+  an e2e test asserts exactly one `.piko-clips` exists, re-parented into the rail rather than
+  rendered a second time.
+- 👁 **Order matters in `styles.ts`, because almost every selector is a single class.**
+  Equal specificity means the later rule wins, and two rules there set `all: initial`
+  (`.piko-button`, `.piko-icon-button`), which resets *every* property an earlier rule set on
+  the same element — including layout ones. That is how the header's `margin-right: auto`
+  spacer silently stopped working. Prefer expressing an arrangement structurally (a wrapper
+  element with its own flex rules) over a property on one child that a later reset can erase;
+  where source order genuinely is the mechanism, say so in a comment, as `.piko-clip-remove:hover`
+  does.
 
 ## Pointers
 - `README.md` — architecture diagram, layering, install, permissions.
