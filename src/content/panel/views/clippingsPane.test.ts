@@ -1,8 +1,8 @@
 import { act } from 'preact/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Clipping } from '../../state/clippings'
 import { createClippingsStore } from '../../state/clippings'
-import { createClippingsPane } from './clippingsPane'
+import { createClippingsPane, FLASH_MS } from './clippingsPane'
 
 /**
  * The pane rebuilds itself from the store on every change, so the question these tests ask is
@@ -49,6 +49,10 @@ const entries = (pane: { root: HTMLElement }): HTMLElement[] => [
   ...pane.root.querySelectorAll<HTMLElement>('.piko-clip'),
 ]
 
+/** Copy sits before Remove in the actions row. */
+const copyButtonOf = (entry: HTMLElement): HTMLButtonElement =>
+  entry.querySelector<HTMLButtonElement>('.piko-clip-actions .piko-icon-button')!
+
 /**
  * Applies a change and waits for the pane to have finished redrawing.
  *
@@ -60,6 +64,10 @@ const settle = (change: () => void): Promise<void> => act(change)
 
 beforeEach(() => {
   document.body.replaceChildren()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
 })
 
 describe('the chip row', () => {
@@ -112,6 +120,38 @@ describe('the clippings list', () => {
     // Same node, one row lower — not a look-alike rebuilt from the same data. Node identity is
     // what carries scroll position and an in-flight copy flash across the re-render.
     expect(after[1]).toBe(newestBefore)
+  })
+
+  it('keeps a copy confirmation showing when an unrelated clipping arrives', async () => {
+    const { store, pane } = paneWithTwoSources()
+    const copy = copyButtonOf(entries(pane)[0]!)
+    const resting = copy.className
+
+    await settle(() => copy.click())
+    const confirming = copy.className
+    expect(confirming).not.toBe(resting)
+
+    // Older than everything present, so it appends below and the confirming entry keeps its slot.
+    await settle(() => store.toggle(clip('Much earlier.', ENCYCLOPEDIA, T0 - 999_000)))
+
+    // The confirmation belongs to the button, so replacing the button silently cancels it —
+    // the reader sees the checkmark vanish the instant anything else in the journal changes.
+    expect(copyButtonOf(entries(pane)[0]!)).toBe(copy)
+    expect(copy.className).toBe(confirming)
+  })
+
+  it('clears a copy confirmation on its own after the flash', async () => {
+    vi.useFakeTimers()
+    const { pane } = paneWithTwoSources()
+    const copy = copyButtonOf(entries(pane)[0]!)
+    const resting = copy.className
+
+    await settle(() => copy.click())
+    expect(copy.className).not.toBe(resting)
+
+    await settle(() => vi.advanceTimersByTime(FLASH_MS))
+
+    expect(copy.className).toBe(resting)
   })
 
   it('drops only the removed entry when a clipping is deleted', async () => {
