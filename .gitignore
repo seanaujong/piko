@@ -1,2 +1,5 @@
 node_modules/
 dist/
+
+# Local agent scratch: worktrees are checkouts of this same repo, never content.
+.claude/worktrees/
