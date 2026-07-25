@@ -91,6 +91,20 @@ export function rangeForSentence(block: HTMLElement, start: number, end: number)
 export type LineRect = { left: number; top: number; right: number; bottom: number }
 
 /**
+ * The height of one line box, which is taller than the text rects inside it whenever
+ * `line-height` exceeds 1 — the difference is CSS half-leading, split evenly above and below.
+ */
+function lineBoxHeight(block: HTMLElement): number {
+  const style = getComputedStyle(block)
+  const lineHeight = Number.parseFloat(style.lineHeight)
+  if (Number.isFinite(lineHeight)) return lineHeight
+
+  // `line-height: normal` computes to the string rather than a length; approximate it.
+  const fontSize = Number.parseFloat(style.fontSize)
+  return Number.isFinite(fontSize) ? fontSize * 1.2 : 0
+}
+
+/**
  * One rect per visual line, merged from the raw client rects.
  *
  * `Range.getClientRects()` returns a rect for each inline element the range crosses *and* one
@@ -124,6 +138,21 @@ export function lineRectsForSentence(
       line.bottom = Math.max(line.bottom, rect.bottom)
     } else {
       lines.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })
+    }
+  }
+
+  // Grow each line to its full line box. Client rects cover the *text*, so at any line-height
+  // above 1 there is dead space between consecutive lines — which showed up twice: as visible
+  // stripes in the highlight, and as the cursor crossing a band where no rect contained it, so
+  // the hover dropped and re-armed on every line change. Half-leading is split evenly above
+  // and below the text, so expanding symmetrically about the centre reconstructs the line box
+  // and makes consecutive lines tile exactly.
+  const lineBox = lineBoxHeight(block)
+  for (const line of lines) {
+    const padding = (lineBox - (line.bottom - line.top)) / 2
+    if (padding > 0) {
+      line.top -= padding
+      line.bottom += padding
     }
   }
 
