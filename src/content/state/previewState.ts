@@ -37,8 +37,31 @@ export function transition(state: PreviewState, event: PreviewEvent): PreviewSta
     case 'Dismissed':
       return { kind: 'idle' }
 
-    case 'FrameCheckOk':
+    /**
+     * Reader first, even when the page is frameable.
+     *
+     * Sentence highlighting and clipping only exist over extracted content — a framed page is
+     * a cross-origin iframe whose DOM can't be read — so defaulting to the frame left the
+     * whole feature behind a toggle. Framing is now the fallback for pages Readability can't
+     * make sense of, which also sidesteps its quieter failure modes (a host's frame-src CSP
+     * blocking the iframe with no JS-visible signal).
+     */
+    case 'FrameCheckOk': {
       if (state.kind !== 'loading') return state
+
+      if (event.html !== null) {
+        const article = extractArticle(event.html, event.finalUrl)
+        if (article) {
+          return {
+            kind: 'ready',
+            target: state.target,
+            finalUrl: event.finalUrl,
+            html: event.html,
+            content: { mode: 'extracted', article },
+          }
+        }
+      }
+
       return {
         kind: 'ready',
         target: state.target,
@@ -46,6 +69,7 @@ export function transition(state: PreviewState, event: PreviewEvent): PreviewSta
         html: event.html,
         content: { mode: 'framed' },
       }
+    }
 
     case 'FrameCheckBlocked':
       if (state.kind !== 'loading') return state
