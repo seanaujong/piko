@@ -24,8 +24,19 @@ npm run check       # THE GATE: typecheck + tests. Run before every commit.
 npm test            # Vitest alone. The authority — assert against a real run, don't mental-math.
 npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
+npm run icons:sheet # the contact sheet an icon edit is judged on — see below
 npm run bench       # measurements, NOT in the gate — see below
 ```
+
+**`npm run icons:sheet` is how an icon change gets judged**, and judging one on the 128 alone
+is how every icon bug in this project has gotten in. It renders all four declared sizes,
+magnified with hard pixel edges, on both a light and a dark toolbar grey — with no arguments
+for what currently ships, or `-- a.svg b.svg` to put candidates side by side. The magnified
+images are real rasterizer output, never the vector redrawn larger, because that distinction
+is the entire point. Like the benches it prints and asserts nothing: "does this read as a
+gull" is not a predicate, so it stays out of the gate. `scripts/icon-sheet.mjs` lists the
+four failures that were invisible at 128 and obvious at 16, and `scripts/rasterize.mjs` says
+why the sheet and the shipping icons must rasterize through the same code.
 
 **`npm run bench` prints, it doesn't assert** — add `--reporter=verbose` for the tables. Three
 benches over a generated 220-paragraph article, each isolating a different cost: `reading` what

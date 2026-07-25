@@ -1,5 +1,8 @@
 node_modules/
 dist/
 
+# Output of npm run icons:sheet — something to look at once, not an artifact to keep.
+icon-sheet.png
+
 # Local agent scratch: worktrees are checkouts of this same repo, never content.
 .claude/worktrees/

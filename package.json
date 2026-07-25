@@ -8,6 +8,7 @@
     "build": "node esbuild.config.mjs",
     "check": "npm run typecheck && npm run test",
     "icons": "node scripts/render-icons.mjs",
+    "icons:sheet": "node scripts/icon-sheet.mjs",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
