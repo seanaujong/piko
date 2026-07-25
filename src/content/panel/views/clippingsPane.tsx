@@ -320,10 +320,30 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
     setBand(null)
   }
 
-  // A filter over a single source narrows nothing — it would just be noise. The chip row still
-  // renders empty, so the pane's spacing doesn't change as a second source appears.
-  const sources = sourcesInSessionOrder(all)
-  const filterable = sources.length < 2 ? [] : sources
+  /**
+   * The chips describe what the *other* narrowings have left, not the whole journal — so a
+   * search leaves only the sources it found, carrying counts of what it found in each, and
+   * choosing a span leaves only the sources used in it.
+   *
+   * That second case is what saves the row from its own length. Reaching a source from three
+   * months ago used to mean scrolling past everything newer; pressing EARLIER now empties the
+   * row of everything newer instead, and the wanted chips are at position zero. The span
+   * markers were already the timeline — this is what makes them a way of getting somewhere
+   * rather than only a way of reading where you are.
+   *
+   * The source selection is deliberately not applied here: chips narrowed by the chip you just
+   * pressed would leave you holding the only one you could still see.
+   */
+  const sources = sourcesInSessionOrder(
+    visibleClippings(all, { query: searching ? query : '', band, now }),
+  )
+
+  // A filter over a single source narrows nothing — it would just be noise. That is a question
+  // about the journal, though, not about what is currently on screen: judged against the
+  // narrowed set instead, choosing a span that happens to hold one source would empty the row
+  // of the very marker just pressed, leaving no way back out of it from the row.
+  const worthFiltering = sourcesInSessionOrder(all).length >= 2
+  const filterable = worthFiltering ? sources : []
 
   const toggleSource = (sourceUrl: string): void =>
     setActive((current) => {

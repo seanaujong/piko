@@ -151,12 +151,36 @@ describe('the chip row', () => {
       await settle(() => marker('Today').click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(1)
       expect(marker('Today').getAttribute('aria-pressed')).toBe('true')
-      expect(marker('Earlier').getAttribute('aria-pressed')).toBe('false')
+      // The row now holds only the chosen span, so the marker pressed is the only one left —
+      // and it must stay, because it is also the way back out.
+      expect(bands(pane)).toEqual(['Today'])
 
-      // Selecting the span already showing is the way back out — there is no separate clear.
       await settle(() => marker('Today').click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
       expect(marker('Today').getAttribute('aria-pressed')).toBe('false')
+      expect(bands(pane)).toEqual(['Today', 'Earlier'])
+    })
+
+    it('leaves only the chosen span in the row, so old sources need no scrolling to', async () => {
+      // The answer to "that source is months back and the row is long": pressing the span
+      // empties the row of everything newer rather than asking the reader to scroll past it.
+      const pane = paneSpanning([0, 1, 40, 41])
+      const chipTitles = (): string[] =>
+        [...pane.root.querySelectorAll('.piko-chip:not(.piko-chip-reset) span:first-child')].map(
+          (el) => el.textContent ?? '',
+        )
+
+      expect(chipTitles()).toHaveLength(4)
+
+      await settle(() =>
+        [...pane.root.querySelectorAll<HTMLButtonElement>('.piko-chip-band')]
+          .find((el) => el.textContent === 'Earlier')!
+          .click(),
+      )
+
+      // Only the two older sources remain, and the row now opens on them.
+      expect(chipTitles()).toEqual(['2', '3'])
+      expect(bands(pane)).toEqual(['Earlier'])
     })
 
     it('offers Show all once a span is selected, and clears it', async () => {
@@ -172,6 +196,35 @@ describe('the chip row', () => {
       await settle(() => reset.click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
     })
+  })
+
+  it('narrows the chips to the sources a search found, counting only its matches', async () => {
+    const store = createClippingsStore()
+    store.toggle(clip('Tides rise and fall.', ENCYCLOPEDIA, T0 - 120_000))
+    store.toggle(clip('Something else entirely.', ENCYCLOPEDIA, T0 - 60_000))
+    store.toggle(clip('Tides again, elsewhere.', CHEMISTRY, T0))
+    store.toggle(clip('Nothing to do with it.', 'https://example.com/Third', T0 - 30_000))
+
+    const pane = createClippingsPane(store, { onClose: () => {} })
+    document.body.appendChild(pane.root)
+
+    const labelled = (): string[] =>
+      [...pane.root.querySelectorAll('.piko-chip:not(.piko-chip-reset)')].map((el) =>
+        (el.textContent ?? '').trim(),
+      )
+
+    expect(labelled()).toHaveLength(3)
+
+    await settle(() => pane.root.querySelector<HTMLButtonElement>('.piko-clips-find')!.click())
+    const field = pane.root.querySelector<HTMLInputElement>('.piko-clips-search-field')!
+    await settle(() => {
+      field.value = 'tides'
+      field.dispatchEvent(new Event('input', { bubbles: true }))
+    })
+
+    // The source with no match drops out, and the counts describe the matches rather than the
+    // journal — a chip reading 2 next to a search for "tides" would be counting the wrong thing.
+    expect(labelled()).toEqual(['Encyclopedia1', 'Chemical_energy1'])
   })
 
   it('offers a reset only once a filter is active', async () => {
