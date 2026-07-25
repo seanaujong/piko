@@ -565,6 +565,12 @@ export const PANEL_STYLES = `
   outline-offset: 1px;
 }
 
+/* The page in front of the reader, which is a different kind of claim from a span of time —
+   it says where you are, not when you were. */
+.piko-chip-band.is-here {
+  color: #4a3fe0;
+}
+
 .piko-chip-band[aria-pressed='true'] {
   color: #4a3fe0;
   border-left-color: #4a3fe0;

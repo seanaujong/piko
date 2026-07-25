@@ -6,6 +6,7 @@ import {
   ageBandOf,
   gapBefore,
   sourcesInSessionOrder,
+  sourcesOnOrFrom,
   visibleClippings,
 } from '../../state/clippings'
 import { copyText } from '../clipboard'
@@ -125,14 +126,27 @@ type ChipRowProps = {
   onToggle: (sourceUrl: string) => void
   band: AgeBand | null
   onBand: (band: AgeBand) => void
+  /** Sources belonging to the page in front of the reader; they lead the row under one marker. */
+  here: ReadonlySet<string>
+  onHere: () => void
   /** Read once by the pane, so every span in one render is judged against the same instant. */
   now: number
 }
 
+/** The row's leading group when the reader is on a page they have clipped from or through. */
+const HERE_LABEL = 'Here'
+
 /** Past this many, one line of chips can no longer hold them and the row takes a second. */
 const CHIPS_PER_ROW = 4
 
-function ChipRow({ tallies: shown, active, onToggle, band, onBand, now }: ChipRowProps) {
+function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, onHere, now }: ChipRowProps) {
+  // "Here" is a group like a span is, but it is expressed as a source selection rather than as
+  // its own filter — it IS a set of sources, and inventing a parallel filter for it would give
+  // the pane two ways to say the same thing.
+  const hereSelected =
+    here.size > 0 && [...here].every((sourceUrl) => active.has(sourceUrl))
+  const labelFor = (tally: SourceTally): string =>
+    here.has(tally.sourceUrl) ? HERE_LABEL : AGE_BAND_LABEL[ageBandOf(tally.lastClippedAt, now)]
   const chips = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
 
@@ -161,6 +175,8 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, now }: ChipRo
       >
         {shown.map((tally, index) => {
           const span = ageBandOf(tally.lastClippedAt, now)
+          const label = labelFor(tally)
+          const isHere = here.has(tally.sourceUrl)
           // Chips run newest-first, so spans can only get older along the row and each one is a
           // single unbroken run. A marker opens each run and names it: reading rightwards is
           // moving back through the journal, so the label describes what follows it.
@@ -168,19 +184,22 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, now }: ChipRo
           // Including the first, which as a plain separator needed none — nothing precedes it
           // to separate from. As a control it does: without a marker on the leading run, the
           // span the reader is actually in would be the one span they could not select.
-          const opensSpan =
-            index === 0 || ageBandOf(shown[index - 1]!.lastClippedAt, now) !== span
+          const opensSpan = index === 0 || labelFor(shown[index - 1]!) !== label
 
           return (
             <Fragment key={tally.sourceUrl}>
               {opensSpan && (
                 <button
-                  class="piko-chip-band"
-                  aria-pressed={band === span ? 'true' : 'false'}
-                  title={`Show only what you clipped ${AGE_BAND_LABEL[span].toLowerCase()}`}
-                  onClick={() => onBand(span)}
+                  class={`piko-chip-band${isHere ? ' is-here' : ''}`}
+                  aria-pressed={(isHere ? hereSelected : band === span) ? 'true' : 'false'}
+                  title={
+                    isHere
+                      ? 'Show only what belongs to the page you are on'
+                      : `Show only what you clipped ${label.toLowerCase()}`
+                  }
+                  onClick={() => (isHere ? onHere() : onBand(span))}
                 >
-                  {AGE_BAND_LABEL[span]}
+                  {label}
                 </button>
               )}
               <button
@@ -296,7 +315,15 @@ function SearchRow({ query, onQuery, onClose }: {
   )
 }
 
-function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }) {
+function Pane({
+  store,
+  onClose,
+  here,
+}: {
+  store: ClippingsStore
+  onClose: () => void
+  here: () => string | null
+}) {
   const all = useClippings(store)
   const [active, setActive] = useState<ReadonlySet<string>>(new Set())
   const [searching, setSearching] = useState(false)
@@ -334,8 +361,12 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
    * The source selection is deliberately not applied here: chips narrowed by the chip you just
    * pressed would leave you holding the only one you could still see.
    */
+  // What "here" means differs by surface — the article being previewed, or the live page the
+  // rail is docked beside — so the panel supplies it rather than the pane assuming.
+  const hereSources = sourcesOnOrFrom(all, here())
   const sources = sourcesInSessionOrder(
     visibleClippings(all, { query: searching ? query : '', band, now }),
+    hereSources,
   )
 
   // A filter over a single source narrows nothing — it would just be noise. That is a question
@@ -423,6 +454,12 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
         tallies={filterable}
         active={active}
         onToggle={toggleSource}
+        here={hereSources}
+        onHere={() =>
+          setActive((current) =>
+            [...hereSources].every((url) => current.has(url)) ? new Set() : new Set(hereSources),
+          )
+        }
         band={band}
         // Selecting the span already showing is how the reader gets back out of it.
         onBand={(chosen) => setBand((current) => (current === chosen ? null : chosen))}
@@ -464,12 +501,12 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
  */
 export function createClippingsPane(
   store: ClippingsStore,
-  { onClose }: { onClose: () => void },
+  { onClose, here }: { onClose: () => void; here: () => string | null },
 ): ClippingsPane {
   const root = document.createElement('div')
   root.className = 'piko-clips'
 
-  const paint = (): void => render(<Pane store={store} onClose={onClose} />, root)
+  const paint = (): void => render(<Pane store={store} onClose={onClose} here={here} />, root)
 
   paint()
 

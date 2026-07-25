@@ -34,7 +34,7 @@ function paneWithTwoSources() {
   store.toggle(clip('Second.', ENCYCLOPEDIA, T0 - 60_000))
   store.toggle(clip('Third.', CHEMISTRY, T0))
 
-  const pane = createClippingsPane(store, { onClose: () => {} })
+  const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
   // Focus only moves for elements that are actually in the document.
   document.body.appendChild(pane.root)
   return { store, pane }
@@ -111,7 +111,7 @@ describe('the chip row', () => {
       ages.forEach((days, index) => {
         store.toggle(clip(`From ${index}.`, `https://example.com/${index}`, now - days * DAY))
       })
-      const pane = createClippingsPane(store, { onClose: () => {} })
+      const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
       document.body.appendChild(pane.root)
       return pane
     }
@@ -124,7 +124,7 @@ describe('the chip row', () => {
       // it the span the reader is actually in is the one span they cannot select.
       const pane = paneSpanning([0, 3, 20, 90])
 
-      expect(bands(pane)).toEqual(['Today', 'This week', 'This month', 'Earlier'])
+      expect(bands(pane)).toEqual(['Today', 'Week', 'Month', 'Older'])
     })
 
     it('marks the one span when every source falls inside it', () => {
@@ -136,7 +136,7 @@ describe('the chip row', () => {
     it('marks a span once however many sources it holds', () => {
       const pane = paneSpanning([0, 40, 41, 42])
 
-      expect(bands(pane)).toEqual(['Today', 'Earlier'])
+      expect(bands(pane)).toEqual(['Today', 'Older'])
     })
 
     it('narrows to a span when its marker is pressed, and back out when pressed again', async () => {
@@ -158,7 +158,7 @@ describe('the chip row', () => {
       await settle(() => marker('Today').click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
       expect(marker('Today').getAttribute('aria-pressed')).toBe('false')
-      expect(bands(pane)).toEqual(['Today', 'Earlier'])
+      expect(bands(pane)).toEqual(['Today', 'Older'])
     })
 
     it('leaves only the chosen span in the row, so old sources need no scrolling to', async () => {
@@ -174,13 +174,13 @@ describe('the chip row', () => {
 
       await settle(() =>
         [...pane.root.querySelectorAll<HTMLButtonElement>('.piko-chip-band')]
-          .find((el) => el.textContent === 'Earlier')!
+          .find((el) => el.textContent === 'Older')!
           .click(),
       )
 
       // Only the two older sources remain, and the row now opens on them.
       expect(chipTitles()).toEqual(['2', '3'])
-      expect(bands(pane)).toEqual(['Earlier'])
+      expect(bands(pane)).toEqual(['Older'])
     })
 
     it('offers Show all once a span is selected, and clears it', async () => {
@@ -205,7 +205,7 @@ describe('the chip row', () => {
     store.toggle(clip('Tides again, elsewhere.', CHEMISTRY, T0))
     store.toggle(clip('Nothing to do with it.', 'https://example.com/Third', T0 - 30_000))
 
-    const pane = createClippingsPane(store, { onClose: () => {} })
+    const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
     document.body.appendChild(pane.root)
 
     const labelled = (): string[] =>
@@ -225,6 +225,72 @@ describe('the chip row', () => {
     // The source with no match drops out, and the counts describe the matches rather than the
     // journal — a chip reading 2 next to a search for "tides" would be counting the wrong thing.
     expect(labelled()).toEqual(['Encyclopedia1', 'Chemical_energy1'])
+  })
+
+  describe('the page the reader is on', () => {
+    const PAGE = 'https://en.wikipedia.org/wiki/Encyclopedia'
+    const LINKED = 'https://en.wikipedia.org/wiki/Reference_work'
+    const UNRELATED = 'https://example.com/elsewhere'
+
+    /** Clipped on the page, clipped from a link dragged off it, and clipped somewhere else. */
+    const paneOnPage = (here: string | null) => {
+      const store = createClippingsStore()
+      // One sitting, so the row's own order is arrival order — and the unrelated source
+      // arrived first, which is what makes hoisting visible rather than a coincidence.
+      store.toggle({
+        ...clip('Nothing to do with it.', UNRELATED, T0 - 120_000),
+        sourceTitle: 'Elsewhere',
+      })
+      store.toggle({
+        ...clip('Through a link.', LINKED, T0 - 60_000),
+        sourceTitle: 'Reference work',
+        originUrl: PAGE,
+      })
+      store.toggle({ ...clip('On the page.', PAGE, T0), sourceTitle: 'Encyclopedia' })
+
+      const pane = createClippingsPane(store, { onClose: () => {}, here: () => here })
+      document.body.appendChild(pane.root)
+      return pane
+    }
+
+    const titles = (pane: { root: HTMLElement }): string[] =>
+      [...pane.root.querySelectorAll('.piko-chip:not(.piko-chip-reset) span:first-child')].map(
+        (el) => el.textContent ?? '',
+      )
+
+    const markers = (pane: { root: HTMLElement }): string[] =>
+      [...pane.root.querySelectorAll('.piko-chip-band')].map((el) => el.textContent ?? '')
+
+    it('leads the row with this page and what was dragged off it', () => {
+      // Elsewhere leads on arrival order alone; the page in front of the reader is the one
+      // thing the row should not bury behind it.
+      const pane = paneOnPage(PAGE)
+
+      expect(titles(pane)).toEqual(['Reference work', 'Encyclopedia', 'Elsewhere'])
+      expect(markers(pane)[0]).toBe('Here')
+    })
+
+    it('falls back to plain sitting order when the reader is nowhere in particular', () => {
+      const pane = paneOnPage(null)
+
+      expect(titles(pane)).toEqual(['Elsewhere', 'Reference work', 'Encyclopedia'])
+      expect(markers(pane)).not.toContain('Here')
+    })
+
+    it('narrows to the page and its links when the marker is pressed', async () => {
+      const pane = paneOnPage(PAGE)
+      const marker = (): HTMLButtonElement =>
+        pane.root.querySelector<HTMLButtonElement>('.piko-chip-band')!
+
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(3)
+
+      await settle(() => marker().click())
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
+      expect(marker().getAttribute('aria-pressed')).toBe('true')
+
+      await settle(() => marker().click())
+      expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(3)
+    })
   })
 
   it('offers a reset only once a filter is active', async () => {

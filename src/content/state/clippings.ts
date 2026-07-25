@@ -122,12 +122,44 @@ export type SourceTally = {
 /** How far back a source's most recent clipping is, in the terms a reader thinks in. */
 export type AgeBand = 'today' | 'week' | 'month' | 'older'
 
-/** Exhaustive by construction: a new band without a label stops compiling. */
+/**
+ * Exhaustive by construction: a new band without a label stops compiling.
+ *
+ * Kept to one short word each because the markers are set vertically, where the label's length
+ * is its height — and the row it stands in is only as tall as two chips. "This month" needed
+ * around 60px against the 46px available, so it was squashed wherever the row was full and
+ * stretched the row half as tall again wherever it wasn't. Read left to right into the past,
+ * the four of them are legible as a scale without the qualifier.
+ */
 export const AGE_BAND_LABEL: Record<AgeBand, string> = {
   today: 'Today',
-  week: 'This week',
-  month: 'This month',
-  older: 'Earlier',
+  week: 'Week',
+  month: 'Month',
+  // Deliberately longer than any of the others, and the guard in clippingsPane.browser.test.ts
+  // is what says how much longer a label may get before it stops fitting.
+  older: 'Older',
+}
+
+/**
+ * Sources that belong to the page the reader is looking at — either the clipping was taken
+ * there, or it was taken from a link dragged out of it.
+ *
+ * Both count as "associated with this page", and both are recorded rather than guessed:
+ * `originUrl` is where the reader was standing when they dragged, so the second relation is
+ * the reading trail itself. The alternative — scanning the page's anchors for anything ever
+ * clipped — was measured and rejected before: one Wikipedia article carries 2,695 of them, and
+ * a link graph is not a record of where you have been.
+ */
+export function sourcesOnOrFrom(
+  clippings: readonly Clipping[],
+  page: string | null,
+): ReadonlySet<string> {
+  if (page === null) return new Set()
+  return new Set(
+    clippings
+      .filter((c) => c.sourceUrl === page || c.originUrl === page)
+      .map((c) => c.sourceUrl),
+  )
 }
 
 const startOfDay = (at: number): number => {
@@ -223,7 +255,10 @@ export function sessionsOf(clippings: readonly Clipping[]): Session[] {
  * chip filters the journal, so a number describing anything narrower would be a lie about what
  * clicking it shows.
  */
-export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTally[] {
+export function sourcesInSessionOrder(
+  clippings: readonly Clipping[],
+  here: ReadonlySet<string> = new Set(),
+): SourceTally[] {
   const totals = new Map<string, SourceTally>()
   for (const clipping of clippings) {
     const existing = totals.get(clipping.sourceUrl)
@@ -251,7 +286,15 @@ export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTal
       ordered.push(totals.get(sourceUrl)!)
     }
   }
-  return ordered
+
+  // Where the reader is standing comes first, whenever it was last used. Sitting order is a
+  // good answer to "what am I working on" only until the reader opens something they worked on
+  // last month, at which point the page in front of them is the one thing the row should not
+  // bury. Within each part the sitting order is untouched.
+  return [
+    ...ordered.filter((t) => here.has(t.sourceUrl)),
+    ...ordered.filter((t) => !here.has(t.sourceUrl)),
+  ]
 }
 
 /**

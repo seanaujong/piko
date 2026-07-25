@@ -46,7 +46,7 @@ function mountPane(items: readonly Clipping[]) {
   const store = createClippingsStore()
   for (const item of items) store.toggle(item)
 
-  const pane = createClippingsPane(store, { onClose: () => {} })
+  const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
 
   // Stands in for `.piko-body`, which is what gives the pane a bounded height to scroll within.
   const body = document.createElement('div')
@@ -125,5 +125,52 @@ describe('the clippings list under real layout', () => {
     await act(() => chip.click())
 
     expect(shadow.activeElement).toBe(chip)
+  })
+})
+
+describe('the span markers under real layout', () => {
+  it('never sets a label taller than the row it stands in', () => {
+    const DAY = 86_400_000
+    const now = Date.now()
+    // One source in each span, so every label renders — including the longest.
+    const spread = [0, 3, 20, 90].map((days, i) =>
+      clip(`From ${i}.`, `https://example.com/${i}`, now - days * DAY),
+    )
+    const { shadow } = mountPane(spread)
+
+    const markers = [...shadow.querySelectorAll<HTMLElement>('.piko-chip-band')]
+    expect(markers.map((m) => m.textContent)).toEqual([
+      'Today',
+      'Week',
+      'Month',
+      'Older',
+    ])
+
+    /**
+     * How tall an element wants to be, measured from a free copy of it.
+     *
+     * Both the rendered box and `scrollHeight` lie here, in opposite directions. A marker is a
+     * flex item that shrinks below its content, so it reports the squashed height as though it
+     * fit. The chips meanwhile are stretched by whatever the tallest marker forced the row to,
+     * so measuring a rendered chip as "one row" would be measuring the very problem. A clone
+     * with its height released is what actually answers the question.
+     */
+    const naturalHeight = (element: HTMLElement): number => {
+      const probe = element.cloneNode(true) as HTMLElement
+      probe.style.cssText = 'position:absolute;visibility:hidden;height:auto;align-self:auto;'
+      element.parentElement!.appendChild(probe)
+      const height = probe.getBoundingClientRect().height
+      probe.remove()
+      return height
+    }
+
+    const twoRows = naturalHeight(shadow.querySelector<HTMLElement>('.piko-chip')!) * 2
+
+    // Set vertically, a label's length is its height — and it stands in a row two chips tall.
+    // Longer than that and it is squashed where the row is full, and stretches the row and
+    // every chip in it where it is not.
+    for (const marker of markers) {
+      expect(naturalHeight(marker)).toBeLessThanOrEqual(twoRows)
+    }
   })
 })

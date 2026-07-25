@@ -232,6 +232,13 @@ belongs, which a test can't express, and effects that leave the page entirely.
   cannot beat it — the guard has to live in `mountPanel`. It reads `event.composedPath()[0]`
   rather than `event.target`, because shadow-DOM retargeting reports the host from outside the
   tree. Covered by an e2e test that types a search and presses Escape.
+- ✅ **Span labels are one short word, because vertical text's length is its height.** The
+  markers sit in a row two chips tall, so a label longer than that gets squashed where the row
+  is full and stretches the row — and every chip in it — where it isn't. `This month` needed
+  56px against 42px. `clippingsPane.browser.test.ts` guards it, and the measurement has to come
+  from a clone with its height released: the rendered box and `scrollHeight` both lie here, in
+  opposite directions, and a rendered chip is no use as a reference because it has already been
+  stretched by the marker under test.
 - ✅ **Chips are ordered by sitting, not by count.** Count-ordering answers "what have I
   clipped most, ever?" and buries the article open right now; bare recency answers the right
   question but re-sorts under the cursor mid-click. Within a sitting the order is arrival and
