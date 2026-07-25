@@ -1,4 +1,3 @@
-import { RAIL_GUTTER } from '../../shared/constants'
 import { createClippingsStore } from '../state/clippings'
 import type { Dispatch, PreviewState } from '../state/previewState'
 import { copyText } from './clipboard'
@@ -203,8 +202,9 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     const root = document.documentElement
     if (pageMarginRight === null) pageMarginRight = root.style.marginRight
     // Measured rather than assumed: the rail's width is capped at a fraction of the viewport,
-    // so on a narrow window it is narrower than its nominal size.
-    root.style.marginRight = `${rail.getBoundingClientRect().width + RAIL_GUTTER * 2}px`
+    // so on a narrow window it is narrower than its nominal size. It sits flush to the edge,
+    // so the page owes it exactly that width and nothing more.
+    root.style.marginRight = `${rail.getBoundingClientRect().width}px`
   }
 
   function releaseRailSpace(): void {

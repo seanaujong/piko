@@ -1,10 +1,4 @@
-import {
-  PANEL_HEIGHT_VH,
-  PANEL_MAX_WIDTH_PX,
-  PANEL_WIDTH_VW,
-  PANEL_Z_INDEX,
-  RAIL_GUTTER,
-} from '../../shared/constants'
+import { PANEL_HEIGHT_VH, PANEL_MAX_WIDTH_PX, PANEL_WIDTH_VW, PANEL_Z_INDEX } from '../../shared/constants'
 
 // `:host { all: initial }` resets inherited CSS properties (color, font-family, custom
 // properties/--vars) before they cross into our shadow tree — shadow DOM isolates
@@ -202,26 +196,30 @@ export const PANEL_STYLES = `
 }
 
 /**
- * The journal docked over the page, for clipping the page itself.
+ * The journal docked beside the page, for clipping the page itself.
  *
  * Deliberately NOT the modal panel: that has a backdrop, and you cannot clip a page you have
  * covered. The rail takes back its own width and nothing else, so the page underneath stays
  * readable and clickable — which is the whole point of the mode it accompanies.
+ *
+ * Flush to the edges, because the page yields this width rather than being covered by it. A
+ * floating card — inset, rounded, drop-shadowed — reads as something laid over the page, and
+ * leaves a strip of page background around itself that belongs to neither. What it is is a
+ * second column, so it is drawn as one: one border where it meets the page, and no gap.
  */
 .piko-rail {
   position: absolute;
-  top: ${RAIL_GUTTER}px;
-  right: ${RAIL_GUTTER}px;
-  bottom: ${RAIL_GUTTER}px;
+  top: 0;
+  right: 0;
+  bottom: 0;
   width: 320px;
   max-width: 40vw;
   box-sizing: border-box;
   display: flex;
   pointer-events: auto;
   background: #ffffff;
-  border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.08);
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  border-left: 1px solid rgba(0, 0, 0, 0.12);
+  box-shadow: -2px 0 16px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   opacity: 1;
   transform: translateX(0);
@@ -499,11 +497,14 @@ export const PANEL_STYLES = `
 
 /* Session boundaries render inline so temporal structure shows without the list
    ever changing shape — no separate grouping mode to switch into. */
+/* Enough air to read as a break in the stream, not enough to read as the end of the list.
+   Cards are 5px apart, so the space either side of the rule is set against that rather than
+   against nothing. */
 .piko-clips-divider {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 11px 0 8px;
+  margin: 3px 0 5px;
   font-size: 10px;
   color: #9a9a94;
   letter-spacing: 0.04em;
