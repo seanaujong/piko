@@ -18,8 +18,8 @@
          and as dither at 16, where a band under about 6 units has no whole pixel to land in. -->
     <mask id="bands">
       <rect width="128" height="128" fill="#fff"/>
-      <rect x="0" y="102" width="128" height="8"  fill="#000"/>
-      <rect x="0" y="118" width="128" height="11" fill="#000"/>
+      <rect x="0" y="104" width="128" height="8"  fill="#000"/>
+      <rect x="0" y="119" width="128" height="11" fill="#000"/>
     </mask>
   </defs>
 
@@ -33,8 +33,13 @@
 
     <!-- The sun is cut by the frame rather than floating inside it. A closed disc sitting
          under a symmetrical dark mark reads as a face at icon sizes — wings for eyebrows,
-         bands for a mouth — and that only shows up in the 16px raster, never at 128. -->
-    <circle cx="64" cy="128" r="52" fill="url(#sun)" mask="url(#bands)"/>
+         bands for a mouth — and that only shows up in the 16px raster, never at 128.
+
+         It is also wide and shallow enough to run off both sides of the frame, which is what
+         makes it a horizon instead of an object. A dome with visible sides is a rounded thing
+         sitting in the picture, and a light rounded thing under dark fronds is a root
+         vegetable. Widening it past the edges removes the sides and the reading with them. -->
+    <circle cx="64" cy="180" r="92" fill="url(#sun)" mask="url(#bands)"/>
   </g>
 
   <!-- Two crescent wings joined by a wedge that points down. The wedge is the recognition
@@ -46,9 +51,16 @@
 
        The tilt is load-bearing twice over: it is what makes the bird look like it is coasting
        rather than working, and it breaks the shared centre line with the sun that cutting the
-       disc above is already guarding against. -->
+       disc above is already guarding against.
+
+       The vertical placement leaves the wedge tip at y 76.5 against a sun that starts at 88 —
+       about 11 units of air, or a pixel and a half once rasterised at 16. The number matters
+       because the failure here is tangency, not distance in either direction: a tip that grazes
+       the sun by a unit or two is too little to read as the bird passing in front of it and too
+       much to read as clear sky, so the eye fuses the two shapes into one object. Either commit
+       to air, as this does, or commit to real overlap — but do not come to rest in between. -->
   <path fill="#2A1030"
-        transform="translate(64 56) rotate(-5) scale(0.86) translate(-64 -57.5)"
+        transform="translate(64 53) rotate(-5) scale(0.86) translate(-64 -57.5)"
         d="M6 60
            C16 48 24 38 36 36 C50 34 58 45 64 58
            C70 44 80 31 94 33 C108 35 118 46 122 54
