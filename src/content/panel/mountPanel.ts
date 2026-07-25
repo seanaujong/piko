@@ -1,4 +1,6 @@
+import { createClippingsStore } from '../state/clippings'
 import type { Dispatch, PreviewState } from '../state/previewState'
+import { createClippingsPane } from './views/clippingsPane'
 import { PANEL_STYLES } from './styles'
 import { renderError } from './views/errorView'
 import { renderExtracted } from './views/extractedView'
@@ -43,9 +45,14 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   const content = document.createElement('div')
   content.className = 'lockin-content'
 
+  // The clippings journal spans previews rather than belonging to any one of them, so it's
+  // created once with the panel and outlives every individual `render()`.
+  const clippings = createClippingsStore()
+  const clippingsPane = createClippingsPane(clippings)
+
   const body = document.createElement('div')
   body.className = 'lockin-body'
-  body.appendChild(content)
+  body.append(content, clippingsPane.root)
 
   const panel = document.createElement('div')
   panel.className = 'lockin-panel'
@@ -106,10 +113,21 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
         if (state.content.mode === 'framed') {
           cleanupCurrentView = renderFramed(content, state.finalUrl, dispatch)
         } else {
-          renderExtracted(content, state.content.article)
+          cleanupCurrentView = renderExtracted(content, state.content.article, {
+            store: clippings,
+            sourceUrl: state.finalUrl,
+            // The host page is by definition where the reader was standing when they dragged.
+            originUrl: window.location.href === state.finalUrl ? null : window.location.href,
+            root: shadow,
+          })
         }
         break
     }
+
+    // Clipping only happens in reader mode, so the pane earns its width there unconditionally;
+    // in framed mode it appears only when there's already something to review.
+    const clippable = state.kind === 'ready' && state.content.mode === 'extracted'
+    clippingsPane.root.toggleAttribute('data-hidden', !clippable && clippings.all().length === 0)
   }
 
   return { render }

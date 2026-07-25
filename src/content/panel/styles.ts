@@ -210,11 +210,43 @@ export const PANEL_STYLES = `
 }
 
 .lockin-article {
+  position: relative; /* containing block for the highlight overlay */
   max-width: 680px;
   margin: 0 auto;
   padding: 32px;
   line-height: 1.65;
   font-size: 16px;
+}
+
+/*
+ * Sentence highlights are painted here rather than by wrapping text in elements: a sentence
+ * routinely spans several inline nodes, so wrapping would mean re-parenting the sanitized
+ * DOM that extract.ts produced. The overlay sits beneath the text, so every article child
+ * needs its own stacking context to stay legible on top of a mark.
+ */
+.lockin-marks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.lockin-article > *:not(.lockin-marks) {
+  position: relative;
+  z-index: 1;
+}
+
+.lockin-mark {
+  position: absolute;
+  border-radius: 2px;
+}
+
+.lockin-mark-hover {
+  background: rgba(74, 63, 224, 0.1);
+}
+
+.lockin-mark-clip {
+  background: rgba(246, 205, 78, 0.42);
 }
 
 .lockin-article h1 {
@@ -232,5 +264,187 @@ export const PANEL_STYLES = `
 .lockin-article img {
   max-width: 100%;
   height: auto;
+}
+
+/* ---- clippings journal: .lockin-body's second flex child ---- */
+
+.lockin-clips {
+  flex: 0 0 300px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-left: 1px solid rgba(0, 0, 0, 0.08);
+  background: #fcfcfb;
+}
+
+.lockin-clips[data-hidden] {
+  display: none;
+}
+
+.lockin-clips-header {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 11px 13px 9px;
+  flex: 0 0 auto;
+}
+
+.lockin-clips-title {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #555;
+}
+
+.lockin-clips-count {
+  font-size: 11px;
+  color: #8a8a80;
+  font-variant-numeric: tabular-nums;
+}
+
+.lockin-clips-copy {
+  margin-left: auto;
+  font-size: 12px;
+  padding: 3px 9px;
+}
+
+.lockin-clips-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 0 13px 9px;
+  flex: 0 0 auto;
+}
+
+.lockin-chip {
+  all: initial;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #666;
+}
+
+.lockin-chip:hover {
+  border-color: #4a3fe0;
+  color: #1a1a1a;
+}
+
+.lockin-chip[aria-pressed='true'] {
+  background: #f6cd4e;
+  border-color: transparent;
+  color: #1a1a1a;
+  font-weight: 600;
+}
+
+.lockin-chip-reset {
+  border-style: dashed;
+}
+
+.lockin-chip-count {
+  font-size: 10px;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.lockin-clips-list {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 0 13px 14px;
+}
+
+.lockin-clips-empty {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #8a8a80;
+  font-style: italic;
+  margin: 4px 0 0;
+}
+
+/* Session boundaries render inline so temporal structure shows without the list
+   ever changing shape — no separate grouping mode to switch into. */
+.lockin-clips-divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 11px 0 8px;
+  font-size: 10px;
+  color: #9a9a94;
+  letter-spacing: 0.04em;
+}
+
+.lockin-clips-divider::before,
+.lockin-clips-divider::after {
+  content: '';
+  height: 1px;
+  background: rgba(0, 0, 0, 0.09);
+  flex: 1 1 auto;
+}
+
+.lockin-clip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 7px 8px;
+  margin-bottom: 5px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.07);
+  background: #ffffff;
+}
+
+.lockin-clip-when {
+  flex: 0 0 auto;
+  font-size: 10px;
+  color: #9a9a94;
+  padding-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.lockin-clip-body {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #2b2b2b;
+}
+
+.lockin-clip-source {
+  display: block;
+  margin-top: 3px;
+  font-size: 10px;
+  color: #9a9a94;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lockin-clip-remove {
+  all: initial;
+  box-sizing: border-box;
+  cursor: pointer;
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 11px;
+  color: #b0b0a8;
+  padding: 2px 4px;
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+
+.lockin-clip:hover .lockin-clip-remove,
+.lockin-clip-remove:focus-visible {
+  opacity: 1;
+}
+
+.lockin-clip-remove:hover {
+  color: #e53935;
 }
 `
