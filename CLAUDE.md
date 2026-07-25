@@ -24,16 +24,23 @@ npm run icons       # only after editing public/icons/icon.svg
 npm run bench       # measurements, NOT in the gate — see below
 ```
 
-**`npm run bench` prints, it doesn't assert.** Two benches over a generated 220-paragraph
-article: `bench/reading.bench.ts` measures what a store change costs on the page (the
-relocation walk, and `repaint()` at up to 200 marks) in real Chrome, and
-`bench/journal.bench.ts` measures what the journal costs to persist, in the loaded extension's
-own service worker. They stay out of `npm run check` because timing bounds on a shared machine
-are a flake generator; they exist to answer design questions with numbers rather than
-intuition, and they have already overturned one guess — relocation was assumed to be the thing
-that would hurt first, and it is flat across 1/50/500 clippings. Run with `--reporter=verbose`
-to see the tables. The reading bench asserts one thing: that the segmenter reads its generated
-article back exactly, so a drifted generator fails loudly instead of timing fictional work.
+**`npm run bench` prints, it doesn't assert.** Three benches over a generated 220-paragraph
+article, split by which cost they isolate: `bench/reading.bench.ts` measures what a store change
+costs on the page (the relocation walk, and `repaint()` at up to 200 marks) in real Chrome,
+`bench/pane.bench.ts` measures what the journal's pane costs to draw at up to 5,000 clippings —
+also real Chrome, because the expensive half is layout — and `bench/journal.bench.ts` measures
+what the journal costs to persist, in the loaded extension's own service worker. Note they run
+under `vitest run`, not `vitest bench`: they are ordinary tests that print, so `vitest bench`
+ignores each project's `include` and loads every bench into every project. They stay out of
+`npm run check` because timing bounds on a shared machine are a flake generator; they exist to
+answer design questions with numbers rather than intuition, and they have now overturned two
+guesses — relocation was assumed to be what would hurt first and is flat across 1/50/500
+clippings, and a single clip was assumed to be flat because keyed reconciliation touches one row,
+where it is linear in the whole journal (every render still builds a vnode per clipping). Run
+with `--reporter=verbose` to see the tables. What each one *does* assert is only that it measured
+real work: that the segmenter reads its generated article back exactly, and that the pane it
+timed rendered every row and actually narrowed when filtered. A drifted generator or an empty
+fixture fails loudly instead of reporting a very fast number for nothing.
 
 **Three suites, split by what they need.** `npm test` runs all of them.
 
