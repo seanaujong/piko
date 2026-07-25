@@ -1,5 +1,5 @@
 import { Fragment, render } from 'preact'
-import { useEffect, useLayoutEffect, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
 import { gapBefore, sourcesInSessionOrder, visibleClippings } from '../../state/clippings'
 import { copyText } from '../clipboard'
@@ -120,28 +120,57 @@ type ChipRowProps = {
   onReset: () => void
 }
 
+/** Past this many, one line of chips can no longer hold them and the row takes a second. */
+const CHIPS_PER_ROW = 4
+
 function ChipRow({ tallies, active, onToggle, onReset }: ChipRowProps) {
   // A filter over a single source narrows nothing — it would just be noise. The row itself
   // still renders, so the pane's spacing doesn't change as a second source appears.
   const shown = tallies.length < 2 ? [] : tallies
+  const chips = useRef<HTMLDivElement>(null)
+  const [overflowing, setOverflowing] = useState(false)
+
+  // Whether the row actually continues past its edge is a layout question, so it is answered by
+  // measuring rather than by counting chips — a count is a guess about widths that vary with
+  // every page title. The observer catches the pane changing width, which the count cannot.
+  useLayoutEffect(() => {
+    const element = chips.current
+    if (!element) return
+
+    const measure = (): void => setOverflowing(element.scrollWidth > element.clientWidth + 1)
+    measure()
+
+    const observer = new ResizeObserver(measure)
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [shown.length])
 
   return (
     <div class="piko-clips-filters">
-      {shown.map((tally) => (
-        <button
-          key={tally.sourceUrl}
-          class="piko-chip"
-          // Spelled out rather than passed as a boolean: an unpressed chip must still carry
-          // `aria-pressed="false"`, not drop the attribute, or a screen reader stops
-          // announcing it as a toggle at all.
-          aria-pressed={active.has(tally.sourceUrl) ? 'true' : 'false'}
-          title={tally.sourceUrl}
-          onClick={() => onToggle(tally.sourceUrl)}
-        >
-          <span>{tally.sourceTitle}</span>
-          <span class="piko-chip-count">{tally.count}</span>
-        </button>
-      ))}
+      <div
+        class="piko-clips-chips"
+        ref={chips}
+        data-rows={shown.length > CHIPS_PER_ROW ? '2' : '1'}
+        {...(overflowing ? { 'data-overflowing': '' } : {})}
+      >
+        {shown.map((tally) => (
+          <button
+            key={tally.sourceUrl}
+            class="piko-chip"
+            // Spelled out rather than passed as a boolean: an unpressed chip must still carry
+            // `aria-pressed="false"`, not drop the attribute, or a screen reader stops
+            // announcing it as a toggle at all.
+            aria-pressed={active.has(tally.sourceUrl) ? 'true' : 'false'}
+            title={tally.sourceUrl}
+            onClick={() => onToggle(tally.sourceUrl)}
+          >
+            <span>{tally.sourceTitle}</span>
+            <span class="piko-chip-count">{tally.count}</span>
+          </button>
+        ))}
+      </div>
+      {/* Outside the scroller on purpose: the control that clears a filter cannot be the one
+          thing you have to go looking for. */}
       {shown.length > 0 && active.size > 0 && (
         <button key="reset" class="piko-chip piko-chip-reset" onClick={onReset}>
           Show all

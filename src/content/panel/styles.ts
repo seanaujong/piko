@@ -436,12 +436,56 @@ export const PANEL_STYLES = `
 }
 
 
+/* The row, and the reset that must not scroll away with it: a filter you cannot see is a
+   trap, and so is the only control that clears one. */
 .piko-clips-filters {
   display: flex;
-  flex-wrap: wrap;
+  align-items: flex-start;
   gap: 4px;
   padding: 0 13px 9px;
   flex: 0 0 auto;
+}
+
+/**
+ * Two rows at most, scrolling sideways past them.
+ *
+ * Wrapping was unbounded — thirty sources after a research week made the filter row taller
+ * than the list it filters. Capping the height and moving the overflow onto a scroll axis
+ * bounds it for any number of sources without introducing a collapsed state to forget you are
+ * in. It costs nothing at small counts, where the row is one line as before.
+ *
+ * The axis carries meaning, which is why it is horizontal rather than a "show more": chips are
+ * ordered by the sitting they were last used in, so scrolling right is moving back through the
+ * reading. It reduces the height, not the scanning — finding one source among thirty is what
+ * search is for.
+ *
+ * Column flow rather than wrapping is what produces horizontal overflow at all: flex wrapping
+ * resolves overflow by adding rows, which is the thing being fixed.
+ */
+.piko-clips-chips {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  grid-template-rows: auto;
+  gap: 4px;
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+}
+
+.piko-clips-chips[data-rows='2'] {
+  grid-template-rows: auto auto;
+}
+
+/* The only resting sign that the row continues: macOS overlay scrollbars show while scrolling
+   and then vanish, so without this the chips past the edge are simply invisible. Applied from
+   a measurement rather than from the chip count, because fading an edge with nothing behind it
+   promises content that isn't there. */
+.piko-clips-chips[data-overflowing] {
+  mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
 }
 
 .piko-chip {

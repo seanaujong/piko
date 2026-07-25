@@ -89,6 +89,32 @@ describe('the clippings list under real layout', () => {
     expect(list.scrollTop).toBe(200)
   })
 
+  /**
+   * The chip row's height has to be bounded by something other than the number of sources.
+   * After a research week thirty of them wrapped into a filter row taller than the list it
+   * filters, which is the one thing a filter must never do.
+   */
+  it('holds the chip row to two rows however many sources there are', () => {
+    const many = Array.from({ length: 30 }, (_, i) =>
+      clip(`From source ${i}.`, `https://example.com/wiki/Source_number_${i}`, T0 - i * 60_000),
+    )
+    const { shadow } = mountPane(many)
+
+    const row = shadow.querySelector<HTMLElement>('.piko-clips-chips')!
+    const chip = shadow.querySelector<HTMLElement>('.piko-chip')!
+    const chipHeight = chip.getBoundingClientRect().height
+
+    // Guards the fixture: chips that never overflowed would satisfy the height bound by
+    // fitting on one line, proving nothing about what happens when they don't.
+    expect(shadow.querySelectorAll('.piko-chip:not(.piko-chip-reset)')).toHaveLength(30)
+    expect(row.scrollWidth).toBeGreaterThan(row.clientWidth)
+
+    // Two rows and the gap between them, with room for the scrollbar — and nowhere near the
+    // eight-plus rows thirty chips wrap into.
+    expect(chipHeight).toBeGreaterThan(0)
+    expect(row.getBoundingClientRect().height).toBeLessThan(chipHeight * 2.8)
+  })
+
   it('keeps focus inside the shadow root when a filter is toggled', async () => {
     const { shadow } = mountPane(MANY)
     const chip = shadow.querySelector<HTMLButtonElement>('.piko-chip:not(.piko-chip-reset)')!

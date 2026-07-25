@@ -12,5 +12,5 @@
     "types": ["chrome", "node"],
     "noEmit": true
   },
-  "include": ["src", "e2e", "bench", "vitest.config.ts", "vitest.bench.config.ts"]
+  "include": ["src", "e2e", "bench", "vitest.config.ts", "vitest.bench.config.ts", "vitest.setup.ts"]
 }
