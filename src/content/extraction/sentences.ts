@@ -125,38 +125,64 @@ export function lineRectsForSentence(
     .filter((rect) => rect.width > 0 && rect.height > 0)
     .sort((a, b) => a.top - b.top || a.left - b.left)
 
-  const lines: LineRect[] = []
+  // Each line tracks its widest horizontal extent, plus the tallest rect on it. That tallest
+  // rect is the body text, and it — not the union — anchors the band vertically. Superscript
+  // citations sit raised and short, so letting them into the union dragged the band a couple
+  // of pixels upward; on a citation-dense page that put every footnoted line slightly off the
+  // grid from its neighbours, reopening the gaps as a ragged step.
+  const lineBox = lineBoxHeight(block)
+
+  // An inline image or inline-block is far taller than a line box, so it must not be mistaken
+  // for the body text and anchor the band — one thumbnail would otherwise stretch every line
+  // of the sentence to its height.
+  const isTextLike = (height: number): boolean => height <= lineBox * 1.5
+
+  type Building = LineRect & { refCentre: number | null; refHeight: number }
+  const lines: Building[] = []
+
   for (const rect of rects) {
-    // Matching on the vertical centre rather than on `top` keeps subscripts and superscripts
-    // — which sit at a different offset and height — on the line they belong to.
     const centre = rect.top + rect.height / 2
     const line = lines.find((candidate) => centre >= candidate.top && centre <= candidate.bottom)
-    if (line) {
-      line.left = Math.min(line.left, rect.left)
-      line.right = Math.max(line.right, rect.right)
-      line.top = Math.min(line.top, rect.top)
-      line.bottom = Math.max(line.bottom, rect.bottom)
-    } else {
-      lines.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })
+
+    if (!line) {
+      lines.push({
+        left: rect.left,
+        right: rect.right,
+        top: rect.top,
+        bottom: rect.bottom,
+        refCentre: isTextLike(rect.height) ? centre : null,
+        refHeight: isTextLike(rect.height) ? rect.height : 0,
+      })
+      continue
+    }
+
+    line.left = Math.min(line.left, rect.left)
+    line.right = Math.max(line.right, rect.right)
+    line.top = Math.min(line.top, rect.top)
+    line.bottom = Math.max(line.bottom, rect.bottom)
+    if (isTextLike(rect.height) && rect.height > line.refHeight) {
+      line.refHeight = rect.height
+      line.refCentre = centre
     }
   }
 
-  // Grow each line to its full line box. Client rects cover the *text*, so at any line-height
-  // above 1 there is dead space between consecutive lines — which showed up twice: as visible
-  // stripes in the highlight, and as the cursor crossing a band where no rect contained it, so
-  // the hover dropped and re-armed on every line change. Half-leading is split evenly above
-  // and below the text, so expanding symmetrically about the centre reconstructs the line box
-  // and makes consecutive lines tile exactly.
-  const lineBox = lineBoxHeight(block)
-  for (const line of lines) {
-    const padding = (lineBox - (line.bottom - line.top)) / 2
-    if (padding > 0) {
-      line.top -= padding
-      line.bottom += padding
+  // Every band is one line box tall and centred on its body text, so consecutive lines tile
+  // with no seam whatever inline markup they contain. Client rects cover the text rather than
+  // the line box, and at any line-height above 1 the difference is dead space — which showed
+  // up both as stripes through the highlight and as a strip the cursor could cross without
+  // hitting any rect, dropping the hover on every line change.
+  return lines.map((line) => {
+    // A line with no text-like rect on it at all (an image on its own line) keeps its measured
+    // extent — there is no body text there to align to.
+    const centre = line.refCentre ?? (line.top + line.bottom) / 2
+    const height = Math.max(lineBox, line.refHeight, line.refCentre === null ? line.bottom - line.top : 0)
+    return {
+      left: line.left,
+      right: line.right,
+      top: centre - height / 2,
+      bottom: centre + height / 2,
     }
-  }
-
-  return lines
+  })
 }
 
 const containsPoint = (rect: LineRect, x: number, y: number): boolean =>
