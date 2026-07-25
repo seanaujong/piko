@@ -11,6 +11,8 @@ await esbuild.build({
   format: 'iife',
   target: 'chrome115',
   sourcemap: true,
+  jsx: 'automatic',
+  jsxImportSource: 'preact',
 })
 
 mkdirSync('dist/icons', { recursive: true })
