@@ -1,5 +1,5 @@
-import type { SentenceHit } from '../extraction/sentences'
-import { lineRectsForSentence, sentenceAtPoint } from '../extraction/sentences'
+import type { LineBand, SentenceHit } from '../extraction/sentences'
+import { lineBandsFor, lineRectsForSentence, sentenceAtPoint } from '../extraction/sentences'
 
 export type HighlightHandle = {
   /** Re-derive every rect. Call after anything that reflows the article. */
@@ -42,11 +42,22 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
   let framePending = false
   let lastPoint: { x: number; y: number } | null = null
 
-  function paintRange(hit: SentenceHit, className: string, base: DOMRect): void {
+  function paintRange(
+    hit: SentenceHit,
+    className: string,
+    base: DOMRect,
+    bands: Map<HTMLElement, LineBand[]>,
+  ): void {
+    let blockBands = bands.get(hit.block)
+    if (!blockBands) {
+      blockBands = lineBandsFor(hit.block)
+      bands.set(hit.block, blockBands)
+    }
+
     // One box per visual line — a sentence wrapping across three lines paints three, which is
     // what makes the highlight follow the text rather than bounding-box it. Merging happens in
     // `lineRectsForSentence`, so a translucent mark never stacks on itself over inline markup.
-    for (const rect of lineRectsForSentence(hit.block, hit.start, hit.end)) {
+    for (const rect of lineRectsForSentence(hit.block, hit.start, hit.end, blockBands)) {
       const mark = document.createElement('div')
       mark.className = className
       mark.style.left = `${rect.left - base.left}px`
@@ -61,12 +72,17 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     const base = surface.getBoundingClientRect()
     overlay.replaceChildren()
 
+    // Bands are viewport-relative and so change with scroll and reflow; the cache lives for one
+    // repaint only, which is enough to measure each block once no matter how many of its
+    // sentences are marked.
+    const bands = new Map<HTMLElement, LineBand[]>()
+
     const clippedHits = clipped()
-    for (const hit of clippedHits) paintRange(hit, 'lockin-mark lockin-mark-clip', base)
+    for (const hit of clippedHits) paintRange(hit, 'lockin-mark lockin-mark-clip', base, bands)
 
     // A clipped sentence keeps its own stronger colour rather than being overdrawn on hover.
     if (hovered && !clippedHits.some((c) => sameSentence(c, hovered!))) {
-      paintRange(hovered, 'lockin-mark lockin-mark-hover', base)
+      paintRange(hovered, 'lockin-mark lockin-mark-hover', base, bands)
     }
   }
 

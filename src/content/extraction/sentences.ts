@@ -90,107 +90,130 @@ export function rangeForSentence(block: HTMLElement, start: number, end: number)
 /** A sentence's footprint on one visual line, in viewport coordinates. */
 export type LineRect = { left: number; top: number; right: number; bottom: number }
 
-/**
- * The height of one line box, which is taller than the text rects inside it whenever
- * `line-height` exceeds 1 — the difference is CSS half-leading, split evenly above and below.
- */
-function lineBoxHeight(block: HTMLElement): number {
-  const style = getComputedStyle(block)
-  const lineHeight = Number.parseFloat(style.lineHeight)
-  if (Number.isFinite(lineHeight)) return lineHeight
+/** A tiled vertical slice of a block, one per rendered line. */
+export type LineBand = { top: number; bottom: number }
 
-  // `line-height: normal` computes to the string rather than a length; approximate it.
-  const fontSize = Number.parseFloat(style.fontSize)
-  return Number.isFinite(fontSize) ? fontSize * 1.2 : 0
-}
+/** Fraction of the shorter rect that must overlap for two rects to count as the same line. */
+const SAME_LINE_OVERLAP = 0.5
 
 /**
- * One rect per visual line, merged from the raw client rects.
+ * The block's rendered lines, as bands that tile with no seam.
  *
- * `Range.getClientRects()` returns a rect for each inline element the range crosses *and* one
- * for the text run inside it, so a sentence containing `<a>`, `<b>` or `<sub>` yields
- * overlapping duplicates — which stack into a visibly darker patch when painted with a
- * translucent colour. Merging by line removes the doubling, closes the hairline gaps between
- * adjacent runs, and drops the node count from one-per-run to one-per-line.
+ * Derived from where the text actually is rather than from a computed grid. An earlier version
+ * assumed every line sat exactly `line-height` apart starting at the block's content-box top,
+ * and snapped rects to that lattice — which drifts progressively the moment real spacing
+ * disagrees, from an inline image raising a line, a nested element with its own line-height, or
+ * `line-height: normal`. Once the drift exceeds half a line, rects land in the wrong slot
+ * entirely and separate lines collapse into one band.
+ *
+ * Boundaries sit at the midpoint of the gap between consecutive lines, so adjacent bands share
+ * an edge by construction. Tiling therefore survives lines of different heights, which a
+ * uniform grid cannot represent at all.
  */
-export function lineRectsForSentence(
-  block: HTMLElement,
-  start: number,
-  end: number,
-): LineRect[] {
-  const range = rangeForSentence(block, start, end)
-  if (!range) return []
+export function lineBandsFor(block: HTMLElement): LineBand[] {
+  const range = document.createRange()
+  range.selectNodeContents(block)
 
   const rects = [...range.getClientRects()]
     .filter((rect) => rect.width > 0 && rect.height > 0)
     .sort((a, b) => a.top - b.top || a.left - b.left)
 
-  // Each line tracks its widest horizontal extent, plus the tallest rect on it. That tallest
-  // rect is the body text, and it — not the union — anchors the band vertically. Superscript
-  // citations sit raised and short, so letting them into the union dragged the band a couple
-  // of pixels upward; on a citation-dense page that put every footnoted line slightly off the
-  // grid from its neighbours, reopening the gaps as a ragged step.
-  const lineBox = lineBoxHeight(block)
-
-  // An inline image or inline-block is far taller than a line box; it gets no grid slot and
-  // keeps whatever extent it measured, so a thumbnail can't stretch the lines around it.
-  const isTextLike = (height: number): boolean => height <= lineBox * 1.5
-
-  const blockStyle = getComputedStyle(block)
-  const gridOrigin =
-    block.getBoundingClientRect().top +
-    (Number.parseFloat(blockStyle.paddingTop) || 0) +
-    (Number.parseFloat(blockStyle.borderTopWidth) || 0)
-
-  /**
-   * Which line box a rect sits in. Every line in a block is exactly one line box tall, so the
-   * rect's vertical centre divided by the line box *is* the line number. A superscript sits a
-   * few pixels above the body text's centre, but that's a fraction of a line box, so it rounds
-   * to the same slot — which is what puts it on the line it belongs to rather than its own.
-   */
-  const lineIndexOf = (rect: DOMRect): number =>
-    Math.max(0, Math.round((rect.top + rect.height / 2 - gridOrigin - lineBox / 2) / lineBox))
-
-  /**
-   * Grouping *is* the snap. An earlier version grouped by overlapping vertical bands and then
-   * snapped, which let a raised superscript open its own band — two entries for one visual
-   * line, and after snapping two identical rects that double-darkened the translucent mark.
-   *
-   * Deriving the slot arithmetically makes tiling structural rather than measured: bold text
-   * reports a fractionally taller rect than regular and a superscript a much shorter one, and
-   * neither can move a band. Even a slightly wrong grid origin shifts every band equally,
-   * which is invisible, where per-line drift is exactly what reopened the seams.
-   */
-  const slots = new Map<number, { left: number; right: number }>()
-  const freeStanding: LineRect[] = []
-
+  // Overlap rather than centre-containment decides sameness, so a raised superscript joins the
+  // line it sits on instead of opening one of its own.
+  const lines: LineBand[] = []
   for (const rect of rects) {
-    if (!isTextLike(rect.height) || lineBox <= 0) {
-      freeStanding.push({ left: rect.left, top: rect.top, right: rect.right, bottom: rect.bottom })
-      continue
-    }
-
-    const index = lineIndexOf(rect)
-    const slot = slots.get(index)
-    if (slot) {
-      slot.left = Math.min(slot.left, rect.left)
-      slot.right = Math.max(slot.right, rect.right)
+    const line = lines.find((candidate) => {
+      const overlap = Math.min(candidate.bottom, rect.bottom) - Math.max(candidate.top, rect.top)
+      const shorter = Math.min(candidate.bottom - candidate.top, rect.height)
+      return shorter > 0 && overlap > shorter * SAME_LINE_OVERLAP
+    })
+    if (line) {
+      line.top = Math.min(line.top, rect.top)
+      line.bottom = Math.max(line.bottom, rect.bottom)
     } else {
-      slots.set(index, { left: rect.left, right: rect.right })
+      lines.push({ top: rect.top, bottom: rect.bottom })
     }
   }
 
-  // Client rects cover the text, not the line box, so at any line-height above 1 the leftover
-  // is dead space. That showed up both as stripes through the highlight and as a strip the
-  // cursor could cross without hitting any rect, dropping the hover on every line change.
-  const banded = [...slots.entries()]
-    .sort(([a], [b]) => a - b)
-    .map(([index, slot]) => {
-      const top = gridOrigin + index * lineBox
-      return { left: slot.left, right: slot.right, top, bottom: top + lineBox }
-    })
+  return lines.map((line, index) => {
+    const previous = lines[index - 1]
+    const next = lines[index + 1]
+    // The outermost edges have no neighbour to meet, so they mirror the gap on their inner
+    // side — which keeps a single-line block from collapsing to just its text height.
+    const above = previous ? (line.top - previous.bottom) / 2 : next ? (next.top - line.bottom) / 2 : 0
+    const below = next ? (next.top - line.bottom) / 2 : previous ? (line.top - previous.bottom) / 2 : 0
+    return {
+      top: line.top - Math.max(0, above),
+      bottom: line.bottom + Math.max(0, below),
+    }
+  })
+}
 
-  return [...banded, ...freeStanding]
+/**
+ * One box per visual line the sentence occupies.
+ *
+ * `Range.getClientRects()` returns a rect for each inline element the range crosses *and* one
+ * for the text run inside it, so a sentence containing `<a>`, `<b>` or `<sub>` yields
+ * overlapping duplicates that stack into a visibly darker patch under a translucent mark.
+ * Collapsing them onto the block's line bands removes the doubling, closes the hairline gaps
+ * between adjacent runs, and drops the node count from one-per-run to one-per-line.
+ *
+ * Pass `bands` when highlighting several sentences in the same block to measure it once.
+ */
+export function lineRectsForSentence(
+  block: HTMLElement,
+  start: number,
+  end: number,
+  bands: readonly LineBand[] = lineBandsFor(block),
+): LineRect[] {
+  const range = rangeForSentence(block, start, end)
+  if (!range || bands.length === 0) return []
+
+  const rects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0)
+
+  /**
+   * The band a rect belongs to. Bands tile, so a centre almost always lands inside one; the
+   * nearest-band fallback catches a rect straddling an edge instead of dropping it.
+   */
+  const bandIndexOf = (rect: DOMRect): number => {
+    const centre = rect.top + rect.height / 2
+    const inside = bands.findIndex((band) => centre >= band.top && centre <= band.bottom)
+    if (inside >= 0) return inside
+
+    let nearest = 0
+    let best = Number.POSITIVE_INFINITY
+    bands.forEach((band, index) => {
+      const distance = Math.abs((band.top + band.bottom) / 2 - centre)
+      if (distance < best) {
+        best = distance
+        nearest = index
+      }
+    })
+    return nearest
+  }
+
+  // Every band the sentence touches contributes one box: the band's full height, and only as
+  // wide as the sentence reaches on that line. Because the band came from the block's real
+  // lines, nothing here depends on rect heights — bold, superscripts and inline images all
+  // widen a box without being able to move it.
+  const spans = new Map<number, { left: number; right: number }>()
+  for (const rect of rects) {
+    const index = bandIndexOf(rect)
+    const span = spans.get(index)
+    if (span) {
+      span.left = Math.min(span.left, rect.left)
+      span.right = Math.max(span.right, rect.right)
+    } else {
+      spans.set(index, { left: rect.left, right: rect.right })
+    }
+  }
+
+  return [...spans.entries()]
+    .sort(([a], [b]) => a - b)
+    .flatMap(([index, span]) => {
+      const band = bands[index]
+      return band ? [{ left: span.left, right: span.right, top: band.top, bottom: band.bottom }] : []
+    })
 }
 
 const containsPoint = (rect: LineRect, x: number, y: number): boolean =>
@@ -222,12 +245,14 @@ export function sentenceAtPoint(
   if (!block || !article.contains(block)) return null
 
   // A block holds a handful of sentences, so this scan is bounded and cheap — unlike
-  // pre-segmenting the article, whose cost would scale with its length.
+  // pre-segmenting the article, whose cost would scale with its length. The block's line bands
+  // are measured once and shared across those sentences rather than per sentence.
   //
-  // Hit testing runs against the same merged line rects that get painted, so the region that
-  // responds to the cursor is exactly the region that lights up.
+  // Hit testing runs against the same boxes that get painted, so the region that responds to
+  // the cursor is exactly the region that lights up.
+  const bands = lineBandsFor(block)
   for (const sentence of sentencesIn(block, locale)) {
-    for (const rect of lineRectsForSentence(block, sentence.start, sentence.end)) {
+    for (const rect of lineRectsForSentence(block, sentence.start, sentence.end, bands)) {
       if (containsPoint(rect, x, y)) return { block, ...sentence }
     }
   }
