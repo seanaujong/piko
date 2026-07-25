@@ -256,6 +256,106 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  describe('clipping the host page', () => {
+    /** The toolbar click has no page of its own, so the worker relays it into the tab. */
+    async function pressToolbarIcon(page: Page): Promise<void> {
+      const [worker] = context.serviceWorkers()
+      const url = page.url()
+      await worker!.evaluate(async (target) => {
+        const tabs = await chrome.tabs.query({})
+        const tab = tabs.find((t) => t.url === target)
+        await chrome.tabs.sendMessage(tab!.id!, { type: 'TOGGLE_CLIPPING' })
+      }, url)
+    }
+
+    const railHidden = (page: Page): Promise<boolean> =>
+      page.evaluate(
+        `${SHADOW}.querySelector('.piko-rail').hasAttribute('data-hidden')`,
+      ) as Promise<boolean>
+
+    it('docks the journal without dragging, and without covering the page', async () => {
+      const page = await context.newPage()
+      await page.goto(`${base}/article.html`)
+
+      expect(await railHidden(page)).toBe(true)
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(false)
+
+      // The scrim belongs to the modal preview. A rail that dimmed the page would defeat the
+      // mode it accompanies, so the backdrop must stay inert.
+      const backdropBlocks = await page.evaluate(
+        `getComputedStyle(${SHADOW}.querySelector('.piko-backdrop')).pointerEvents !== 'none'`,
+      )
+      expect(backdropBlocks).toBe(false)
+
+      await page.close()
+    })
+
+    it('clips a sentence from the page the reader is already on', async () => {
+      const page = await context.newPage()
+      await page.goto(`${base}/article.html`)
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(false)
+
+      const point = (await page.evaluate(`(() => {
+        const p = [...document.querySelectorAll('article p')][0]
+        const r = p.getBoundingClientRect()
+        return { x: r.left + 40, y: r.top + 8 }
+      })()`)) as { x: number; y: number }
+      await page.mouse.click(point.x, point.y)
+
+      await expect.poll(() => clippingCount(page), POLL).toBe(1)
+      const text = await firstClippingText(page)
+      expect(text).toContain('A tide is the rise and fall of a sea level')
+
+      // Taken directly, so there is no page it was dragged from.
+      const source = await page.evaluate(`${SHADOW}.querySelector('.piko-clip-source').textContent`)
+      expect(source).toContain('The Nature of Tides')
+
+      await page.close()
+    })
+
+    it('does not follow a link when clipping a sentence inside one', async () => {
+      const page = await context.newPage()
+      await page.goto(`${base}/`)
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(false)
+
+      const point = (await page.evaluate(`(() => {
+        const a = document.getElementById('article-link')
+        const r = a.getBoundingClientRect()
+        return { x: r.left + 10, y: r.top + r.height / 2 }
+      })()`)) as { x: number; y: number }
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(700)
+
+      expect(page.url()).toBe(`${base}/`)
+      await page.close()
+    })
+
+    it('hands the page back when toggled off', async () => {
+      const page = await context.newPage()
+      await page.goto(`${base}/article.html`)
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(false)
+      await pressToolbarIcon(page)
+      await expect.poll(() => railHidden(page), POLL).toBe(true)
+
+      // Nothing left listening: a click on prose is an ordinary click again.
+      const before = await clippingCount(page)
+      const point = (await page.evaluate(`(() => {
+        const p = [...document.querySelectorAll('article p')][0]
+        const r = p.getBoundingClientRect()
+        return { x: r.left + 40, y: r.top + 8 }
+      })()`)) as { x: number; y: number }
+      await page.mouse.click(point.x, point.y)
+      await page.waitForTimeout(600)
+      expect(await clippingCount(page)).toBe(before)
+
+      await page.close()
+    })
+  })
+
   it('shows source filter chips only once a second source exists', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)

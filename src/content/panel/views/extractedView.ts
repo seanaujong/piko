@@ -1,6 +1,6 @@
 import type { ExtractedArticle } from '../../extraction/extract'
 import type { SentenceHit } from '../../extraction/sentences'
-import { BLOCK_SELECTOR, sentencesIn } from '../../extraction/sentences'
+import { findSentences } from '../../extraction/sentences'
 import type { Clipping, ClippingsStore } from '../../state/clippings'
 import { attachSentenceHighlight } from '../highlight'
 
@@ -12,27 +12,6 @@ export type ExtractedContext = {
   originUrl: string | null
   /** The shadow root the panel renders into; hit testing must go through it. */
   root: DocumentOrShadowRoot
-}
-
-/**
- * Stored clippings are plain text, so on each render they have to be located again in the
- * freshly-built DOM to be painted. Matching on text rather than on a stored node path is what
- * lets a clipping survive re-extraction, a framed/reader toggle, and a later revisit.
- */
-function locateClipped(
-  articleEl: HTMLElement,
-  locale: string,
-  texts: ReadonlySet<string>,
-): SentenceHit[] {
-  if (texts.size === 0) return []
-
-  const hits: SentenceHit[] = []
-  for (const block of articleEl.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)) {
-    for (const sentence of sentencesIn(block, locale)) {
-      if (texts.has(sentence.text)) hits.push({ block, ...sentence })
-    }
-  }
-  return hits
 }
 
 export function renderExtracted(
@@ -72,7 +51,7 @@ export function renderExtracted(
         .filter((clipping) => clipping.sourceUrl === sourceUrl)
         .map((clipping) => clipping.text),
     )
-    clippedHits = locateClipped(wrapper, locale, mine)
+    clippedHits = findSentences(wrapper, locale, mine)
   }
 
   refreshClipped()

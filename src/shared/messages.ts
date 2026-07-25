@@ -17,3 +17,12 @@ export type CheckFrameabilityResponse =
 
 export type ExtensionRequest = CheckFrameabilityRequest
 export type ExtensionResponse = CheckFrameabilityResponse
+
+/**
+ * Background → content script. The toolbar action has no page of its own, so its click has to
+ * be relayed into the tab that will act on it. Separate from ExtensionRequest because the
+ * direction is reversed: the content script listens, the worker sends.
+ */
+export type ToggleClippingRequest = { type: 'TOGGLE_CLIPPING' }
+
+export type TabRequest = ToggleClippingRequest

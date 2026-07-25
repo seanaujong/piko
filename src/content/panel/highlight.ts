@@ -10,6 +10,16 @@ export type HighlightHandle = {
 type Options = {
   /** Positioned ancestor the overlay is placed in; rects are measured against it. */
   surface: HTMLElement
+  /**
+   * What pointer events are listened on. Defaults to `surface`, which is right when the
+   * overlay sits inside the thing being read — the preview panel's article.
+   *
+   * Over the host page the two must differ: the overlay is a click-through fixed layer, so
+   * it can never receive a pointer event, and the listeners belong on the document instead.
+   * Keeping them as separate inputs is what lets one hit-tester serve both surfaces without
+   * knowing which it is on.
+   */
+  events?: HTMLElement | Document
   /** Hit-testing is confined to this subtree. */
   article: HTMLElement
   /** The shadow root the article is rendered into — see `sentenceAtPoint`. */
@@ -17,6 +27,17 @@ type Options = {
   /** Sentences already clipped, painted persistently. Re-read on every repaint. */
   clipped: () => readonly SentenceHit[]
   onToggle: (hit: SentenceHit) => void
+  /**
+   * Repaint on scroll as well as resize. The panel's overlay lives inside the scrolling
+   * container and travels with it for free; a fixed overlay over the host page does not, so
+   * its marks have to be re-derived as the page moves under them.
+   */
+  repaintOnScroll?: boolean
+  /**
+   * Swallow the click that clips. On the host page a sentence is very often inside a link,
+   * and clipping it must not also navigate away from the page being read.
+   */
+  suppressActivation?: boolean
 }
 
 const sameSentence = (a: SentenceHit, b: SentenceHit): boolean =>
@@ -32,6 +53,7 @@ const sameSentence = (a: SentenceHit, b: SentenceHit): boolean =>
  */
 export function attachSentenceHighlight(options: Options): HighlightHandle {
   const { surface, article, root, clipped, onToggle } = options
+  const events = options.events ?? surface
   const locale = document.documentElement.lang || 'en'
 
   const overlay = document.createElement('div')
@@ -121,13 +143,35 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     if (selection && !selection.isCollapsed) return
 
     const hit = sentenceAtPoint(article, root, locale, event.clientX, event.clientY)
-    if (hit) onToggle(hit)
+    if (!hit) return
+    if (options.suppressActivation) {
+      // Captured before the page sees it, so a sentence inside a link clips instead of
+      // navigating. Without this the page would be gone before the mark could paint.
+      event.preventDefault()
+      event.stopPropagation()
+    }
+    onToggle(hit)
   }
 
-  surface.addEventListener('pointermove', onPointerMove)
-  surface.addEventListener('pointerleave', onPointerLeave)
-  surface.addEventListener('click', onClick)
+  // Scroll fires far faster than the screen updates and every repaint reads layout, so it is
+  // collapsed to one per frame the same way pointer moves are.
+  let repaintPending = false
+  function repaintNextFrame(): void {
+    if (repaintPending) return
+    repaintPending = true
+    requestAnimationFrame(() => {
+      repaintPending = false
+      repaint()
+    })
+  }
+
+  events.addEventListener('pointermove', onPointerMove as EventListener)
+  events.addEventListener('pointerleave', onPointerLeave)
+  events.addEventListener('click', onClick as EventListener, options.suppressActivation === true)
   window.addEventListener('resize', repaint)
+  if (options.repaintOnScroll) {
+    window.addEventListener('scroll', repaintNextFrame, { passive: true })
+  }
 
   // Rects are measured from laid-out text, so a late webfont swap silently invalidates them.
   void document.fonts?.ready.then(repaint)
@@ -135,10 +179,11 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
   return {
     repaint,
     destroy() {
-      surface.removeEventListener('pointermove', onPointerMove)
-      surface.removeEventListener('pointerleave', onPointerLeave)
-      surface.removeEventListener('click', onClick)
+      events.removeEventListener('pointermove', onPointerMove as EventListener)
+      events.removeEventListener('pointerleave', onPointerLeave)
+      events.removeEventListener('click', onClick as EventListener, options.suppressActivation === true)
       window.removeEventListener('resize', repaint)
+      window.removeEventListener('scroll', repaintNextFrame)
       overlay.remove()
     },
   }

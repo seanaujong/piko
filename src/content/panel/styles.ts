@@ -24,28 +24,30 @@ export const PANEL_STYLES = `
   color: #1a1a1a;
 }
 
+/* Gated on data-preview, not on the host being visible: the docked rail also makes the host
+   visible, and a scrim over the page would defeat the mode the rail accompanies. */
 .piko-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
-  pointer-events: auto;
-  opacity: 1;
+  pointer-events: none;
+  opacity: 0;
   transition:
     opacity 180ms ease,
     background-color 200ms ease;
+}
+
+:host([data-preview]) .piko-backdrop {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* Darkens further while the pointer is anywhere over the preview (backdrop or panel) — a
    deliberate touch, not just a static scrim. :host's own condition must go inside the
    functional-notation parens — :host:hover (bare-chained) silently never matches, while
    :host(:hover) does; confirmed live, this isn't a stylistic preference. */
-:host(:hover) .piko-backdrop {
+:host([data-preview]:hover) .piko-backdrop {
   background: rgba(0, 0, 0, 0.72);
-}
-
-:host([data-hidden]) .piko-backdrop {
-  opacity: 0;
-  pointer-events: none;
 }
 
 .piko-panel {
@@ -65,17 +67,18 @@ export const PANEL_STYLES = `
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
   overflow: hidden;
   transform-origin: center;
-  opacity: 1;
-  transform: translate(-50%, -50%) scale(1);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0.85);
   transition:
     opacity 180ms ease,
     transform 180ms ease;
 }
 
-:host([data-hidden]) .piko-panel {
-  opacity: 0;
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(0.85);
+:host([data-preview]) .piko-panel {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, -50%) scale(1);
 }
 
 .piko-header {
@@ -169,10 +172,54 @@ export const PANEL_STYLES = `
   background: #c62828;
 }
 
+/**
+ * The journal docked over the page, for clipping the page itself.
+ *
+ * Deliberately NOT the modal panel: that has a backdrop, and you cannot clip a page you have
+ * covered. The rail takes back its own width and nothing else, so the page underneath stays
+ * readable and clickable — which is the whole point of the mode it accompanies.
+ */
+.piko-rail {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  bottom: 12px;
+  width: 320px;
+  max-width: 40vw;
+  box-sizing: border-box;
+  display: flex;
+  pointer-events: auto;
+  background: #ffffff;
+  border-radius: 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  opacity: 1;
+  transform: translateX(0);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease;
+}
+
+.piko-rail[data-hidden] {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(16px);
+}
+
+/* Marks for the host page go here: absolutely positioned over the whole viewport so rects
+   measured against it are viewport coordinates, and click-through so the page still works. */
+.piko-host-surface {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
 /*
  * .piko-body is the v2 seam: a single flex row with one child pane today. A future
  * Claude-driven pane (Native Messaging) can be added as a sibling flex child here without
- * restructuring the container.
+ * restructuring the container. The clippings pane moves between here and .piko-rail
+ * depending on whether there is a preview to sit inside.
  */
 .piko-body {
   flex: 1 1 auto;

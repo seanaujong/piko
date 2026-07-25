@@ -3,6 +3,7 @@ import type { Dispatch, PreviewState } from '../state/previewState'
 import { copyText } from './clipboard'
 import { displayUrl } from './formatUrl'
 import { ICON, iconButton } from './iconButton'
+import { attachHostClipping } from './hostClipping'
 import { createClippingsPane } from './views/clippingsPane'
 import { PANEL_STYLES } from './styles'
 import { renderError } from './views/errorView'
@@ -12,6 +13,12 @@ import { renderLoading } from './views/loadingView'
 
 export type PanelHandle = {
   render: (state: PreviewState) => void
+  /**
+   * Arm clipping on the page itself and dock the journal beside it. One affordance for both,
+   * because they are one thing: the rail being visible IS the indicator that clicks are being
+   * intercepted, so there is no invisible mode to forget you are in.
+   */
+  toggleHostClipping: () => void
 }
 
 /**
@@ -82,6 +89,15 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   panel.className = 'piko-panel'
   panel.append(header, body)
 
+  // Where the journal docks when there is no preview to sit inside.
+  const rail = document.createElement('div')
+  rail.className = 'piko-rail'
+  rail.toggleAttribute('data-hidden', true)
+
+  // Host-page marks are painted over the viewport rather than inside the panel.
+  const hostSurface = document.createElement('div')
+  hostSurface.className = 'piko-host-surface'
+
   // Painted first so `panel`, appended after it, sits visually on top; pointer-events are
   // re-enabled on both explicitly since :host itself is click-through (see styles.ts). Now
   // that the backdrop covers the full viewport, it's also the dismiss-on-outside-click
@@ -90,20 +106,47 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   const backdrop = document.createElement('div')
   backdrop.className = 'piko-backdrop'
   backdrop.addEventListener('click', () => dispatch({ type: 'Dismissed' }))
-  shadow.append(backdrop, panel)
+  shadow.append(hostSurface, backdrop, panel, rail)
 
   document.documentElement.appendChild(host)
 
   let isOpen = false
   let cleanupCurrentView: (() => void) | null = null
+  let detachHostClipping: (() => void) | null = null
 
   document.addEventListener(
     'keydown',
     (event) => {
-      if (isOpen && event.key === 'Escape') dispatch({ type: 'Dismissed' })
+      if (event.key !== 'Escape') return
+      if (detachHostClipping) stopHostClipping()
+      else if (isOpen) dispatch({ type: 'Dismissed' })
     },
     { capture: true },
   )
+
+  /** The pane is one instance, re-parented — its filters and scroll survive the move. */
+  function dockPaneIn(parent: HTMLElement): void {
+    if (clippingsPane.root.parentElement !== parent) parent.appendChild(clippingsPane.root)
+  }
+
+  function stopHostClipping(): void {
+    detachHostClipping?.()
+    detachHostClipping = null
+    rail.toggleAttribute('data-hidden', true)
+    dockPaneIn(body)
+  }
+
+  function startHostClipping(): void {
+    // A preview covers the page behind a backdrop, so the two surfaces cannot be armed at
+    // once; asking for the page hands the reader back the page.
+    if (isOpen) dispatch({ type: 'Dismissed' })
+    dockPaneIn(rail)
+    rail.toggleAttribute('data-hidden', false)
+    clippingsPane.root.toggleAttribute('data-hidden', false)
+    host.toggleAttribute('data-hidden', false)
+    detachHostClipping = attachHostClipping(hostSurface, clippings)
+    clippingsPane.render()
+  }
 
   function render(state: PreviewState): void {
     cleanupCurrentView?.()
@@ -111,12 +154,18 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
 
     if (state.kind === 'idle') {
       isOpen = false
-      host.toggleAttribute('data-hidden', true)
+      host.toggleAttribute('data-preview', false)
+      // The rail keeps the shadow host visible when the modal is not showing.
+      host.toggleAttribute('data-hidden', detachHostClipping === null)
       content.replaceChildren()
       return
     }
+
+    // A drag wins over host clipping: the reader asked for a different page.
+    if (detachHostClipping) stopHostClipping()
     isOpen = true
     host.toggleAttribute('data-hidden', false)
+    host.toggleAttribute('data-preview', true)
 
     currentUrl = state.kind === 'ready' ? state.finalUrl : state.target.url
     // Shown trimmed, copied whole — the title carries the full string for anyone checking.
@@ -157,5 +206,11 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     clippingsPane.root.toggleAttribute('data-hidden', !clippable && clippings.all().length === 0)
   }
 
-  return { render }
+  return {
+    render,
+    toggleHostClipping() {
+      if (detachHostClipping) stopHostClipping()
+      else startHostClipping()
+    },
+  }
 }

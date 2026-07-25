@@ -154,6 +154,31 @@ export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   return sentences
 }
 
+/**
+ * Every sentence in `container` whose text is one of `texts`.
+ *
+ * Stored clippings are plain text, so painting them again means finding them again in
+ * whatever DOM is currently rendered. Matching on text rather than on a stored node path is
+ * what lets a clipping survive re-extraction, a reader/framed toggle, a reload, and — since
+ * the same lookup runs against the live page — being taken on one surface and shown on the
+ * other.
+ */
+export function findSentences(
+  container: HTMLElement,
+  locale: string,
+  texts: ReadonlySet<string>,
+): SentenceHit[] {
+  if (texts.size === 0) return []
+
+  const hits: SentenceHit[] = []
+  for (const block of container.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)) {
+    for (const sentence of sentencesIn(block, locale)) {
+      if (texts.has(sentence.text)) hits.push({ block, ...sentence })
+    }
+  }
+  return hits
+}
+
 function textNodesIn(block: HTMLElement): Text[] {
   const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
   const nodes: Text[] = []

@@ -1,4 +1,8 @@
-import type { CheckFrameabilityRequest, CheckFrameabilityResponse } from '../shared/messages'
+import type {
+  CheckFrameabilityRequest,
+  CheckFrameabilityResponse,
+  TabRequest,
+} from '../shared/messages'
 import { startDragTracking } from './dragTracking'
 import { mountPanel } from './panel/mountPanel'
 import type { LinkTarget, PreviewEvent, PreviewState } from './state/previewState'
@@ -70,3 +74,9 @@ function startPreview(target: LinkTarget): void {
 }
 
 startDragTracking(startPreview)
+
+// The toolbar icon is the entry point that needs no drag: it arms clipping on this page and
+// docks the journal beside it.
+chrome.runtime.onMessage.addListener((message: TabRequest) => {
+  if (message.type === 'TOGGLE_CLIPPING') panel.toggleHostClipping()
+})
