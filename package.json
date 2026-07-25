@@ -1,10 +1,11 @@
 {
-  "name": "lockin",
+  "name": "piko",
   "version": "0.1.0",
   "private": true,
   "description": "Drag-to-preview Chrome extension",
   "scripts": {
     "build": "node esbuild.config.mjs",
+    "icons": "node scripts/render-icons.mjs",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

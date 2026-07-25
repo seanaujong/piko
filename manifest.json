@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
-  "name": "LockIn",
+  "name": "Piko",
   "version": "0.1.0",
   "description": "Drag a link to preview its content in place, instead of opening a tab.",
   "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
   "background": {

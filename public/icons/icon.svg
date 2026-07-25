@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#43B4E4"/>
+      <stop offset="1" stop-color="#0C5379"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="128" height="128" rx="28" fill="url(#sea)"/>
+
+  <!-- The far wing sweeps down and back, tinted so it reads as behind the body.
+       Wings carry no dark tip marking: at icon sizes the wing is only a few pixels
+       across out there, so a contrasting tip detaches into a floating speck. -->
+  <path fill="#A5D0EB" d="M66 70 C56 84 44 100 30 112 C46 103 62 92 74 82 C79 78 72 68 66 70 Z"/>
+
+  <!-- Body: short tail at lower left, rounded head at upper right. -->
+  <path fill="#FFFFFF" d="M30 88
+    C40 78 52 70 64 62
+    C73 55 84 46 95 45
+    C105 44 112 49 112 56
+    C112 64 105 70 96 72
+    C82 75 64 82 50 90
+    C42 95 34 94 30 88 Z"/>
+
+  <!-- Near wing sweeps up and back over the body. -->
+  <path fill="#FFFFFF" d="M74 58 C58 45 39 29 22 21 C29 37 43 55 56 67 C64 74 71 68 74 58 Z"/>
+
+  <!-- Beak -->
+  <path fill="#FFA62B" d="M110 50 L126 55 L110 61 C113 57 113 54 110 50 Z"/>
+
+  <!-- Eye -->
+  <circle cx="102" cy="53" r="3.2" fill="#0B3A57"/>
+</svg>

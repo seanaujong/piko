@@ -10,7 +10,7 @@ import { PANEL_HEIGHT_VH, PANEL_MAX_WIDTH_PX, PANEL_WIDTH_VW, PANEL_Z_INDEX } fr
 // unreliable in practice (the entrance transition would sometimes just snap instead of
 // playing), where plain opacity/transform transitions on already-rendered elements always
 // animate correctly. :host itself is click-through (pointer-events: none); only
-// .lockin-backdrop and .lockin-panel re-enable it, and only while visible.
+// .piko-backdrop and .piko-panel re-enable it, and only while visible.
 export const PANEL_STYLES = `
 :host {
   all: initial;
@@ -24,7 +24,7 @@ export const PANEL_STYLES = `
   color: #1a1a1a;
 }
 
-.lockin-backdrop {
+.piko-backdrop {
   position: absolute;
   inset: 0;
   background: rgba(0, 0, 0, 0.28);
@@ -39,16 +39,16 @@ export const PANEL_STYLES = `
    deliberate touch, not just a static scrim. :host's own condition must go inside the
    functional-notation parens — :host:hover (bare-chained) silently never matches, while
    :host(:hover) does; confirmed live, this isn't a stylistic preference. */
-:host(:hover) .lockin-backdrop {
+:host(:hover) .piko-backdrop {
   background: rgba(0, 0, 0, 0.72);
 }
 
-:host([data-hidden]) .lockin-backdrop {
+:host([data-hidden]) .piko-backdrop {
   opacity: 0;
   pointer-events: none;
 }
 
-.lockin-panel {
+.piko-panel {
   position: absolute;
   top: 50%;
   left: 50%;
@@ -72,13 +72,13 @@ export const PANEL_STYLES = `
     transform 180ms ease;
 }
 
-:host([data-hidden]) .lockin-panel {
+:host([data-hidden]) .piko-panel {
   opacity: 0;
   pointer-events: none;
   transform: translate(-50%, -50%) scale(0.85);
 }
 
-.lockin-header {
+.piko-header {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -88,7 +88,7 @@ export const PANEL_STYLES = `
   flex: 0 0 auto;
 }
 
-.lockin-url {
+.piko-url {
   flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -97,7 +97,7 @@ export const PANEL_STYLES = `
   color: #555;
 }
 
-.lockin-button {
+.piko-button {
   all: initial;
   box-sizing: border-box;
   cursor: pointer;
@@ -110,52 +110,52 @@ export const PANEL_STYLES = `
   text-align: center;
 }
 
-.lockin-button:hover {
+.piko-button:hover {
   background: #e2e2e2;
 }
 
-.lockin-button.active {
+.piko-button.active {
   background: #4a3fe0;
   color: white;
 }
 
-.lockin-close {
+.piko-close {
   padding: 4px 8px;
   background: #e53935;
   color: #1a1a1a;
   font-weight: 600;
 }
 
-.lockin-close:hover {
+.piko-close:hover {
   background: #c62828;
 }
 
 /*
- * .lockin-body is the v2 seam: a single flex row with one child pane today. A future
+ * .piko-body is the v2 seam: a single flex row with one child pane today. A future
  * Claude-driven pane (Native Messaging) can be added as a sibling flex child here without
  * restructuring the container.
  */
-.lockin-body {
+.piko-body {
   flex: 1 1 auto;
   display: flex;
   flex-direction: row;
   overflow: hidden;
 }
 
-.lockin-content {
+.piko-content {
   flex: 1 1 auto;
   min-width: 0;
   overflow: auto;
   background: #ffffff;
 }
 
-.lockin-framed-wrapper {
+.piko-framed-wrapper {
   position: relative;
   width: 100%;
   height: 100%;
 }
 
-.lockin-iframe {
+.piko-iframe {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -166,11 +166,11 @@ export const PANEL_STYLES = `
   transition: opacity 200ms ease;
 }
 
-.lockin-framed-wrapper.lockin-framed-loaded .lockin-iframe {
+.piko-framed-wrapper.piko-framed-loaded .piko-iframe {
   opacity: 1;
 }
 
-.lockin-spinner {
+.piko-spinner {
   position: absolute;
   inset: 0;
   display: flex;
@@ -182,34 +182,34 @@ export const PANEL_STYLES = `
   pointer-events: none;
 }
 
-.lockin-spinner::after {
+.piko-spinner::after {
   content: '';
   width: 32px;
   height: 32px;
   border-radius: 50%;
   border: 3px solid rgba(0, 0, 0, 0.1);
   border-top-color: #4a3fe0;
-  animation: lockin-spin 700ms linear infinite;
+  animation: piko-spin 700ms linear infinite;
 }
 
-.lockin-framed-wrapper.lockin-framed-loaded .lockin-spinner {
+.piko-framed-wrapper.piko-framed-loaded .piko-spinner {
   opacity: 0;
 }
 
-@keyframes lockin-spin {
+@keyframes piko-spin {
   to {
     transform: rotate(360deg);
   }
 }
 
-.lockin-loading,
-.lockin-error {
+.piko-loading,
+.piko-error {
   padding: 32px;
   color: #555;
   line-height: 1.5;
 }
 
-.lockin-article {
+.piko-article {
   position: relative; /* containing block for the highlight overlay */
   max-width: 680px;
   margin: 0 auto;
@@ -224,51 +224,51 @@ export const PANEL_STYLES = `
  * DOM that extract.ts produced. The overlay sits beneath the text, so every article child
  * needs its own stacking context to stay legible on top of a mark.
  */
-.lockin-marks {
+.piko-marks {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
 }
 
-.lockin-article > *:not(.lockin-marks) {
+.piko-article > *:not(.piko-marks) {
   position: relative;
   z-index: 1;
 }
 
-.lockin-mark {
+.piko-mark {
   position: absolute;
   border-radius: 2px;
 }
 
-.lockin-mark-hover {
+.piko-mark-hover {
   background: rgba(74, 63, 224, 0.1);
 }
 
-.lockin-mark-clip {
+.piko-mark-clip {
   background: rgba(246, 205, 78, 0.42);
 }
 
-.lockin-article h1 {
+.piko-article h1 {
   font-size: 26px;
   line-height: 1.3;
   margin: 0 0 6px;
 }
 
-.lockin-byline {
+.piko-byline {
   color: #666;
   font-size: 13px;
   margin-bottom: 20px;
 }
 
-.lockin-article img {
+.piko-article img {
   max-width: 100%;
   height: auto;
 }
 
-/* ---- clippings journal: .lockin-body's second flex child ---- */
+/* ---- clippings journal: .piko-body's second flex child ---- */
 
-.lockin-clips {
+.piko-clips {
   flex: 0 0 300px;
   min-width: 0;
   display: flex;
@@ -278,11 +278,11 @@ export const PANEL_STYLES = `
   background: #fcfcfb;
 }
 
-.lockin-clips[data-hidden] {
+.piko-clips[data-hidden] {
   display: none;
 }
 
-.lockin-clips-header {
+.piko-clips-header {
   display: flex;
   align-items: baseline;
   gap: 8px;
@@ -290,7 +290,7 @@ export const PANEL_STYLES = `
   flex: 0 0 auto;
 }
 
-.lockin-clips-title {
+.piko-clips-title {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
@@ -298,19 +298,19 @@ export const PANEL_STYLES = `
   color: #555;
 }
 
-.lockin-clips-count {
+.piko-clips-count {
   font-size: 11px;
   color: #8a8a80;
   font-variant-numeric: tabular-nums;
 }
 
-.lockin-clips-copy {
+.piko-clips-copy {
   margin-left: auto;
   font-size: 12px;
   padding: 3px 9px;
 }
 
-.lockin-clips-filters {
+.piko-clips-filters {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -318,7 +318,7 @@ export const PANEL_STYLES = `
   flex: 0 0 auto;
 }
 
-.lockin-chip {
+.piko-chip {
   all: initial;
   box-sizing: border-box;
   cursor: pointer;
@@ -333,35 +333,35 @@ export const PANEL_STYLES = `
   color: #666;
 }
 
-.lockin-chip:hover {
+.piko-chip:hover {
   border-color: #4a3fe0;
   color: #1a1a1a;
 }
 
-.lockin-chip[aria-pressed='true'] {
+.piko-chip[aria-pressed='true'] {
   background: #f6cd4e;
   border-color: transparent;
   color: #1a1a1a;
   font-weight: 600;
 }
 
-.lockin-chip-reset {
+.piko-chip-reset {
   border-style: dashed;
 }
 
-.lockin-chip-count {
+.piko-chip-count {
   font-size: 10px;
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
 }
 
-.lockin-clips-list {
+.piko-clips-list {
   flex: 1 1 auto;
   overflow: auto;
   padding: 0 13px 14px;
 }
 
-.lockin-clips-empty {
+.piko-clips-empty {
   font-size: 12.5px;
   line-height: 1.5;
   color: #8a8a80;
@@ -371,7 +371,7 @@ export const PANEL_STYLES = `
 
 /* Session boundaries render inline so temporal structure shows without the list
    ever changing shape — no separate grouping mode to switch into. */
-.lockin-clips-divider {
+.piko-clips-divider {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -381,15 +381,15 @@ export const PANEL_STYLES = `
   letter-spacing: 0.04em;
 }
 
-.lockin-clips-divider::before,
-.lockin-clips-divider::after {
+.piko-clips-divider::before,
+.piko-clips-divider::after {
   content: '';
   height: 1px;
   background: rgba(0, 0, 0, 0.09);
   flex: 1 1 auto;
 }
 
-.lockin-clip {
+.piko-clip {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -400,7 +400,7 @@ export const PANEL_STYLES = `
   background: #ffffff;
 }
 
-.lockin-clip-when {
+.piko-clip-when {
   flex: 0 0 auto;
   font-size: 10px;
   color: #9a9a94;
@@ -408,7 +408,7 @@ export const PANEL_STYLES = `
   font-variant-numeric: tabular-nums;
 }
 
-.lockin-clip-body {
+.piko-clip-body {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 12.5px;
@@ -416,7 +416,7 @@ export const PANEL_STYLES = `
   color: #2b2b2b;
 }
 
-.lockin-clip-source {
+.piko-clip-source {
   display: block;
   margin-top: 3px;
   font-size: 10px;
@@ -426,7 +426,7 @@ export const PANEL_STYLES = `
   white-space: nowrap;
 }
 
-.lockin-clip-remove {
+.piko-clip-remove {
   all: initial;
   box-sizing: border-box;
   cursor: pointer;
@@ -439,12 +439,12 @@ export const PANEL_STYLES = `
   transition: opacity 120ms ease;
 }
 
-.lockin-clip:hover .lockin-clip-remove,
-.lockin-clip-remove:focus-visible {
+.piko-clip:hover .piko-clip-remove,
+.piko-clip-remove:focus-visible {
   opacity: 1;
 }
 
-.lockin-clip-remove:hover {
+.piko-clip-remove:hover {
   color: #e53935;
 }
 `

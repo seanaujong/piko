@@ -16,14 +16,14 @@ import type { Dispatch } from '../../state/previewState'
  */
 export function renderFramed(root: HTMLElement, finalUrl: string, dispatch: Dispatch): () => void {
   const wrapper = document.createElement('div')
-  wrapper.className = 'lockin-framed-wrapper'
+  wrapper.className = 'piko-framed-wrapper'
 
   const iframe = document.createElement('iframe')
-  iframe.className = 'lockin-iframe'
+  iframe.className = 'piko-iframe'
   iframe.src = finalUrl
 
   const spinner = document.createElement('div')
-  spinner.className = 'lockin-spinner'
+  spinner.className = 'piko-spinner'
 
   wrapper.append(iframe, spinner)
   root.replaceChildren(wrapper)
@@ -39,7 +39,7 @@ export function renderFramed(root: HTMLElement, finalUrl: string, dispatch: Disp
     if (settled) return
     settled = true
     clearTimeout(timeoutId)
-    wrapper.classList.add('lockin-framed-loaded')
+    wrapper.classList.add('piko-framed-loaded')
   })
 
   return () => {

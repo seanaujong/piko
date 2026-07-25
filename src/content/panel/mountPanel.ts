@@ -26,24 +26,24 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   shadow.appendChild(styleEl)
 
   const urlLabel = document.createElement('div')
-  urlLabel.className = 'lockin-url'
+  urlLabel.className = 'piko-url'
 
   const toggleButton = document.createElement('button')
-  toggleButton.className = 'lockin-button'
+  toggleButton.className = 'piko-button'
   toggleButton.addEventListener('click', () => dispatch({ type: 'ManualModeToggled' }))
 
   const closeButton = document.createElement('button')
-  closeButton.className = 'lockin-button lockin-close'
+  closeButton.className = 'piko-button piko-close'
   closeButton.textContent = '✕'
   closeButton.setAttribute('aria-label', 'Close preview')
   closeButton.addEventListener('click', () => dispatch({ type: 'Dismissed' }))
 
   const header = document.createElement('div')
-  header.className = 'lockin-header'
+  header.className = 'piko-header'
   header.append(urlLabel, toggleButton, closeButton)
 
   const content = document.createElement('div')
-  content.className = 'lockin-content'
+  content.className = 'piko-content'
 
   // The clippings journal spans previews rather than belonging to any one of them, so it's
   // created once with the panel and outlives every individual `render()`.
@@ -51,11 +51,11 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   const clippingsPane = createClippingsPane(clippings)
 
   const body = document.createElement('div')
-  body.className = 'lockin-body'
+  body.className = 'piko-body'
   body.append(content, clippingsPane.root)
 
   const panel = document.createElement('div')
-  panel.className = 'lockin-panel'
+  panel.className = 'piko-panel'
   panel.append(header, body)
 
   // Painted first so `panel`, appended after it, sits visually on top; pointer-events are
@@ -64,7 +64,7 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   // target directly — a document-level listener can't tell backdrop clicks apart from panel
   // clicks once shadow-DOM event retargeting is in play (both report `target` as `host`).
   const backdrop = document.createElement('div')
-  backdrop.className = 'lockin-backdrop'
+  backdrop.className = 'piko-backdrop'
   backdrop.addEventListener('click', () => dispatch({ type: 'Dismissed' }))
   shadow.append(backdrop, panel)
 

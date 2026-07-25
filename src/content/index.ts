@@ -58,7 +58,7 @@ function requestFrameabilityCheck(target: LinkTarget): void {
     // Fails the preview cleanly instead of leaving it stuck on "loading" forever.
     dispatch({
       type: 'FrameCheckFailed',
-      reason: 'LockIn was updated — refresh this page to keep using the preview.',
+      reason: 'Piko was updated — refresh this page to keep using the preview.',
     })
   }
 }

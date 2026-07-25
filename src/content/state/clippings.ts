@@ -17,14 +17,14 @@ export type Clipping = {
   sourceTitle: string
   /**
    * Page the reader was on when they dragged the link, or null when they clipped directly.
-   * Because clippings arrive through a drag, LockIn knows both where a sentence lives and
+   * Because clippings arrive through a drag, Piko knows both where a sentence lives and
    * where the reader was standing when they took it.
    */
   originUrl: string | null
   at: number
 }
 
-const STORAGE_KEY = 'lockin.clippings'
+const STORAGE_KEY = 'piko.clippings'
 
 /** A pause longer than this reads as a new sitting rather than the same one. */
 export const SESSION_GAP_MS = 45 * 60_000
@@ -146,5 +146,5 @@ export function toMarkdown(items: readonly Clipping[]): string {
   const body = items
     .map((c) => `> ${c.text}\n>\n> — ${c.sourceTitle} · ${c.sourceUrl}`)
     .join('\n\n')
-  return `## LockIn clippings\n\n${body}\n`
+  return `## Piko clippings\n\n${body}\n`
 }

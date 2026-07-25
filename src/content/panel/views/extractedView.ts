@@ -41,7 +41,7 @@ export function renderExtracted(
   context: ExtractedContext,
 ): () => void {
   const wrapper = document.createElement('div')
-  wrapper.className = 'lockin-article'
+  wrapper.className = 'piko-article'
 
   const title = document.createElement('h1')
   title.textContent = article.title
@@ -49,7 +49,7 @@ export function renderExtracted(
 
   if (article.byline) {
     const byline = document.createElement('div')
-    byline.className = 'lockin-byline'
+    byline.className = 'piko-byline'
     byline.textContent = article.byline
     wrapper.appendChild(byline)
   }

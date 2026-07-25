@@ -35,7 +35,7 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
   const locale = document.documentElement.lang || 'en'
 
   const overlay = document.createElement('div')
-  overlay.className = 'lockin-marks'
+  overlay.className = 'piko-marks'
   surface.prepend(overlay)
 
   let hovered: SentenceHit | null = null
@@ -78,11 +78,11 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     const bands = new Map<HTMLElement, LineBand[]>()
 
     const clippedHits = clipped()
-    for (const hit of clippedHits) paintRange(hit, 'lockin-mark lockin-mark-clip', base, bands)
+    for (const hit of clippedHits) paintRange(hit, 'piko-mark piko-mark-clip', base, bands)
 
     // A clipped sentence keeps its own stronger colour rather than being overdrawn on hover.
     if (hovered && !clippedHits.some((c) => sameSentence(c, hovered!))) {
-      paintRange(hovered, 'lockin-mark lockin-mark-hover', base, bands)
+      paintRange(hovered, 'piko-mark piko-mark-hover', base, bands)
     }
   }
 

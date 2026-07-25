@@ -34,17 +34,17 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
   const activeSources = new Set<string>()
 
   const root = document.createElement('div')
-  root.className = 'lockin-clips'
+  root.className = 'piko-clips'
 
   const title = document.createElement('div')
-  title.className = 'lockin-clips-title'
+  title.className = 'piko-clips-title'
   title.textContent = 'Clippings'
 
   const count = document.createElement('span')
-  count.className = 'lockin-clips-count'
+  count.className = 'piko-clips-count'
 
   const copyButton = document.createElement('button')
-  copyButton.className = 'lockin-button lockin-clips-copy'
+  copyButton.className = 'piko-button piko-clips-copy'
   copyButton.textContent = 'Copy'
   copyButton.addEventListener('click', () => {
     const items = visibleClippings(store.all(), activeSources)
@@ -58,14 +58,14 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
   })
 
   const header = document.createElement('div')
-  header.className = 'lockin-clips-header'
+  header.className = 'piko-clips-header'
   header.append(title, count, copyButton)
 
   const filters = document.createElement('div')
-  filters.className = 'lockin-clips-filters'
+  filters.className = 'piko-clips-filters'
 
   const list = document.createElement('div')
-  list.className = 'lockin-clips-list'
+  list.className = 'piko-clips-list'
 
   root.append(header, filters, list)
 
@@ -77,7 +77,7 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
 
     for (const tally of tallies) {
       const chip = document.createElement('button')
-      chip.className = 'lockin-chip'
+      chip.className = 'piko-chip'
       chip.setAttribute('aria-pressed', String(activeSources.has(tally.sourceUrl)))
       chip.title = tally.sourceUrl
 
@@ -85,7 +85,7 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
       label.textContent = tally.sourceTitle
 
       const badge = document.createElement('span')
-      badge.className = 'lockin-chip-count'
+      badge.className = 'piko-chip-count'
       badge.textContent = String(tally.count)
 
       chip.append(label, badge)
@@ -99,7 +99,7 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
 
     if (activeSources.size > 0) {
       const reset = document.createElement('button')
-      reset.className = 'lockin-chip lockin-chip-reset'
+      reset.className = 'piko-chip piko-chip-reset'
       reset.textContent = 'Show all'
       reset.addEventListener('click', () => {
         activeSources.clear()
@@ -122,7 +122,7 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
 
     if (all.length === 0) {
       const empty = document.createElement('p')
-      empty.className = 'lockin-clips-empty'
+      empty.className = 'piko-clips-empty'
       empty.textContent = 'Click a sentence in the article to clip it.'
       list.appendChild(empty)
       return
@@ -132,31 +132,31 @@ export function createClippingsPane(store: ClippingsStore): ClippingsPane {
       const gap = gapBefore(items, index)
       if (gap !== null) {
         const divider = document.createElement('div')
-        divider.className = 'lockin-clips-divider'
+        divider.className = 'piko-clips-divider'
         divider.textContent = gapLabel(gap)
         list.appendChild(divider)
       }
 
       const entry = document.createElement('div')
-      entry.className = 'lockin-clip'
+      entry.className = 'piko-clip'
 
       const when = document.createElement('span')
-      when.className = 'lockin-clip-when'
+      when.className = 'piko-clip-when'
       when.textContent = relativeTime(clipping.at)
 
       const body = document.createElement('div')
-      body.className = 'lockin-clip-body'
+      body.className = 'piko-clip-body'
       body.textContent = clipping.text
 
       const source = document.createElement('span')
-      source.className = 'lockin-clip-source'
+      source.className = 'piko-clip-source'
       source.textContent = clipping.originUrl
         ? `${clipping.sourceTitle} · dragged from ${clipping.originUrl}`
         : clipping.sourceTitle
       body.appendChild(source)
 
       const remove = document.createElement('button')
-      remove.className = 'lockin-clip-remove'
+      remove.className = 'piko-clip-remove'
       remove.textContent = '✕'
       remove.setAttribute('aria-label', 'Remove clipping')
       remove.addEventListener('click', () => store.toggle(clipping))
