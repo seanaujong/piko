@@ -436,6 +436,43 @@ export const PANEL_STYLES = `
 }
 
 
+/* Sits between the header and the chips, present only while a search is running. The magnifier
+   inside it repeats the icon that opened it, so the field is legible as what that button did. */
+.piko-clips-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 13px 6px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  color: #a8a8a0;
+  flex: 0 0 auto;
+}
+
+.piko-clips-search-field {
+  all: initial;
+  box-sizing: border-box;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 12.5px;
+  color: #1a1a1a;
+}
+
+.piko-clips-search-field::placeholder {
+  color: #a8a8a0;
+}
+
+.piko-clips-search:focus-within {
+  border-color: #4a3fe0;
+}
+
+/* Reads as engaged while the field below it is open, the same way the mode toggle does. */
+.piko-clips-find.is-on {
+  color: #4a3fe0;
+}
+
 /* The row, and the reset that must not scroll away with it: a filter you cannot see is a
    trap, and so is the only control that clears one. */
 .piko-clips-filters {

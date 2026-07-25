@@ -159,6 +159,15 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     'keydown',
     (event) => {
       if (event.key !== 'Escape') return
+
+      // Escape inside a text field belongs to that field — abandoning a search, not the panel
+      // around it. This listener captures, so it runs before the field's own handler and
+      // stopping propagation down there would be too late. `event.target` is no help either:
+      // shadow retargeting reports the host from out here, so the real originator has to come
+      // from the composed path.
+      const origin = event.composedPath()[0]
+      if (origin instanceof HTMLInputElement || origin instanceof HTMLTextAreaElement) return
+
       if (detachHostClipping) stopHostClipping()
       else if (isOpen) dispatch({ type: 'Dismissed' })
     },

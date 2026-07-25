@@ -243,11 +243,52 @@ function ClipEntry({ clipping, onRemove }: { clipping: Clipping; onRemove: () =>
   )
 }
 
+/**
+ * The search field, and the icon that summons it.
+ *
+ * Kept out of the header's own row: at this width a field wide enough to type into would push
+ * the title out, and the field is only wanted while a search is going on. Opening it focuses
+ * it, because reaching for search and then having to click again to type is a step nobody
+ * wants.
+ */
+function SearchRow({ query, onQuery, onClose }: {
+  query: string
+  onQuery: (value: string) => void
+  onClose: () => void
+}) {
+  const field = useRef<HTMLInputElement>(null)
+
+  useLayoutEffect(() => field.current?.focus(), [])
+
+  return (
+    <div class="piko-clips-search">
+      <Icon parts={ICON.search} />
+      <input
+        ref={field}
+        class="piko-clips-search-field"
+        type="search"
+        placeholder="Search clippings"
+        aria-label="Search clippings"
+        value={query}
+        onInput={(event) => onQuery((event.currentTarget as HTMLInputElement).value)}
+        // Escape abandons the search. What keeps it from also dismissing the panel is upstream
+        // in mountPanel, which has to let the field win because its own listener captures and
+        // therefore runs first — nothing this handler does could stop it.
+        onKeyDown={(event) => {
+          if (event.key === 'Escape') onClose()
+        }}
+      />
+    </div>
+  )
+}
+
 function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }) {
   const all = useClippings(store)
   const [active, setActive] = useState<ReadonlySet<string>>(new Set())
+  const [searching, setSearching] = useState(false)
+  const [query, setQuery] = useState('')
 
-  const items = visibleClippings(all, active)
+  const items = visibleClippings(all, active, searching ? query : '')
 
   // A filter over a single source narrows nothing — it would just be noise. The chip row still
   // renders empty, so the pane's spacing doesn't change as a second source appears.
@@ -288,6 +329,20 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
           )}
         </div>
         <div class="piko-clips-actions">
+          <button
+            class={`piko-icon-button piko-clips-find${searching ? ' is-on' : ''}`}
+            title="Search clippings"
+            aria-label="Search clippings"
+            aria-pressed={searching ? 'true' : 'false'}
+            onClick={() => {
+              // Closing drops the query with it, rather than leaving the list narrowed by
+              // something no longer on screen.
+              if (searching) setQuery('')
+              setSearching(!searching)
+            }}
+          >
+            <Icon parts={ICON.search} />
+          </button>
           {/*
             An icon, because the control has no honest one-word label — "Close" beside an
             article would read as closing the preview the pane sits inside.
@@ -302,6 +357,17 @@ function Pane({ store, onClose }: { store: ClippingsStore; onClose: () => void }
           </button>
         </div>
       </div>
+
+      {searching && (
+        <SearchRow
+          query={query}
+          onQuery={setQuery}
+          onClose={() => {
+            setQuery('')
+            setSearching(false)
+          }}
+        />
+      )}
 
       <ChipRow tallies={filterable} active={active} onToggle={toggleSource} />
 

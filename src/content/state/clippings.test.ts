@@ -197,6 +197,30 @@ describe('visibleClippings', () => {
 
     expect(visible).toHaveLength(3)
   })
+
+  it('narrows to the clippings holding the query, whatever its case', () => {
+    const visible = visibleClippings(ITEMS, new Set(), 'SECOND')
+
+    expect(visible.map((c) => c.text)).toEqual(['Second.'])
+  })
+
+  it('searches the source title as well as the text', () => {
+    // "Where did I read that" is as common a question as "what did it say".
+    const visible = visibleClippings(ITEMS, new Set(), 'chemical')
+
+    expect(visible.map((c) => c.text)).toEqual(['Third.'])
+  })
+
+  it('intersects a query with a source selection rather than replacing it', () => {
+    // Both narrowings answer different questions; a reader asking both means both.
+    expect(visibleClippings(ITEMS, new Set([ENCYCLOPEDIA]), 'Third')).toEqual([])
+    expect(visibleClippings(ITEMS, new Set([CHEMISTRY]), 'Third')).toHaveLength(1)
+  })
+
+  it('ignores a query that is only whitespace', () => {
+    // A field the reader has cleared back to spaces must not read as "nothing matches".
+    expect(visibleClippings(ITEMS, new Set(), '   ')).toHaveLength(3)
+  })
 })
 
 describe('gapBefore', () => {

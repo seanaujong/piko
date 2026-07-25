@@ -254,13 +254,32 @@ export function sourcesInSessionOrder(clippings: readonly Clipping[]): SourceTal
   return ordered
 }
 
-/** Newest first, narrowed to `sources` when that set is non-empty. */
+/**
+ * Newest first, narrowed by source and by query — each ignored when empty.
+ *
+ * The two narrowings compose rather than replace: sources are a union (two chips show both),
+ * and the query intersects with whatever that leaves, because "these two pages" and "the word
+ * tide" are answers to different questions and a reader asking both means both.
+ *
+ * A plain scan over the text. A thousand clippings is a few hundred kilobytes of string, which
+ * is measured at a quarter of a millisecond to walk — an index would be machinery guarding
+ * against a cost that isn't there.
+ */
 export function visibleClippings(
   clippings: readonly Clipping[],
   sources: ReadonlySet<string>,
+  query = '',
 ): Clipping[] {
+  const needle = query.trim().toLowerCase()
   return clippings
     .filter((c) => sources.size === 0 || sources.has(c.sourceUrl))
+    .filter(
+      (c) =>
+        needle === '' ||
+        c.text.toLowerCase().includes(needle) ||
+        // The title too: "where did I read that" is as common a question as "what did it say".
+        c.sourceTitle.toLowerCase().includes(needle),
+    )
     .sort((a, b) => b.at - a.at)
 }
 

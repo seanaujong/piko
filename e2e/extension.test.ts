@@ -207,6 +207,36 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  it('searches the journal without Escape closing the preview under it', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+    await clipFirstSentence(page)
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+
+    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-find').click()`)
+    await expect
+      .poll(() => page.evaluate(`${SHADOW}.querySelector('.piko-clips-search') !== null`), POLL)
+      .toBe(true)
+
+    // A word that is nowhere in the clipped sentence.
+    await page.keyboard.type('zzzznothing')
+    await expect.poll(() => clippingCount(page), POLL).toBe(0)
+
+    // The panel dismisses on Escape from a capturing document listener, so the first Escape out
+    // of a search field would otherwise take the whole preview with it.
+    await page.keyboard.press('Escape')
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+
+    const stillOpen = await page.evaluate(
+      '[...document.documentElement.children].find(e => e.shadowRoot).hasAttribute("data-preview")',
+    )
+    expect(stillOpen).toBe(true)
+
+    await page.close()
+  })
+
   it('ignores a same-page anchor rather than previewing the page you are on', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)
