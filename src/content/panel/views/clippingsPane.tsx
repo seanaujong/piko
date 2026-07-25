@@ -1,5 +1,5 @@
-import { Fragment, render } from 'preact'
-import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { Component, Fragment, render } from 'preact'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import type { AgeBand, Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
 import {
   AGE_BAND_LABEL,
@@ -207,58 +207,96 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, now }: 
   )
 }
 
-function ClipEntry({ clipping, onRemove }: { clipping: Clipping; onRemove: () => void }) {
-  return (
-    <div class="piko-clip">
-      {/*
-        Time and controls share one meta row above the text, so neither reserves a gutter
-        beside it. In a pane this narrow the sentence needs the full width more than the
-        metadata needs to sit inline with it.
-      */}
-      <div class="piko-clip-meta">
-        <span class="piko-clip-when">{relativeTime(clipping.at)}</span>
-        <div class="piko-clip-actions">
-          {/* The sentence alone — the clipboard is the door out of the journal, one clip at a
-              time, so what lands there is the text and not a wrapper around it. */}
-          <CopyIconButton label="Copy this clipping" onCopy={() => copyText(clipping.text)} />
-          <button
-            class="piko-icon-button piko-clip-remove"
-            title="Remove clipping"
-            aria-label="Remove clipping"
-            onClick={onRemove}
+type ClipEntryProps = {
+  clipping: Clipping
+  /**
+   * Takes the clipping rather than closing over it, so one function instance serves every row.
+   * A `() => store.toggle(clipping)` built per row is a new value on every render, which is
+   * enough on its own to defeat the comparison below.
+   */
+  onRemove: (clipping: Clipping) => void
+}
+
+/**
+ * A row, skipped entirely when neither of its inputs changed.
+ *
+ * Rendering the list is linear in the *whole journal* rather than in what changed, because
+ * every redraw walks a vnode per element of every row to discover that one row differs. This is
+ * the check that stops the walk at the row: the store replaces its array but keeps the clipping
+ * objects inside it, so an unchanged row's props are identical by reference and its ten elements
+ * are never visited.
+ *
+ * Written as a class because `shouldComponentUpdate` is the only form of this in Preact's core —
+ * `memo` lives in `preact/compat`, and importing it would pull the whole compatibility layer,
+ * `options` patching included, into the content script to serve one comparison.
+ *
+ * The cost is that a row's relative time is fixed from when the row mounted, where it used to be
+ * recomputed on any redraw. Both are wrong in the same direction — neither ever ticked on its
+ * own — and reopening the rail or touching a filter remounts the rows and refreshes them. Making
+ * it exact means giving the row the current minute as a prop, which is a real trade rather than
+ * a free fix: labels would never be a minute stale, and the first clip of each new minute would
+ * pay the full walk this check exists to avoid.
+ */
+class ClipEntry extends Component<ClipEntryProps> {
+  shouldComponentUpdate(next: ClipEntryProps): boolean {
+    return next.clipping !== this.props.clipping || next.onRemove !== this.props.onRemove
+  }
+
+  render() {
+    const { clipping, onRemove } = this.props
+
+    return (
+      <div class="piko-clip">
+        {/*
+          Time and controls share one meta row above the text, so neither reserves a gutter
+          beside it. In a pane this narrow the sentence needs the full width more than the
+          metadata needs to sit inline with it.
+        */}
+        <div class="piko-clip-meta">
+          <span class="piko-clip-when">{relativeTime(clipping.at)}</span>
+          <div class="piko-clip-actions">
+            {/* The sentence alone — the clipboard is the door out of the journal, one clip at a
+                time, so what lands there is the text and not a wrapper around it. */}
+            <CopyIconButton label="Copy this clipping" onCopy={() => copyText(clipping.text)} />
+            <button
+              class="piko-icon-button piko-clip-remove"
+              title="Remove clipping"
+              aria-label="Remove clipping"
+              onClick={() => onRemove(clipping)}
+            >
+              <Icon parts={ICON.remove} />
+            </button>
+          </div>
+        </div>
+        <div class="piko-clip-body">
+          {clipping.text}
+          {/*
+            The way back to a clipping is a link out, not a preview: re-previewing in place would
+            replace whatever the reader currently has open, and giving the panel a history to
+            unwind is a lot of machinery for a pane that shows one page at a time. A new tab costs
+            the reader nothing they had, and the text directive means it opens *at* the sentence
+            rather than at the top of the article.
+
+            It names the page the sentence lives on. The page it was dragged from is a different
+            page, and inlining both without saying which was which read as one ambiguous line.
+          */}
+          <a
+            class="piko-clip-source"
+            href={textFragmentUrl(clipping.sourceUrl, clipping.text)}
+            target="_blank"
+            rel="noopener noreferrer"
+            title={
+              clipping.originUrl
+                ? `Open ${clipping.sourceTitle} at this sentence — dragged from ${clipping.originUrl}`
+                : `Open ${clipping.sourceTitle} at this sentence`
+            }
           >
-            <Icon parts={ICON.remove} />
-          </button>
+            {`${clipping.sourceTitle} · ${hostOf(clipping.sourceUrl)}`}
+          </a>
         </div>
       </div>
-      <div class="piko-clip-body">
-        {clipping.text}
-        {/*
-          The way back to a clipping is a link out, not a preview: re-previewing in place would
-          replace whatever the reader currently has open, and giving the panel a history to
-          unwind is a lot of machinery for a pane that shows one page at a time. A new tab costs
-          the reader nothing they had, and the text directive means it opens *at* the sentence
-          rather than at the top of the article.
-
-          It names the page the sentence lives on. The page it was dragged from is a different
-          page, and inlining both without saying which was which read as one ambiguous line.
-        */}
-        <a
-          class="piko-clip-source"
-          href={textFragmentUrl(clipping.sourceUrl, clipping.text)}
-          target="_blank"
-          rel="noopener noreferrer"
-          title={
-            clipping.originUrl
-              ? `Open ${clipping.sourceTitle} at this sentence — dragged from ${clipping.originUrl}`
-              : `Open ${clipping.sourceTitle} at this sentence`
-          }
-        >
-          {`${clipping.sourceTitle} · ${hostOf(clipping.sourceUrl)}`}
-        </a>
-      </div>
-    </div>
-  )
+    )
+  }
 }
 
 /**
@@ -363,6 +401,13 @@ function Pane({
   // of the very marker just pressed, leaving no way back out of it from the row.
   const worthFiltering = sourcesInSessionOrder(all).length >= 2
   const filterable = worthFiltering ? sources : []
+
+  /**
+   * Held still across renders on purpose, and the one place in this file where that is load
+   * bearing rather than tidiness: it is a prop of every row, so rebuilding it would change all
+   * of their props and send `ClipEntry`'s comparison back to visiting every element in the list.
+   */
+  const remove = useCallback((clipping: Clipping) => store.toggle(clipping), [store])
 
   const toggleSource = (sourceUrl: string): void =>
     setActive((current) => {
@@ -482,7 +527,7 @@ function Pane({
             return (
               <Fragment key={keyOf(clipping)}>
                 {gap !== null && <div class="piko-clips-divider">{gapLabel(gap)}</div>}
-                <ClipEntry clipping={clipping} onRemove={() => store.toggle(clipping)} />
+                <ClipEntry clipping={clipping} onRemove={remove} />
               </Fragment>
             )
           })

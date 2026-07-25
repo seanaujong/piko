@@ -1,3 +1,4 @@
+import { options } from 'preact'
 import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Clipping } from '../../state/clippings'
@@ -366,5 +367,62 @@ describe('the clippings list', () => {
     expect(after).toHaveLength(2)
     expect(after[0]).toBe(middle)
     expect(newest!.isConnected).toBe(false)
+  })
+})
+
+/**
+ * Drawing the list is linear in the whole journal unless the rows that did not change are
+ * skipped, and nothing about that is visible in the rendered DOM — a row that re-renders to the
+ * identical markup writes nothing. So the failure it guards against is silent: inline
+ * `onRemove` back into the list, or give `ClipEntry` a prop that is rebuilt each render, and the
+ * pane keeps working while quietly doing five times the work per clip.
+ *
+ * `options.diffed` is what makes it observable. Preact calls it for every vnode it visits, so
+ * counting the ones belonging to a row's interior answers exactly the right question: was that
+ * row's subtree walked, or stopped at?
+ */
+describe('what a redraw visits', () => {
+  /** Row interiors Preact walked while `body` ran. */
+  async function rowsVisitedWhile(body: () => void | Promise<void>): Promise<number> {
+    let visited = 0
+    const previous = options.diffed
+    // `.piko-clip-meta` rather than `.piko-clip` itself, because the row element is the one
+    // vnode the parent always renders — it is the interior that a skipped row never reaches.
+    options.diffed = (vnode) => {
+      if ((vnode.props as { class?: string } | null)?.class === 'piko-clip-meta') visited += 1
+      previous?.(vnode)
+    }
+
+    try {
+      await body()
+    } finally {
+      options.diffed = previous
+    }
+    return visited
+  }
+
+  it('walks every row on the first paint', async () => {
+    let rows = 0
+    const visited = await rowsVisitedWhile(() => {
+      rows = entries(paneWithTwoSources().pane).length
+    })
+
+    // The reference the skip is measured against, and what stops the next test from passing
+    // because the counter never fires or the pane stopped drawing at all.
+    expect(rows).toBe(3)
+    expect(visited).toBe(3)
+  })
+
+  it('walks only the row that changed when a clipping is added', async () => {
+    const { store } = paneWithTwoSources()
+
+    const visited = await rowsVisitedWhile(() =>
+      settle(() => store.toggle(clip('Fourth.', CHEMISTRY, T0 + 60_000))),
+    )
+
+    // The one row that mounted. The other three keep both of their props by reference, so
+    // `shouldComponentUpdate` stops the walk before any of their elements is reached — where
+    // an unstable `onRemove` would put all four back in the walk.
+    expect(visited).toBe(1)
   })
 })
