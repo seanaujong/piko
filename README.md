@@ -89,44 +89,12 @@ segmentation, the line geometry, the clippings projections.
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-Four things that fall out of this shape and are worth stating plainly:
-
-**The two surfaces meet at one hit-tester.** The three options they differ by are where pointer
-events come from (the host overlay is click-through, so they come from the document), whether
-marks repaint on scroll (a fixed overlay doesn't travel with the page), and whether the click is
-swallowed (a sentence on a real page is often inside a link). Everything else is shared, which
-is why a sentence means the same thing on both.
-
-**Reader mode is the default; framing is the fallback.** Sentence highlighting only works
-over content Piko itself extracted — a framed page is a cross-origin iframe whose DOM is
-unreadable, so there is nothing to hit-test. Defaulting to the frame would have hidden the
-whole clipping feature behind a toggle. Framing survives as the escape hatch for pages
-Readability can't make sense of.
-
-**Exactly one view uses a framework.** The clippings pane is rendered by Preact; every other
-view builds DOM directly, and that split is deliberate rather than a migration half-done. The
-pane is the only thing here that redraws repeatedly against changing data, and each of its
-rows carries state the data doesn't describe — scroll position, keyboard focus, a copy
-confirmation mid-countdown. Keyed reconciliation moves those nodes instead of rebuilding
-them, so the state rides along. Everything else renders once per preview, where a framework
-would buy nothing and cost a layer.
-
-**No text is ever mutated to highlight it.** Wrapping sentences in `<span>`s would rewrite
-the article's DOM and break the extraction it came from. Instead a separate overlay layer
-paints translucent bands positioned from the block's *measured* line structure. Line
-spacing inside a paragraph is not uniform — an inline image or a large-font span shifts it
-by a dozen pixels — so the bands are derived from real line rects, never from a
-`line-height` lattice.
-
-**Rationale lives next to the code it governs.** Every rule that holds this shape together is
-argued in the docblocks of the file that owns it — why bands come from measured lines, why the
-frameability check can only run in the worker, why one row refuses a redraw. `CLAUDE.md` keeps
-the *index* of those rules: one line each, with the file that carries the argument and the test
-that fails when it's broken. Read the index to find the rule, the source to understand it, and
-the colocated `*.test.ts` for a worked example — `previewState.ts` is the whole state machine in
-one file, and `sentences.ts` carries the segmentation and geometry rules inline. `CLAUDE.md` is
-also the contributor's workflow map: how to build, how to verify a change in a real browser, and
-where to make one.
+Every rule that holds this shape together is argued in the docblocks of the file that owns
+it — why bands come from measured lines, why frameability can only be answered in the worker,
+why one row refuses a redraw. `CLAUDE.md` carries the index of those rules, a line each, naming
+the file with the argument and the test that fails when it breaks, and doubles as the
+contributor's workflow map: how to build, how to verify in a real browser, and where to make a
+change.
 
 ## Develop
 
