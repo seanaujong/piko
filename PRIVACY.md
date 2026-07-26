@@ -40,6 +40,7 @@ its toolbar icon, and it has no interest in any page you do not do that on. This
 what makes a drag work on the page you happen to be reading; it is not used to observe your
 browsing, and nothing about the pages you visit is recorded unless you clip a sentence.
 
-Piko is open source, so you can check every claim above against the code.
+Piko is open source, so you can check every claim above against the code:
+<https://github.com/seanaujong/piko>.
 
-Questions or corrections? Open an issue on the project's repository.
+Questions or corrections? Open an issue at <https://github.com/seanaujong/piko/issues>.

@@ -144,11 +144,12 @@ where to start.
 ### Privacy policy URL
 
 ```
-https://github.com/<owner>/piko/blob/main/PRIVACY.md
+https://github.com/seanaujong/piko/blob/main/PRIVACY.md
 ```
 
-Fill in the owner once the repository exists. The URL has to resolve before the listing can be
-submitted, so push `PRIVACY.md` first.
+Live, and it has to stay that way — the dashboard rejects a policy URL it cannot fetch, and it
+re-checks on later submissions rather than only the first. Making the repository private takes
+the listing's privacy policy down with it.
 
 ## Support contact
 

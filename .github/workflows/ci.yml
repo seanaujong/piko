@@ -1,5 +1,5 @@
 # Runs the gate on every push and PR, so the invariants CLAUDE.md marks machine-checked
-# cannot rot quietly. (Activates once this repo has a GitHub remote.)
+# cannot rot quietly.
 #
 # Split into two jobs on purpose, because they fail for different reasons and a reader should
 # not have to work out which. `unit` is the typechecker and the jsdom suite: under a second,
@@ -8,6 +8,11 @@
 # longer, and can fail for reasons that have nothing to do with the change — a browser that
 # would not install, a timing-dependent launch. One red job then says which kind of problem
 # this is at a glance, where a single `npm run check` job would not.
+#
+# Actions are pinned by commit SHA with the version in a comment, the same way hi-chu pins
+# them: a tag can be moved to point at different code, and these run with a token that can
+# write to the repository. The comment is what makes the pin readable; the SHA is what makes
+# it a pin.
 name: CI
 
 on:
@@ -19,8 +24,8 @@ jobs:
   unit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
@@ -32,8 +37,8 @@ jobs:
   browser:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
           cache: npm
