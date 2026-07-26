@@ -99,12 +99,21 @@ describe('the chip row', () => {
   })
 
   /**
-   * Timestamps here are relative to the real clock rather than to the suite's fixed `T0`,
-   * because the pane reads `Date.now()` to decide which span a source falls in — a fixture
-   * pinned to 2023 puts every chip in the same band and the row would render no rule at all.
+   * The pane reads `Date.now()` to decide which span a source falls in, so the clock is pinned
+   * rather than left to whenever the suite runs. That used to be enough to keep only "today"
+   * meaningful; now that the bands past a month are calendar months and years, the labels
+   * themselves depend on the date — measured from a July, ninety days back is April, and
+   * measured from a February it is last year.
    */
   describe('the rules between spans of time', () => {
     const DAY = 86_400_000
+    /** A date far enough into its year that months and years both appear behind it. */
+    const TODAY = new Date(2026, 6, 26, 12, 0, 0)
+
+    beforeEach(() => {
+      vi.useFakeTimers()
+      vi.setSystemTime(TODAY)
+    })
 
     const paneSpanning = (ages: readonly number[]) => {
       const now = Date.now()
@@ -125,7 +134,9 @@ describe('the chip row', () => {
       // it the span the reader is actually in is the one span they cannot select.
       const pane = paneSpanning([0, 3, 20, 90])
 
-      expect(bands(pane)).toEqual(['Today', 'Week', 'Month', 'Older'])
+      // Ninety days before 2026-07-26 is late April, so the tail is a named month rather than
+      // the single unbounded bucket it used to be.
+      expect(bands(pane)).toEqual(['Today', 'Week', 'Month', 'Apr'])
     })
 
     it('marks the one span when every source falls inside it', () => {
@@ -137,7 +148,18 @@ describe('the chip row', () => {
     it('marks a span once however many sources it holds', () => {
       const pane = paneSpanning([0, 40, 41, 42])
 
-      expect(bands(pane)).toEqual(['Today', 'Older'])
+      expect(bands(pane)).toEqual(['Today', 'Jun'])
+    })
+
+    /**
+     * What the single `Older` bucket could not do. A year of reading used to end in one span
+     * holding everything, so pressing it changed nothing about how far the reader had to
+     * scroll; the tail now subdivides, and each piece is its own way in.
+     */
+    it('keeps subdividing the tail instead of ending in one bucket', () => {
+      const pane = paneSpanning([0, 40, 75, 400, 800])
+
+      expect(bands(pane)).toEqual(['Today', 'Jun', 'May', '2025', '2024'])
     })
 
     it('narrows to a span when its marker is pressed, and back out when pressed again', async () => {
@@ -159,7 +181,7 @@ describe('the chip row', () => {
       await settle(() => marker('Today').click())
       expect(pane.root.querySelectorAll('.piko-clip')).toHaveLength(2)
       expect(marker('Today').getAttribute('aria-pressed')).toBe('false')
-      expect(bands(pane)).toEqual(['Today', 'Older'])
+      expect(bands(pane)).toEqual(['Today', 'Jun'])
     })
 
     it('leaves only the chosen span in the row, so old sources need no scrolling to', async () => {
@@ -175,13 +197,13 @@ describe('the chip row', () => {
 
       await settle(() =>
         [...pane.root.querySelectorAll<HTMLButtonElement>('.piko-chip-band')]
-          .find((el) => el.textContent === 'Older')!
+          .find((el) => el.textContent === 'Jun')!
           .click(),
       )
 
       // Only the two older sources remain, and the row now opens on them.
       expect(chipTitles()).toEqual(['2', '3'])
-      expect(bands(pane)).toEqual(['Older'])
+      expect(bands(pane)).toEqual(['Jun'])
     })
 
     it('offers Show all once a span is selected, and clears it', async () => {

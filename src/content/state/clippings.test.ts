@@ -285,18 +285,20 @@ describe('visibleClippings', () => {
     expect(visibleClippings(ITEMS, { sources: new Set([CHEMISTRY]), query: 'Third' })).toHaveLength(1)
   })
 
+  // ITEMS were all clipped within two minutes of T0, so forty days on they share one span —
+  // which one is `ageBandOf`'s business and is pinned in its own tests, not restated here.
+  const FORTY_DAYS_ON = T0 + 40 * 86_400_000
+  const theirSpan = ageBandOf(T0, FORTY_DAYS_ON).key
+
   it('narrows to one span of time, measured against the moment it is given', () => {
-    const now = T0 + 40 * 86_400_000
-    // ITEMS were all clipped within two minutes of T0, so forty days on they are all "older"
-    // and none of them are "today".
-    expect(visibleClippings(ITEMS, { band: 'older', now })).toHaveLength(3)
-    expect(visibleClippings(ITEMS, { band: 'today', now })).toEqual([])
+    expect(visibleClippings(ITEMS, { band: theirSpan, now: FORTY_DAYS_ON })).toHaveLength(3)
+    expect(visibleClippings(ITEMS, { band: 'today', now: FORTY_DAYS_ON })).toEqual([])
   })
 
   it('intersects a span with the other narrowings', () => {
-    const now = T0 + 40 * 86_400_000
+    const now = FORTY_DAYS_ON
 
-    expect(visibleClippings(ITEMS, { band: 'older', now, query: 'Second' })).toHaveLength(1)
+    expect(visibleClippings(ITEMS, { band: theirSpan, now, query: 'Second' })).toHaveLength(1)
     expect(visibleClippings(ITEMS, { band: 'today', now, query: 'Second' })).toEqual([])
   })
 
@@ -334,27 +336,78 @@ describe('ageBandOf', () => {
   const daysBefore = (days: number, hour = 12): number =>
     new Date(2026, 6, 25 - days, hour, 0, 0).getTime()
 
+  const keyAt = (at: number, now = NOON): string => ageBandOf(at, now).key
+  const labelAt = (at: number, now = NOON): string => ageBandOf(at, now).label
+
   it('counts calendar days, not elapsed hours', () => {
     // Eleven last night is yesterday at nine this morning, thirteen hours later — the words
     // describe the calendar, and an elapsed-hours rule would call this one "today".
     const lateLastNight = new Date(2026, 6, 24, 23, 0, 0).getTime()
     const thisMorning = new Date(2026, 6, 25, 9, 0, 0).getTime()
 
-    expect(ageBandOf(lateLastNight, thisMorning)).toBe('week')
+    expect(keyAt(lateLastNight, thisMorning)).toBe('week')
   })
 
   it('places a moment in the span a reader would name', () => {
-    expect(ageBandOf(NOON, NOON)).toBe('today')
-    expect(ageBandOf(daysBefore(1), NOON)).toBe('week')
-    expect(ageBandOf(daysBefore(6), NOON)).toBe('week')
-    expect(ageBandOf(daysBefore(7), NOON)).toBe('month')
-    expect(ageBandOf(daysBefore(30), NOON)).toBe('month')
-    expect(ageBandOf(daysBefore(31), NOON)).toBe('older')
+    expect(keyAt(NOON)).toBe('today')
+    expect(keyAt(daysBefore(1))).toBe('week')
+    expect(keyAt(daysBefore(6))).toBe('week')
+    expect(keyAt(daysBefore(7))).toBe('month')
+    expect(keyAt(daysBefore(30))).toBe('month')
   })
 
   it('treats anything later than now as today rather than as the future', () => {
     // Clock skew between the machine that stored a clipping and the one reading it back is a
     // real possibility, and a negative day count must not fall through to the oldest band.
-    expect(ageBandOf(NOON + 60_000, NOON)).toBe('today')
+    expect(keyAt(NOON + 60_000)).toBe('today')
+  })
+
+  /**
+   * Past a month the bands keep going, which is what a single unbounded `Older` could not do:
+   * after a year of reading it held everything, so the marker meant to reach something old led
+   * to one long scroll.
+   */
+  describe('past a month', () => {
+    it('names the calendar month while still inside this year', () => {
+      // 2026-07-25 less 31 days is 2026-06-24 — no longer "this month", still this year.
+      expect(keyAt(daysBefore(31))).toBe('2026-06')
+      expect(labelAt(daysBefore(31))).toBe('Jun')
+
+      const january = new Date(2026, 0, 9, 12).getTime()
+      expect(keyAt(january)).toBe('2026-01')
+      expect(labelAt(january)).toBe('Jan')
+    })
+
+    it('drops to the year once it is a different one', () => {
+      const lastAutumn = new Date(2025, 9, 2, 12).getTime()
+      expect(keyAt(lastAutumn)).toBe('2025')
+      expect(labelAt(lastAutumn)).toBe('2025')
+      expect(keyAt(new Date(2024, 1, 2, 12).getTime())).toBe('2024')
+    })
+
+    /**
+     * The chip row depends on this and nothing else enforces it: chips run newest-first, so a
+     * band that did not decrease monotonically with time would open a second run somewhere down
+     * the row and the same marker would appear twice.
+     */
+    it('gives an order that only ever moves further back', () => {
+      const moments = [0, 1, 6, 7, 30, 31, 60, 200, 400, 900].map((days) => daysBefore(days))
+      const keys = moments.map((at) => keyAt(at))
+
+      // Each key is either the one before it or a new one, and no key ever comes back.
+      expect(new Set(keys).size).toBe([...new Set(keys)].length)
+      const firstSeen = keys.map((key) => keys.indexOf(key))
+      expect(firstSeen).toEqual([...firstSeen].sort((a, b) => a - b))
+    })
+
+    /** Every label stays one short word — the row is two chips tall and set vertically. */
+    it('labels every span in one short word', () => {
+      const labels = [0, 3, 20, 40, 100, 200, 400, 800].map((days) => labelAt(daysBefore(days)))
+
+      for (const label of labels) {
+        expect(label).not.toContain(' ')
+        expect(label.length).toBeLessThanOrEqual(5)
+      }
+    })
   })
 })

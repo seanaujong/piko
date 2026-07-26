@@ -149,26 +149,43 @@ export type SourceTally = {
   lastClippedAt: number
 }
 
-/** How far back a source's most recent clipping is, in the terms a reader thinks in. */
-export type AgeBand = 'today' | 'week' | 'month' | 'older'
-
 /**
- * Exhaustive by construction: a new band without a label stops compiling.
+ * How far back a source's most recent clipping is, in the terms a reader thinks in.
  *
- * Kept to one short word each because the markers are set vertically, where the label's length
- * is its height — and the row it stands in is only as tall as two chips. "This month" needed
- * around 60px against the 46px available, so it was squashed wherever the row was full and
- * stretched the row half as tall again wherever it wasn't. Read left to right into the past,
- * the four of them are legible as a scale without the qualifier.
+ * Key and label are produced together by `ageBandOf` and never derived from one another, so
+ * there is nothing to parse and no second table to keep in step. The key is compared, never
+ * read; the label is read, never compared.
  */
-export const AGE_BAND_LABEL: Record<AgeBand, string> = {
-  today: 'Today',
-  week: 'Week',
-  month: 'Month',
-  // Deliberately longer than any of the others, and the guard in clippingsPane.browser.test.ts
-  // is what says how much longer a label may get before it stops fitting.
-  older: 'Older',
+export type AgeBand = {
+  /** Stable identity — what the filter matches on and what marks a run in the chip row. */
+  key: AgeBandKey
+  /**
+   * One short word. The markers are set vertically, where a label's length is its height, and
+   * the row it stands in is only as tall as two chips: "This month" wanted around 60px against
+   * the 46px available, so it was squashed wherever the row was full and stretched the row half
+   * as tall again wherever it wasn't. A four-digit year is the longest this can now produce, and
+   * the guard in `clippingsPane.browser.test.ts` is what says how much longer one may get.
+   */
+  label: string
 }
+
+/** What a chosen span is held as. Opaque on purpose: compare it, don't take it apart. */
+export type AgeBandKey = string
+
+const MONTH_LABEL = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const
 
 /**
  * Sources that belong to the page the reader is looking at — either the clipping was taken
@@ -214,13 +231,32 @@ const startOfDay = (at: number): number => {
  * `now` is a parameter rather than a call to `Date.now()` inside, so the boundaries can be
  * tested at all — a function that reads the clock itself can only be tested at whatever time
  * the suite happens to run.
+ *
+ * **Past a month the bands keep subdividing**, by calendar month within this year and by year
+ * before that, and that is the answer to a row that used to end in one unbounded `Older`. After
+ * a year of reading, everything beyond a month landed in that single bucket, so the marker that
+ * was supposed to be the way to somewhere old led to one long scroll — the control was intact
+ * and the thing it addressed had outgrown it. More bands is the fix rather than a different
+ * control, because the row is already a timeline and the row stays bounded on its own: a marker
+ * only renders for a span that actually holds chips, so an empty August costs nothing.
+ *
+ * The order is total and matches time, which the chip row depends on — reading rightwards must
+ * always be moving further back, or a span would open twice in one row. Each rule below covers
+ * strictly older moments than the one above it.
  */
 export function ageBandOf(at: number, now: number): AgeBand {
   const days = Math.round((startOfDay(now) - startOfDay(at)) / 86_400_000)
-  if (days <= 0) return 'today'
-  if (days < 7) return 'week'
-  if (days < 31) return 'month'
-  return 'older'
+  if (days <= 0) return { key: 'today', label: 'Today' }
+  if (days < 7) return { key: 'week', label: 'Week' }
+  if (days < 31) return { key: 'month', label: 'Month' }
+
+  const then = new Date(at)
+  const year = then.getFullYear()
+  if (year !== new Date(now).getFullYear()) return { key: String(year), label: String(year) }
+
+  const month = then.getMonth()
+  // Zero-padded so the key sorts and compares as text without ever being taken apart.
+  return { key: `${year}-${String(month + 1).padStart(2, '0')}`, label: MONTH_LABEL[month]! }
 }
 
 /**
@@ -333,8 +369,8 @@ export type JournalFilters = {
   sources?: ReadonlySet<string>
   /** Case-insensitive substring of the text or the source title. Empty means every clipping. */
   query?: string
-  /** One span of time. Null means every span. */
-  band?: AgeBand | null
+  /** One span of time, held as its key. Null means every span. */
+  band?: AgeBandKey | null
   /** What the spans are measured against; only consulted when a band is set. */
   now?: number
 }
@@ -365,7 +401,7 @@ export function visibleClippings(
         // The title too: "where did I read that" is as common a question as "what did it say".
         c.sourceTitle.toLowerCase().includes(needle),
     )
-    .filter((c) => band === null || ageBandOf(c.at, now) === band)
+    .filter((c) => band === null || ageBandOf(c.at, now).key === band)
     .sort((a, b) => b.at - a.at)
 }
 

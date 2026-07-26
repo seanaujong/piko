@@ -1,5 +1,5 @@
 import { act } from 'preact/test-utils'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Clipping } from '../../state/clippings'
 import { createClippingsStore } from '../../state/clippings'
 import { PANEL_STYLES } from '../styles'
@@ -202,11 +202,19 @@ describe('the header under real layout', () => {
 })
 
 describe('the span markers under real layout', () => {
+  afterEach(() => vi.useRealTimers())
+
   it('never sets a label taller than the row it stands in', () => {
     const DAY = 86_400_000
+    // Pinned, because the labels past a month ARE the calendar: which month ninety days back
+    // falls in, and whether four hundred days back is a different year, both move with the date.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 6, 26, 12, 0, 0))
     const now = Date.now()
-    // One source in each span, so every label renders — including the longest.
-    const spread = [0, 3, 20, 90].map((days, i) =>
+
+    // One source in each span, so every label renders — including the longest a band can now
+    // produce. That used to be `Older`; it is a four-digit year, which is what this measures.
+    const spread = [0, 3, 20, 90, 400].map((days, i) =>
       clip(`From ${i}.`, `https://example.com/${i}`, now - days * DAY),
     )
     const { shadow } = mountPane(spread)
@@ -216,7 +224,8 @@ describe('the span markers under real layout', () => {
       'Today',
       'Week',
       'Month',
-      'Older',
+      'Apr',
+      '2025',
     ])
 
     /**

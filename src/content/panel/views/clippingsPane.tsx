@@ -1,9 +1,8 @@
 import { Component, Fragment, render } from 'preact'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import { withoutCitations } from '../../extraction/sentences'
-import type { AgeBand, Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
+import type { AgeBandKey, Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
 import {
-  AGE_BAND_LABEL,
   ageBandOf,
   gapBefore,
   sourcesInSessionOrder,
@@ -215,8 +214,8 @@ type ChipRowProps = {
   tallies: readonly SourceTally[]
   active: ReadonlySet<string>
   onToggle: (sourceUrl: string) => void
-  band: AgeBand | null
-  onBand: (band: AgeBand) => void
+  band: AgeBandKey | null
+  onBand: (band: AgeBandKey) => void
   /** Sources belonging to the page in front of the reader, marked so they can be picked out. */
   here: ReadonlySet<string>
   /** Read once by the pane, so every span in one render is judged against the same instant. */
@@ -264,18 +263,18 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, now }: 
           // to separate from. As a control it does: without a marker on the leading run, the
           // span the reader is actually in would be the one span they could not select.
           const opensSpan =
-            index === 0 || ageBandOf(shown[index - 1]!.lastClippedAt, now) !== span
+            index === 0 || ageBandOf(shown[index - 1]!.lastClippedAt, now).key !== span.key
 
           return (
             <Fragment key={tally.sourceUrl}>
               {opensSpan && (
                 <button
                   class="piko-chip-band"
-                  aria-pressed={band === span ? 'true' : 'false'}
-                  title={`Show only what you clipped ${AGE_BAND_LABEL[span].toLowerCase()}`}
-                  onClick={() => onBand(span)}
+                  aria-pressed={band === span.key ? 'true' : 'false'}
+                  title={`Show only what you clipped ${span.label.toLowerCase()}`}
+                  onClick={() => onBand(span.key)}
                 >
-                  {AGE_BAND_LABEL[span]}
+                  {span.label}
                 </button>
               )}
               <button
@@ -450,7 +449,7 @@ function Pane({
   const [active, setActive] = useState<ReadonlySet<string>>(new Set())
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
-  const [band, setBand] = useState<AgeBand | null>(null)
+  const [band, setBand] = useState<AgeBandKey | null>(null)
 
   // Read once per render, so a chip and the list cannot land on opposite sides of midnight.
   const now = Date.now()
