@@ -1,0 +1,16 @@
+#!/bin/sh
+# Refuse a direct commit onto main — every change goes through a branch or worktree and a PR.
+# This is the local half of that rule, and it catches the mistake before you have even tried to
+# push, which is the cheapest place to catch it. Wired in via core.hooksPath (see package.json's
+# "prepare" script), so it applies the moment you `npm install` with no manual setup.
+#
+# The server-side half is a GitHub ruleset requiring a pull request before merging. Note that
+# main also has a linear-history ruleset, so a PR has to land as a squash or a rebase; a merge
+# commit is refused at the remote.
+branch=$(git symbolic-ref --short HEAD 2>/dev/null)
+if [ "$branch" = "main" ]; then
+  echo "✗ refusing to commit directly to main." >&2
+  echo "  Create a branch or worktree for this change instead." >&2
+  echo "  Genuine exception: git commit --no-verify" >&2
+  exit 1
+fi
