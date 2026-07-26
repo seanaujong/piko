@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Clipping } from './clippings'
 import {
   createClippingsStore,
@@ -73,6 +73,75 @@ describe('the store', () => {
     unsubscribe()
     store.toggle(clip('Second.', ENCYCLOPEDIA, T0 + 60_000))
     expect(notifications).toBe(1)
+  })
+
+  /**
+   * A write that does not land has to be sayable, and the reason it was not is the shape of the
+   * failure rather than any missing intent: a full quota comes back as a rejected promise, not
+   * as a throw, so the `void` in front of the call discarded it. Clipping went on looking exactly
+   * as it does when everything is saved, into a journal that would be empty on the next load.
+   */
+  describe('a write that does not land', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    /** Enough `chrome` for the store: `get` finds nothing, `set` refuses the way a full quota does. */
+    const storageThatRefuses = (): void => {
+      vi.stubGlobal('chrome', {
+        storage: {
+          local: {
+            get: (_key: string, done: (items: Record<string, unknown>) => void) => done({}),
+            set: () => Promise.reject(new Error('QUOTA_BYTES quota exceeded')),
+          },
+        },
+      })
+    }
+
+    it('is reported, and announced to whoever is watching', async () => {
+      storageThatRefuses()
+      const store = createClippingsStore()
+      let notifications = 0
+      store.subscribe(() => (notifications += 1))
+
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+      // The clipping is in hand immediately; the refusal arrives a microtask later.
+      expect(store.storageError()).toBeNull()
+      expect(notifications).toBe(1)
+
+      await Promise.resolve()
+
+      expect(store.storageError()).toContain('full')
+      // The second notification is what gets the warning on screen at the moment it becomes true.
+      expect(notifications).toBe(2)
+      // And the clipping is still here — the in-memory copy stays authoritative for this page.
+      expect(store.all()).toHaveLength(1)
+    })
+
+    it('clears once a later write lands', async () => {
+      storageThatRefuses()
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+      await Promise.resolve()
+      expect(store.storageError()).not.toBeNull()
+
+      vi.stubGlobal('chrome', {
+        storage: { local: { get: () => {}, set: () => Promise.resolve() } },
+      })
+      store.toggle(clip('Second.', ENCYCLOPEDIA, T0 + 60_000))
+
+      expect(store.storageError()).toBeNull()
+    })
+
+    /**
+     * The other route, and the one that always threw: after an extension reload an already-open
+     * tab runs a content script whose `chrome` is gone. Clipping still works for the life of the
+     * page and none of it is being saved, so the reader is told to refresh.
+     */
+    it('says so when the extension has gone out from under the page', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+
+      expect(store.storageError()).toContain('Refresh')
+    })
   })
 })
 

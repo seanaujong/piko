@@ -150,6 +150,7 @@ font-size contrast made it real.
 | The chip row is ordered by time and nothing else — "here" marks chips, it never moves them | ✅ | `content/state/clippings.ts` (`sourcesOnOrFrom`), `clippingsPane.tsx` (`ChipRow`) | `clippingsPane.test.ts` |
 | A span label is one short word, because vertical text's length is its height | ✅ | `content/state/clippings.ts` (`AGE_BAND_LABEL`) | `clippingsPane.browser.test.ts` |
 | The store hands out snapshots — the array is replaced on every change, never mutated | ✅ | `content/state/clippings.ts` (`createClippingsStore`) | `clippings.test.ts`, `npm run typecheck` |
+| A write that doesn't land is always said out loud — a full quota rejects, it doesn't throw | ✅ | `content/state/clippings.ts` (`persist`, `storageError`) | `clippings.test.ts`, `clippingsPane.test.ts` |
 | A row refuses an update it doesn't need, so `ClipEntry`'s props stay reference-stable | ✅ | `clippingsPane.tsx` (`ClipEntry`, `remove`) | `clippingsPane.test.ts` |
 | `keyOf` mirrors `isSame`, and one pane instance is re-parented rather than rendered twice | ✅ | `clippingsPane.tsx` (`keyOf`), `content/panel/mountPanel.ts` (`dockPaneIn`) | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
 

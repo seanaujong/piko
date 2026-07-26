@@ -454,6 +454,39 @@ describe('emptying the journal', () => {
   })
 })
 
+/**
+ * The pane's half of a write that did not land. The store notifying without its array having
+ * changed is the whole difficulty: `useClippings` compares the snapshot by identity and
+ * correctly does nothing, so the warning needs its own state or it never appears at all.
+ */
+describe('a journal that has stopped saving', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('says so, without dropping what is already clipped', async () => {
+    vi.stubGlobal('chrome', {
+      storage: {
+        local: {
+          get: (_key: string, done: (items: Record<string, unknown>) => void) => done({}),
+          set: () => Promise.reject(new Error('QUOTA_BYTES quota exceeded')),
+        },
+      },
+    })
+
+    const store = createClippingsStore()
+    const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
+    document.body.appendChild(pane.root)
+
+    expect(pane.root.querySelector('.piko-clips-warning')).toBeNull()
+
+    await settle(() => store.toggle(clip('First.', ENCYCLOPEDIA, T0)))
+    // The rejection lands a microtask after the clip, so the redraw that shows it is a second one.
+    await settle(() => {})
+
+    expect(pane.root.querySelector('.piko-clips-warning')?.textContent).toContain('full')
+    expect(entries(pane)).toHaveLength(1)
+  })
+})
+
 describe('what a redraw visits', () => {
   /** Row interiors Preact walked while `body` ran. */
   async function rowsVisitedWhile(body: () => void | Promise<void>): Promise<number> {

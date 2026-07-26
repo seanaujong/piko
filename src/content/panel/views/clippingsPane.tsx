@@ -71,6 +71,20 @@ function useClippings(store: ClippingsStore): readonly Clipping[] {
   return clippings
 }
 
+/**
+ * Kept in its own state rather than folded into `useClippings`, so that neither hook has to
+ * redraw for the other's news. The store notifies on a failed write without the array having
+ * changed at all — so a combined snapshot object would either rebuild on every notification,
+ * losing the cheapness `useClippings` documents, or compare equal and never show the warning.
+ */
+function useStorageError(store: ClippingsStore): string | null {
+  const [error, setError] = useState(store.storageError())
+
+  useLayoutEffect(() => store.subscribe(() => setError(store.storageError())), [store])
+
+  return error
+}
+
 type Flash = 'idle' | 'done' | 'failed'
 
 /**
@@ -432,6 +446,7 @@ function Pane({
   here: () => string | null
 }) {
   const all = useClippings(store)
+  const storageError = useStorageError(store)
   const [active, setActive] = useState<ReadonlySet<string>>(new Set())
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
@@ -625,6 +640,17 @@ function Pane({
         onBand={(chosen) => setBand((current) => (current === chosen ? null : chosen))}
         now={now}
       />
+
+      {/*
+        Above the list rather than in place of it: what is already on screen is still true, and
+        still worth keeping — the in-memory copy stays authoritative for the life of the page.
+        What has stopped is the saving, and the sentence says what to do about it.
+      */}
+      {storageError !== null && (
+        <p class="piko-clips-warning" role="status">
+          {storageError}
+        </p>
+      )}
 
       <div class="piko-clips-list">
         {all.length === 0 ? (

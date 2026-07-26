@@ -690,6 +690,20 @@ export const PANEL_STYLES = `
   margin: 4px 0 0;
 }
 
+/* Clippings are still being taken and are still on screen — only the saving has stopped — so
+   this is a notice above the list rather than an alarm over it. Amber, not the red the
+   destructive controls use: nothing here has been lost yet. */
+.piko-clips-warning {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: #7a4b00;
+  background: #fff4d6;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+}
+
 /* Session boundaries render inline so temporal structure shows without the list
    ever changing shape — no separate grouping mode to switch into. */
 /* Enough air to read as a break in the stream, not enough to read as the end of the list.

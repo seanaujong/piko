@@ -31,10 +31,25 @@ export const SESSION_GAP_MS = 45 * 60_000
 
 export type ClippingsStore = {
   all: () => readonly Clipping[]
+  /**
+   * What went wrong the last time the journal was written, or null if it landed.
+   *
+   * Read through `subscribe` like everything else here: a failed write notifies, so a pane
+   * showing the journal learns that it is no longer being saved at the moment it stops being
+   * saved, rather than the next time something happens to redraw.
+   */
+  storageError: () => string | null
   toggle: (clipping: Clipping) => void
   clear: () => void
   subscribe: (listener: () => void) => () => void
 }
+
+/**
+ * What a reader can actually do about a write that did not land, which is the only reason to
+ * mention it at all. Both cases are recoverable and the recoveries are different.
+ */
+const QUOTA_FULL = 'The journal is full. Export it, then clear it to make room.'
+const NO_EXTENSION = 'Piko was reloaded. Refresh this page to keep clipping.'
 
 const isSame = (a: Clipping, b: Clipping): boolean =>
   a.sourceUrl === b.sourceUrl && a.text === b.text
@@ -54,16 +69,29 @@ export function createClippingsStore(): ClippingsStore {
     for (const listener of listeners) listener()
   }
 
+  let storageError: string | null = null
+
   /**
    * Persistence is best-effort on purpose. After an extension reload an already-open tab keeps
    * running an orphaned content script whose `chrome.runtime` is gone; the reader should still
    * be able to clip for the rest of that page's life rather than hitting a thrown error.
+   *
+   * Best-effort is not the same as unreported, and it used to be. The two ways this fails arrive
+   * by different routes and only one of them is a throw: a missing extension throws right here,
+   * while a full quota comes back as a REJECTED PROMISE — which `void` discarded, so the write
+   * that silently dropped a clipping looked exactly like the write that saved it. The reader
+   * then kept clipping into something that would be empty on the next load.
    */
   const persist = (): void => {
+    storageError = null
     try {
-      void chrome.storage?.local.set({ [STORAGE_KEY]: clippings })
+      void chrome.storage?.local.set({ [STORAGE_KEY]: clippings })?.catch(() => {
+        storageError = QUOTA_FULL
+        notify()
+      })
     } catch {
       // In-memory copy remains authoritative for this page.
+      storageError = NO_EXTENSION
     }
   }
 
@@ -85,6 +113,8 @@ export function createClippingsStore(): ClippingsStore {
 
   return {
     all: () => clippings,
+
+    storageError: () => storageError,
 
     toggle(clipping) {
       const index = clippings.findIndex((c) => isSame(c, clipping))
