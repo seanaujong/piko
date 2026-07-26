@@ -74,6 +74,9 @@ export async function launchWithExtension(): Promise<BrowserContext> {
   const context = await chromium.launchPersistentContext('', {
     channel: 'chromium',
     headless: true,
+    // Spelled out because the export test depends on it: a download is how the journal leaves
+    // the extension, and Playwright is what turns that effect into a file the suite can read.
+    acceptDownloads: true,
     args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
   })
 

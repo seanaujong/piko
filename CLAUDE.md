@@ -82,6 +82,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
+| what an exported file says, or how it leaves | `content/panel/exportMarkdown.ts`, then `download.ts` |
 | what narrows the journal (source, query, span) | `JournalFilters` + `visibleClippings` in `clippings.ts` |
 
 The panel's `.piko-body` is a flex row deliberately built to take a second child; that's
@@ -127,6 +128,9 @@ font-size contrast made it real.
 | Segmentation is `Intl.Segmenter` plus two corrections, never a regex split on `.` | ✅ | `content/extraction/sentences.ts` (`sentencesIn`, `pastCitation`, `endsSentence`) | `sentences.test.ts` |
 | A clipboard write is synchronous inside a real click handler, in the content script | 👁 | `content/panel/clipboard.ts` | — |
 | `clipboardWrite` stays out of the manifest — it buys nothing and costs an install warning | 👁 | `content/panel/clipboard.ts` | — |
+| A file leaves through an anchor, never `chrome.downloads` — the permission costs an install warning | 👁 | `content/panel/download.ts` | — |
+| The export writes every field of a `Clipping`, because the document is also the archive | ✅ | `content/panel/exportMarkdown.ts` | `exportMarkdown.test.ts` |
+| An export is of the whole journal, never the narrowed view, and its label says which | ✅ | `clippingsPane.tsx`, `content/panel/exportMarkdown.ts` | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
 | `:host(:hover)`, never `:host:hover` — the bare-chained form silently never matches | 👁 | `content/panel/styles.ts` | — |
 | No backticks inside `styles.ts`'s CSS comments; the sheet is one template literal | ✅ | `content/panel/styles.ts` | `npm run typecheck` |
 | Source order is the mechanism in `styles.ts`, and `all: initial` erases what earlier rules set | 👁 | `content/panel/styles.ts` | — |
@@ -146,8 +150,8 @@ font-size contrast made it real.
 
 ### What only a human can guard
 Two effects leave the page entirely, and no suite here can follow them. Re-confirm both by hand
-after touching either path; the traps that make them unreachable from automation are under
-*Driving it with browser automation* above.
+after touching either path; the traps that make them unreachable from automation are in
+`e2e/MANUAL.md`.
 
 - **A clipboard write landing.** Reading it back to check raises a permission prompt that
   freezes the renderer, so confirmation is a human pasting somewhere. `copyText` has no test at
@@ -156,6 +160,12 @@ after touching either path; the traps that make them unreachable from automation
   navigation; driven through CDP the page loads at the top with nothing highlighted, even for
   text that is verbatim on the page. The URL it needs *is* tested — `textFragment.test.ts` pins
   the construction — so only the browser's half is on eyes.
+
+**A third effect leaves the page and is guarded anyway**, and the contrast is worth keeping: the
+export's download was expected to land in this list beside the clipboard and does not. A download
+ends in a *file*, Playwright hands that file back, and `e2e/extension.test.ts` reads what was
+actually written rather than trusting that the click did anything. What decides which list an
+effect belongs on is not how far it travels but whether it ends in a value something can read.
 
 ## Pointers
 - `README.md` — architecture diagram, layering, install, permissions.

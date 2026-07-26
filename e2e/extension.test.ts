@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import type { BrowserContext, Page } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -233,6 +234,44 @@ describe('the loaded extension', () => {
       '[...document.documentElement.children].find(e => e.shadowRoot).hasAttribute("data-preview")',
     )
     expect(stillOpen).toBe(true)
+
+    await page.close()
+  })
+
+  /**
+   * The journal's door out, proved by the file arriving rather than by the button being there.
+   * `journalToMarkdown` is unit-tested, but nothing in that suite says a content script may hand
+   * a file to the browser at all — the blob URL, the `download` attribute and the click's
+   * transient activation are all only real inside a loaded extension on a live page.
+   *
+   * This is the seam the clipboard never had, and the reason export is machine-checked where
+   * copy is not: `copyText` ends in an API whose effect is invisible from script, while a
+   * download ends in a FILE. Once the effect is a value, it is an ordinary equality assertion.
+   */
+  it('writes the journal out as a file the browser actually downloads', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+    await clipFirstSentence(page)
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+
+    const sentence = await firstClippingText(page)
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 20_000 }),
+      page.evaluate(`${SHADOW}.querySelector('.piko-clips-export').click()`),
+    ])
+
+    expect(download.suggestedFilename()).toMatch(/^piko-clippings-\d{4}-\d{2}-\d{2}\.md$/)
+
+    const written = readFileSync(await download.path(), 'utf8')
+
+    // The sentence as the document writes it — collapsed, because a blockquote is one line.
+    expect(written).toContain(`> ${sentence.replace(/\s+/g, ' ').trim()}`)
+    // The two things that make the file worth having: it links the sentence, and it counts.
+    expect(written).toContain('#:~:text=')
+    expect(written).toContain('clippings: 1')
 
     await page.close()
   })

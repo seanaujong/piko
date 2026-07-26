@@ -8,6 +8,8 @@ opens over the page you're already on.
 - Or click the toolbar icon → the page you're already on becomes clippable
 - Hover a sentence → it lights up
 - Click it → it's clipped to a journal that persists across reloads
+- Export the journal → one Markdown file, ready to drop into an Obsidian vault, where each
+  quote links back to the exact sentence on the page it came from
 
 **Piko's bet is engagement, not summarisation.** A summariser exists so you don't have to
 read; every Piko feature is meant to be a gesture that costs almost nothing to perform but

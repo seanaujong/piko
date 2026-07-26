@@ -381,6 +381,31 @@ describe('the clippings list', () => {
  * counting the ones belonging to a row's interior answers exactly the right question: was that
  * row's subtree walked, or stopped at?
  */
+/**
+ * Export is an archive, so it takes the whole journal — where every other control in this header
+ * acts on what is currently on screen. The button says the number it will write, which is what
+ * keeps the two readable side by side: the count reads "1/3" while the export still offers 3.
+ *
+ * Nothing in the rendered list can show this, since the narrowed list is exactly what export
+ * ignores. The label is the only place the promise is visible, so the label is what is pinned.
+ */
+describe('what export offers', () => {
+  const exportLabel = (pane: { root: HTMLElement }): string =>
+    pane.root.querySelector('.piko-clips-export')?.getAttribute('aria-label') ?? ''
+
+  it('offers the whole journal even while the list is narrowed', async () => {
+    const { pane } = paneWithTwoSources()
+    expect(exportLabel(pane)).toBe('Export all 3 clippings as Markdown')
+
+    // Narrow to one source: the list drops to that source's clippings...
+    await settle(() => chips(pane)[0]!.click())
+    expect(entries(pane).length).toBeLessThan(3)
+
+    // ...and the export still promises all three.
+    expect(exportLabel(pane)).toBe('Export all 3 clippings as Markdown')
+  })
+})
+
 describe('what a redraw visits', () => {
   /** Row interiors Preact walked while `body` ran. */
   async function rowsVisitedWhile(body: () => void | Promise<void>): Promise<number> {

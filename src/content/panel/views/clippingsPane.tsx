@@ -10,6 +10,8 @@ import {
   visibleClippings,
 } from '../../state/clippings'
 import { copyText } from '../clipboard'
+import { downloadText } from '../download'
+import { exportFilename, journalToMarkdown } from '../exportMarkdown'
 import { hostOf } from '../formatUrl'
 import { ICON } from '../iconButton'
 import { textFragmentUrl } from '../textFragment'
@@ -111,18 +113,34 @@ const Icon = ({ parts }: { parts: string }): preact.JSX.Element => (
   />
 )
 
-function CopyIconButton({ label, onCopy }: { label: string; onCopy: () => boolean }) {
+/**
+ * A button whose action reports whether it worked, and which says so for a moment.
+ *
+ * Both of its uses write somewhere the page cannot read back — the clipboard and a file — so
+ * neither can confirm itself, and a silent failure would be indistinguishable from a success.
+ */
+function ConfirmingIconButton({
+  label,
+  resting,
+  onAct,
+  className = '',
+}: {
+  label: string
+  resting: string
+  onAct: () => boolean
+  className?: string
+}) {
   const [flash, report] = useFlash()
 
   return (
     <button
-      class={`piko-icon-button${flash === 'idle' ? '' : ` is-${flash}`}`}
+      class={`piko-icon-button${className ? ` ${className}` : ''}${flash === 'idle' ? '' : ` is-${flash}`}`}
       title={label}
       aria-label={label}
-      // Synchronous, inside the click handler — see clipboard.ts.
-      onClick={() => report(onCopy())}
+      // Synchronous, inside the click handler — see clipboard.ts and download.ts.
+      onClick={() => report(onAct())}
     >
-      <Icon parts={flash === 'done' ? ICON.copied : ICON.copy} />
+      <Icon parts={flash === 'done' ? ICON.copied : resting} />
     </button>
   )
 }
@@ -264,7 +282,11 @@ class ClipEntry extends Component<ClipEntryProps> {
           <div class="piko-clip-actions">
             {/* The sentence alone — the clipboard is the door out of the journal, one clip at a
                 time, so what lands there is the text and not a wrapper around it. */}
-            <CopyIconButton label="Copy this clipping" onCopy={() => copyText(clipping.text)} />
+            <ConfirmingIconButton
+              label="Copy this clipping"
+              resting={ICON.copy}
+              onAct={() => copyText(clipping.text)}
+            />
             <button
               class="piko-icon-button piko-clip-remove"
               title="Remove clipping"
@@ -488,6 +510,24 @@ function Pane({
           >
             <Icon parts={ICON.search} />
           </button>
+          {/*
+            Exports the WHOLE journal, never the narrowed view, and the label says the number it
+            will write so the two can't be confused. An archive that silently honoured a filter
+            would omit exactly the clippings the reader had stopped looking at — and this is the
+            file they would still have after clearing the journal.
+          */}
+          {all.length > 0 && (
+            <ConfirmingIconButton
+              className="piko-clips-export"
+              label={`Export all ${all.length} ${all.length === 1 ? 'clipping' : 'clippings'} as Markdown`}
+              resting={ICON.download}
+              // One instant for both, so the name on the file and the date inside it agree.
+              onAct={() => {
+                const at = Date.now()
+                return downloadText(exportFilename(at), journalToMarkdown(all, at))
+              }}
+            />
+          )}
           {/*
             An icon, because the control has no honest one-word label — "Close" beside an
             article would read as closing the preview the pane sits inside.
