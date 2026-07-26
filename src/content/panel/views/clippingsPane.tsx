@@ -1,5 +1,6 @@
 import { Component, Fragment, render } from 'preact'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { withoutCitations } from '../../extraction/sentences'
 import type { AgeBand, Clipping, ClippingsStore, SourceTally } from '../../state/clippings'
 import {
   AGE_BAND_LABEL,
@@ -269,6 +270,9 @@ class ClipEntry extends Component<ClipEntryProps> {
 
   render() {
     const { clipping, onRemove } = this.props
+    // What the reader sees and takes away; the stored text keeps its footnote markers, because
+    // the source link below is matched against the page rather than read.
+    const shown = withoutCitations(clipping.text)
 
     return (
       <div class="piko-clip">
@@ -285,7 +289,7 @@ class ClipEntry extends Component<ClipEntryProps> {
             <ConfirmingIconButton
               label="Copy this clipping"
               resting={ICON.copy}
-              onAct={() => copyText(clipping.text)}
+              onAct={() => copyText(shown)}
             />
             <button
               class="piko-icon-button piko-clip-remove"
@@ -298,7 +302,7 @@ class ClipEntry extends Component<ClipEntryProps> {
           </div>
         </div>
         <div class="piko-clip-body">
-          {clipping.text}
+          {shown}
           {/*
             The way back to a clipping is a link out, not a preview: re-previewing in place would
             replace whatever the reader currently has open, and giving the panel a history to

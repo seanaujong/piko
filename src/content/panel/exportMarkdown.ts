@@ -18,6 +18,7 @@
  * gives: a function that reads the clock itself can only be tested at whatever time the suite
  * happens to run.
  */
+import { withoutCitations } from '../extraction/sentences'
 import type { Clipping } from '../state/clippings'
 import { sourcesInSessionOrder } from '../state/clippings'
 import { textFragmentUrl } from './textFragment'
@@ -85,7 +86,9 @@ export function journalToMarkdown(clippings: readonly Clipping[], exportedAt: nu
       .sort((a, b) => a.at - b.at)
 
     for (const clipping of items) {
-      blocks.push(`> ${oneLine(clipping.text)}`)
+      // The quote is read; the directive is matched. Only the first is stripped — see
+      // `withoutCitations`, and `citation()` below, which is handed the original.
+      blocks.push(`> ${oneLine(withoutCitations(clipping.text))}`)
       blocks.push(citation(clipping))
     }
   }

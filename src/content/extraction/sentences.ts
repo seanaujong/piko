@@ -36,6 +36,37 @@ const segmentedBlocks = new WeakMap<HTMLElement, Sentence[]>()
 const TRAILING_CITATIONS = /^(?:\[[^[\]]{0,24}\])+/
 
 /**
+ * A marker specific enough to be safe to DELETE, which is a stricter question than the one
+ * `TRAILING_CITATIONS` answers, and the reason these are two patterns rather than one.
+ *
+ * Placing a boundary is a cheap guess: overshoot a bracket that wasn't a citation and the
+ * sentence starts a few characters off. Deleting is not — every character removed is one the
+ * reader wrote or read, so this names the shapes footnotes actually take instead of accepting
+ * anything bracketed and short.
+ *
+ * The collateral it knowingly accepts: an index written `arr[i]` in flowing prose is
+ * indistinguishable from a lettered footnote and loses its subscript. It costs a display, never
+ * a link — `Clipping.text` keeps the original, so the text directive still matches the page.
+ */
+const CITATION = / ?\[(?:\d{1,4}|[a-z]|[ivxlc]{1,5}|note \d{1,3}|citation needed)\]/gi
+
+/**
+ * The sentence as a reader wants to *see* it, with footnote markers taken out.
+ *
+ * Every presentation of a clipping goes through this — the journal row, the clipboard, the
+ * exported file. What must not is the text directive: the browser matches against the page's
+ * rendered text, and `[15]` is genuinely part of that, so a stripped string would match nothing.
+ * That split is why stripping happens here at the point of display rather than at the point of
+ * clipping. The stored text stays exactly what the page said.
+ *
+ * A marker takes the space in front of it when it has one, which is what closes the gap in
+ * `the cycle [1] fixes carbon`. Nothing else about the string is touched — a sentence carrying
+ * no markers comes back identical, so this can never be the reason displayed text differs from
+ * what was clipped.
+ */
+export const withoutCitations = (text: string): string => text.replace(CITATION, '')
+
+/**
  * Moves a boundary that landed inside a bracket to just past the whole citation run.
  *
  * UAX #29 classifies `[` as Close punctuation and breaks *after* the run of Close characters

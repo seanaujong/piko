@@ -335,13 +335,19 @@ describe('the loaded extension', () => {
     const text = await firstClippingText(page)
     const marks = await page.evaluate(`${SHADOW}.querySelectorAll('.piko-marks > *').length`)
 
-    // The whole sentence, across the newlines the fixture's markup wraps it with, and with
-    // its footnote marker still attached.
+    // The whole sentence, across the newlines the fixture's markup wraps it with — and without
+    // the fixture's `[1]`, which the journal shows the reader but keeps in what it stored.
     expect(text).toBe(
       'A tide is the rise and fall of a sea level caused by the combined effects of ' +
-        'gravitational forces exerted by the Moon and the Sun.[1]',
+        'gravitational forces exerted by the Moon and the Sun.',
     )
     expect(marks as number).toBeGreaterThan(0)
+
+    // The other half of the same rule, and the half that fails silently: the row's link is built
+    // from the STORED text, so the marker has to still be in there. Strip at the wrong end and
+    // the journal looks tidier while every link in it quietly stops resolving.
+    const href = await page.evaluate(`${SHADOW}.querySelector('.piko-clip-source').href`)
+    expect(href).toContain('%5B1%5D')
 
     await page.close()
   })

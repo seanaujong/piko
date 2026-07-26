@@ -54,6 +54,24 @@ describe('journalToMarkdown', () => {
   })
 
   /**
+   * The two halves of a clipping pull in opposite directions, and this is where that is visible:
+   * a quote is read, so `[15]` is litter in it, while the directive is *matched* against the
+   * page's rendered text, where `[15]` is really there. Strip both and every exported link
+   * silently stops resolving; strip neither and a vault fills up with footnote numbers.
+   */
+  it('takes footnote markers out of the quote and leaves them in the link', () => {
+    const document = journalToMarkdown(
+      [clip({ text: "Some of this stored energy is later released as the plant's cells respire.[15]" })],
+      AT,
+    )
+
+    expect(document).toContain("> Some of this stored energy is later released as the plant's cells respire.")
+    expect(document).not.toContain('respire.[15]')
+    // The directive still spells the marker out, percent-encoded.
+    expect(document).toContain('%5B15%5D')
+  })
+
+  /**
    * `Mercury_(planet)` is an ordinary Wikipedia URL and closes a bare `[text](url)` link early,
    * leaving `planet)` as loose text. Angle brackets are what make every URL safe to write.
    */

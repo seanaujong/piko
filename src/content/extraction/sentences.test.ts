@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { rangeForSentence, sentencesIn } from './sentences'
+import { rangeForSentence, sentencesIn, withoutCitations } from './sentences'
 
 /** Sentences are read off a real element, since that is what the hit-tester passes. */
 function block(html: string): HTMLElement {
@@ -113,5 +113,37 @@ describe('rangeForSentence', () => {
     const range = rangeForSentence(el, second!.start, second!.end)
 
     expect(range!.toString()).toBe('Second one.')
+  })
+})
+
+/**
+ * The presentation half of citation markers. Segmentation keeps them (they are part of what the
+ * page renders, and the text directive is matched against that); everything a reader looks at
+ * takes them out.
+ */
+describe('withoutCitations', () => {
+  it('takes out the footnote shapes pages actually use', () => {
+    expect(withoutCitations('…as the cells respire.[15]')).toBe('…as the cells respire.')
+    expect(withoutCitations('Photosynthesis[a] is a process.')).toBe('Photosynthesis is a process.')
+    expect(withoutCitations('A claim.[citation needed]')).toBe('A claim.')
+    expect(withoutCitations('Chlorophyll absorbs light.[note 3]')).toBe('Chlorophyll absorbs light.')
+  })
+
+  it('takes out a whole run of them', () => {
+    expect(withoutCitations('Both are true.[3][5][12]')).toBe('Both are true.')
+  })
+
+  it('closes the gap a marker leaves mid-sentence', () => {
+    expect(withoutCitations('The cycle [1] fixes carbon.')).toBe('The cycle fixes carbon.')
+  })
+
+  /**
+   * The line this pattern deliberately draws. Deleting is not the cheap guess that placing a
+   * boundary is, so anything that is not shaped like a footnote is left where the page put it —
+   * a bracketed aside is the author's words, not the encyclopedia's plumbing.
+   */
+  it('leaves bracketed prose alone', () => {
+    expect(withoutCitations('The array [1, 2, 3] is sorted.')).toBe('The array [1, 2, 3] is sorted.')
+    expect(withoutCitations('He said [the author] disagreed.')).toBe('He said [the author] disagreed.')
   })
 })
