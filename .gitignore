@@ -1,6 +1,10 @@
 node_modules/
 dist/
 
+# Release packages belong to a GitHub Release, not to the history — `npm run package` rebuilds
+# any of them from the tag it was cut at.
+piko-*.zip
+
 # Output of npm run icons:sheet — something to look at once, not an artifact to keep.
 icon-sheet.png
 

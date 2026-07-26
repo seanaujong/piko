@@ -1,0 +1,46 @@
+# Runs the gate on every push and PR, so the invariants CLAUDE.md marks machine-checked
+# cannot rot quietly. (Activates once this repo has a GitHub remote.)
+#
+# Split into two jobs on purpose, because they fail for different reasons and a reader should
+# not have to work out which. `unit` is the typechecker and the jsdom suite: under a second,
+# no browser, and a failure there is always the code. `browser` drives real Chrome for the
+# layout suite and a real loaded extension for the end-to-end one, takes an order of magnitude
+# longer, and can fail for reasons that have nothing to do with the change — a browser that
+# would not install, a timing-dependent launch. One red job then says which kind of problem
+# this is at a glance, where a single `npm run check` job would not.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test:unit
+      - run: npm run build # the bundle must build, whatever the tests say
+
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Two browsers, and the difference is load-bearing — see e2e/harness.ts and
+      # vitest.config.ts. The geometry suite drives branded Chrome, to measure layout in the
+      # engine the extension really runs in; the e2e suite needs full Chromium, because branded
+      # Chrome ignores --load-extension and would run every test against no extension at all.
+      - run: npx playwright install --with-deps chromium chrome
+      - run: npm run test:browser

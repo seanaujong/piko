@@ -26,7 +26,17 @@ npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
 npm run icons:sheet # the contact sheet an icon edit is judged on — see below
 npm run bench       # measurements, NOT in the gate — see below
+npm run package     # piko-<version>.zip — what "Load unpacked" and the store both want
+npm run release-bump <major|minor|patch|X.Y.Z>   # both version fields at once
 ```
+
+**Releasing.** `docs/chrome-web-store-listing.md` is the listing of record — every dashboard
+field, and the permissions justification that is the hard part of submitting this particular
+extension. `npm run release-bump` writes the version to `package.json`, its lockfile and
+`manifest.json` together, because the store rejects an upload whose version is not higher than
+the last, and finding that out at upload time is a long way to travel. `npm run package` builds
+with `--release` (no sourcemaps) into a **cleared** `dist/`, which is also why an ordinary build
+clears it: esbuild overwrites what it emits and leaves behind anything it has stopped emitting.
 
 **`npm run icons:sheet` is how an icon change gets judged**, and judging one on the 128 alone
 is how every icon bug in this project has gotten in. It renders all four declared sizes,
@@ -176,6 +186,12 @@ effect belongs on is not how far it travels but whether it ends in a value somet
 
 ## Pointers
 - `README.md` — architecture diagram, layering, install, permissions.
+- `docs/chrome-web-store-listing.md` — the store listing OF RECORD: description, single-purpose
+  statement, the `storage` and all-sites justifications, reviewer instructions. The dashboard is
+  not version-controlled, and re-deriving this under review pressure is how a listing ends up
+  claiming something the extension doesn't do.
+- `PRIVACY.md` — the policy the listing's privacy-policy URL points at. It has to stay true:
+  anything that starts transmitting data, `chrome.storage.sync` included, changes both files.
 - `e2e/MANUAL.md` — verifying by hand: the reload cycle, the browser-automation traps, the
   manual pass, and what a fresh journal can't show you. The complement to the e2e suite it
   sits beside.
