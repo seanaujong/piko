@@ -146,6 +146,57 @@ function ConfirmingIconButton({
   )
 }
 
+/** How long an armed delete waits for its second click before standing down. */
+export const ARM_MS = 3000
+
+/**
+ * Emptying the journal, behind a second click.
+ *
+ * The second click is the whole safety mechanism, and it is deliberately not the two obvious
+ * alternatives. A `confirm()` would be a modal belonging to whatever page the rail is docked
+ * beside, blocking it — the panel is a guest here and does not get to freeze its host. An undo
+ * would mean the store growing a way to be handed its old contents back, which is real interface
+ * for a button nobody presses twice a year; the journal's way back is the export sitting next to
+ * this one, which is why these two arrived together.
+ *
+ * Arming lives in this button rather than in the pane, so waiting for the second click redraws
+ * one element instead of the list behind it.
+ */
+function ClearAllButton({ count, onClear }: { count: number; onClear: () => void }) {
+  const [armed, setArmed] = useState(false)
+
+  // Standing down on its own matters more than it looks: an armed delete left under the cursor
+  // turns the next absent-minded click on this corner of the header into an emptied journal.
+  useEffect(() => {
+    if (!armed) return
+    const timer = setTimeout(() => setArmed(false), ARM_MS)
+    return () => clearTimeout(timer)
+  }, [armed])
+
+  const noun = count === 1 ? 'clipping' : 'clippings'
+  const label = armed
+    ? `Click again to delete all ${count} ${noun}`
+    : `Delete all ${count} ${noun}`
+
+  return (
+    <button
+      class={`piko-icon-button piko-clips-clear${armed ? ' is-armed' : ''}`}
+      title={label}
+      aria-label={label}
+      onClick={() => {
+        if (!armed) {
+          setArmed(true)
+          return
+        }
+        setArmed(false)
+        onClear()
+      }}
+    >
+      <Icon parts={ICON.trash} />
+    </button>
+  )
+}
+
 type ChipRowProps = {
   tallies: readonly SourceTally[]
   active: ReadonlySet<string>
@@ -532,6 +583,12 @@ function Pane({
               }}
             />
           )}
+          {/*
+            Next to the export on purpose: it is what makes emptying the journal a thing worth
+            offering, since the file beside it is the copy the reader keeps. Like the export it
+            acts on the whole journal rather than the narrowed view, and says so.
+          */}
+          {all.length > 0 && <ClearAllButton count={all.length} onClear={() => store.clear()} />}
           {/*
             An icon, because the control has no honest one-word label — "Close" beside an
             article would read as closing the preview the pane sits inside.

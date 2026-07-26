@@ -83,6 +83,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
 | what an exported file says, or how it leaves | `content/panel/exportMarkdown.ts`, then `download.ts` |
+| how a clipping reads once shown — footnote markers and the like | `content/extraction/sentences.ts` (`withoutCitations`) |
 | what narrows the journal (source, query, span) | `JournalFilters` + `visibleClippings` in `clippings.ts` |
 
 The panel's `.piko-body` is a flex row deliberately built to take a second child; that's
@@ -132,6 +133,7 @@ font-size contrast made it real.
 | A file leaves through an anchor, never `chrome.downloads` — the permission costs an install warning | 👁 | `content/panel/download.ts` | — |
 | The export writes every field of a `Clipping`, because the document is also the archive | ✅ | `content/panel/exportMarkdown.ts` | `exportMarkdown.test.ts` |
 | An export is of the whole journal, never the narrowed view, and its label says which | ✅ | `clippingsPane.tsx`, `content/panel/exportMarkdown.ts` | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
+| Emptying the journal takes a second click, stands down on its own, and reaches storage | ✅ | `clippingsPane.tsx` (`ClearAllButton`), `content/state/clippings.ts` (`clear`) | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
 | `:host(:hover)`, never `:host:hover` — the bare-chained form silently never matches | 👁 | `content/panel/styles.ts` | — |
 | No backticks inside `styles.ts`'s CSS comments; the sheet is one template literal | ✅ | `content/panel/styles.ts` | `npm run typecheck` |
 | Source order is the mechanism in `styles.ts`, and `all: initial` erases what earlier rules set | 👁 | `content/panel/styles.ts` | — |

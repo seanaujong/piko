@@ -832,4 +832,16 @@ export const PANEL_STYLES = `
 .piko-clips-close:hover {
   color: #e53935;
 }
+
+/*
+  An armed delete, waiting for its second click. Filled rather than tinted, because the resting
+  state of every other button in this row is also a coloured glyph and the difference has to be
+  legible at a glance in a 22px square. The hover selector is repeated so the cursor sitting on
+  the button it just armed cannot take the warning back off.
+*/
+.piko-clips-clear.is-armed,
+.piko-clips-clear.is-armed:hover {
+  background: #e53935;
+  color: #ffffff;
+}
 `

@@ -276,6 +276,42 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  /**
+   * Emptying the journal has to reach `chrome.storage`, not just the pane. An in-memory clear
+   * looks identical on screen and is undone by the next page load, which is the worst version of
+   * this bug: the reader believes their reading is gone and it is not.
+   */
+  it('empties the stored journal, not only the pane', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+    await clipFirstSentence(page)
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+
+    const armed = (): Promise<boolean> =>
+      page.evaluate(
+        `${SHADOW}.querySelector('.piko-clips-clear').classList.contains('is-armed')`,
+      ) as Promise<boolean>
+
+    // Two clicks, with the redraw in between. Clicking twice faster than the pane can re-render
+    // re-arms instead of confirming, since the second click is handled by the render that has
+    // not yet heard about the first — a destructive control failing closed, which is right.
+    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-clear').click()`)
+    await expect.poll(armed, POLL).toBe(true)
+    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-clear').click()`)
+    await expect.poll(() => clippingCount(page), POLL).toBe(0)
+
+    const [worker] = context.serviceWorkers()
+    const stored = (await worker!.evaluate(() =>
+      chrome.storage.local.get('piko.clippings'),
+    )) as Record<string, unknown[] | undefined>
+
+    expect(stored['piko.clippings'] ?? []).toHaveLength(0)
+
+    await page.close()
+  })
+
   it('answers the cursor on a button that is switched on', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)

@@ -3,7 +3,7 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Clipping } from '../../state/clippings'
 import { createClippingsStore } from '../../state/clippings'
-import { createClippingsPane, FLASH_MS } from './clippingsPane'
+import { ARM_MS, createClippingsPane, FLASH_MS } from './clippingsPane'
 
 /**
  * The pane rebuilds itself from the store on every change, so the question these tests ask is
@@ -403,6 +403,54 @@ describe('what export offers', () => {
 
     // ...and the export still promises all three.
     expect(exportLabel(pane)).toBe('Export all 3 clippings as Markdown')
+  })
+})
+
+/**
+ * The journal's one destructive control, which is why the interesting assertions are the ones
+ * about the click that does NOT empty it.
+ */
+describe('emptying the journal', () => {
+  const clearButton = (pane: { root: HTMLElement }): HTMLButtonElement =>
+    pane.root.querySelector<HTMLButtonElement>('.piko-clips-clear')!
+
+  it('keeps the journal on the first click and empties it on the second', async () => {
+    const { pane } = paneWithTwoSources()
+    const button = clearButton(pane)
+
+    await settle(() => button.click())
+    expect(entries(pane)).toHaveLength(3)
+    expect(button.getAttribute('aria-label')).toBe('Click again to delete all 3 clippings')
+
+    await settle(() => button.click())
+    expect(entries(pane)).toHaveLength(0)
+  })
+
+  /**
+   * An armed delete left sitting under the cursor is a trap: the next absent-minded click on
+   * this corner of the header would empty the journal, minutes after the click that armed it.
+   */
+  it('stands back down on its own', async () => {
+    vi.useFakeTimers()
+    const { pane } = paneWithTwoSources()
+    const button = clearButton(pane)
+
+    await settle(() => button.click())
+    await settle(() => vi.advanceTimersByTime(ARM_MS))
+    expect(button.getAttribute('aria-label')).toBe('Delete all 3 clippings')
+
+    // The click that would have confirmed now only arms again.
+    await settle(() => button.click())
+    expect(entries(pane)).toHaveLength(3)
+  })
+
+  it('offers the whole journal even while the list is narrowed', async () => {
+    const { pane } = paneWithTwoSources()
+
+    await settle(() => chips(pane)[0]!.click())
+    expect(entries(pane).length).toBeLessThan(3)
+
+    expect(clearButton(pane).getAttribute('aria-label')).toBe('Delete all 3 clippings')
   })
 })
 
