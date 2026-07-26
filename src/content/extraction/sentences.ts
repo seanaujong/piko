@@ -141,7 +141,11 @@ export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   const cached = segmentedBlocks.get(block)
   if (cached) return cached
 
-  const text = block.textContent ?? ''
+  // Not `block.textContent`: that reads every descendant, UI affordances and hidden nodes
+  // included, and `rangeForSentence` has to be able to point back at whatever this counted.
+  const text = textNodesIn(block)
+    .map((node) => node.data)
+    .join('')
 
   // Bracket depth at every index, computed in one pass so each boundary is an O(1) lookup.
   const depthAt = new Int32Array(text.length + 1)
@@ -219,11 +223,46 @@ export function findSentences(
   return hits
 }
 
+/**
+ * Descendants whose text is in the block but is not of it.
+ *
+ * Most of these are unambiguous: a `<script>` body, something the page has marked `hidden` or
+ * `aria-hidden`, the label inside a form control. `.mw-editsection` is not a category but an
+ * observation — MediaWiki appends a section-editing link to every heading, so a Wikipedia
+ * heading reads as `Overview[edit]` and, when the heading ends in a terminator and markup
+ * whitespace separates the two, segments into a clipping whose entire text is `[edit]`.
+ *
+ * That affordance is a whole genre — Sphinx, Docusaurus and AnchorJS each staple their own
+ * permalink onto headings — but only this one has actually been seen in the journal, so only
+ * this one is named. Add the next when it shows up, with the same evidence.
+ */
+const NOT_PROSE =
+  'script, style, noscript, template, button, input, select, textarea, [role="button"], [aria-hidden="true"], [hidden], .mw-editsection'
+
+/** Whether a text node sits inside something the block should not read text from. */
+function insideNonProse(node: Text, block: HTMLElement): boolean {
+  for (let element = node.parentElement; element !== null; element = element.parentElement) {
+    if (element.matches(NOT_PROSE)) return true
+    if (element === block) return false
+  }
+  return false
+}
+
+/**
+ * The text nodes a reader would say the block is made of.
+ *
+ * The single source for both halves of the offset contract, and that is the point of it being
+ * one function. `sentencesIn` joins these into the string it segments, and `rangeForSentence`
+ * walks the same list counting the same lengths — so an offset means the same thing on both
+ * sides by construction. Filtering in one and not the other would slide every sentence after
+ * the first excluded node, painting a highlight over the wrong words.
+ */
 function textNodesIn(block: HTMLElement): Text[] {
   const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT)
   const nodes: Text[] = []
   for (let node = walker.nextNode(); node !== null; node = walker.nextNode()) {
-    nodes.push(node as Text)
+    const text = node as Text
+    if (!insideNonProse(text, block)) nodes.push(text)
   }
   return nodes
 }

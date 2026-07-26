@@ -128,6 +128,7 @@ font-size contrast made it real.
 | Hit-testing goes through the shadow root's `elementFromPoint`, then rect containment — never a caret lookup | 👁 | `content/extraction/sentences.ts` (`sentenceAtPoint`) | — |
 | Segmentation is `Intl.Segmenter` plus two corrections, never a regex split on `.` | ✅ | `content/extraction/sentences.ts` (`sentencesIn`, `pastCitation`, `endsSentence`) | `sentences.test.ts` |
 | Footnote markers are stripped where a clipping is *shown*, never where it is stored or matched | ✅ | `content/extraction/sentences.ts` (`withoutCitations`) | `sentences.test.ts`, `exportMarkdown.test.ts`, `e2e/extension.test.ts` |
+| A block's text is its prose nodes, never `textContent` — and one filter feeds both the text and the Range | ✅ | `content/extraction/sentences.ts` (`textNodesIn`, `NOT_PROSE`) | `sentences.test.ts` |
 | A clipboard write is synchronous inside a real click handler, in the content script | 👁 | `content/panel/clipboard.ts` | — |
 | `clipboardWrite` stays out of the manifest — it buys nothing and costs an install warning | 👁 | `content/panel/clipboard.ts` | — |
 | A file leaves through an anchor, never `chrome.downloads` — the permission costs an install warning | 👁 | `content/panel/download.ts` | — |

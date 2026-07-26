@@ -114,6 +114,55 @@ describe('rangeForSentence', () => {
 
     expect(range!.toString()).toBe('Second one.')
   })
+
+  /**
+   * The offset contract, and the reason the excluded nodes are filtered in ONE function that
+   * both halves call. Offsets index the joined text; the range walks the nodes. Filter in one
+   * and not the other and every sentence past the first excluded node slides by its length —
+   * the highlight lands on the wrong words while the clipped text is still right, which is a
+   * long way from anywhere obvious to look.
+   */
+  it('still points at the right words when the block holds something excluded', () => {
+    const el = block(
+      '<span aria-hidden="true">decorative junk</span>First one. Second one.',
+    )
+    const [, second] = sentencesIn(el, 'en')
+    const range = rangeForSentence(el, second!.start, second!.end)
+
+    expect(range!.toString()).toBe('Second one.')
+  })
+})
+
+/**
+ * Text that lives in the block without being of it. The one that was actually seen in the
+ * journal is MediaWiki's section-edit link: every Wikipedia heading carries one, so a clipped
+ * heading read `Overview[edit]` — and where the heading ended in a terminator and markup
+ * whitespace fell between the two, it segmented into a clipping whose whole text was `[edit]`.
+ */
+describe('what a block refuses to read', () => {
+  const heading = (html: string): string[] => {
+    const el = document.createElement('h2')
+    el.innerHTML = html
+    return sentencesIn(el, 'en').map((s) => s.text)
+  }
+
+  it('leaves a section-edit link out of the heading it is stapled to', () => {
+    expect(heading('Overview<span class="mw-editsection">[edit]</span>')).toEqual(['Overview'])
+  })
+
+  /** The shape that produced a clipping reading only `[edit]`: a terminator, then whitespace. */
+  it('does not let one become a sentence of its own', () => {
+    expect(
+      heading('What is it?\n<span class="mw-editsection"><span>[</span><a>edit</a><span>]</span></span>'),
+    ).toEqual(['What is it?'])
+  })
+
+  it('ignores script bodies and anything the page has hidden', () => {
+    expect(textsIn('Real prose.<script>var x = "Fake sentence.";</script>')).toEqual([
+      'Real prose.',
+    ])
+    expect(textsIn('Real prose.<span hidden>Hidden sentence.</span>')).toEqual(['Real prose.'])
+  })
 })
 
 /**
