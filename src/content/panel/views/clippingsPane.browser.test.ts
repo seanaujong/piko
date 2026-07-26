@@ -35,7 +35,7 @@ const MANY = Array.from({ length: 20 }, (_, i) =>
 let host: HTMLElement | null = null
 
 /** Mounts the pane under the real stylesheet, in a box short enough to force scrolling. */
-function mountPane(items: readonly Clipping[]) {
+function mountPane(items: readonly Clipping[], { here = null }: { here?: string | null } = {}) {
   host = document.createElement('div')
   const shadow = host.attachShadow({ mode: 'open' })
 
@@ -46,7 +46,7 @@ function mountPane(items: readonly Clipping[]) {
   const store = createClippingsStore()
   for (const item of items) store.toggle(item)
 
-  const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
+  const pane = createClippingsPane(store, { onClose: () => {}, here: () => here })
 
   // Stands in for `.piko-body`, which is what gives the pane a bounded height to scroll within.
   const body = document.createElement('div')
@@ -149,6 +149,56 @@ describe('the header under real layout', () => {
     expect(title.getBoundingClientRect().top).toBe(before.title)
     expect(header.getBoundingClientRect().height).toBe(before.header)
   })
+
+  /**
+   * The fullest this bar ever gets, in the 300px the pane actually has: every icon showing, and
+   * Show all in the leading group beside the title. The trailing group has grown twice since the
+   * alignment bugs that produced `.piko-bar`, and the width it needs is the sum of controls
+   * nobody adds all at once — so the case is constructed rather than waited for.
+   */
+  it('holds every control on one line at the width the pane really has', async () => {
+    const { shadow } = mountPane(MANY, { here: SOURCE })
+
+    await act(() => shadow.querySelector<HTMLButtonElement>('.piko-clips-find')!.click())
+    await act(() =>
+      shadow.querySelector<HTMLButtonElement>('.piko-chip:not(.piko-chip-reset)')!.click(),
+    )
+
+    // Guards the fixture: this proves nothing if the controls it is about are not all present.
+    expect(shadow.querySelectorAll('.piko-clips-actions .piko-icon-button')).toHaveLength(5)
+    expect(shadow.querySelector('.piko-chip-reset')).not.toBeNull()
+
+    const header = shadow.querySelector<HTMLElement>('.piko-clips-header')!
+    const lead = shadow.querySelector<HTMLElement>('.piko-bar-lead')!
+    const trail = shadow.querySelector<HTMLElement>('.piko-bar-trail')!
+
+    // Nothing has been pushed out of the bar, and the two groups have not run into each other.
+    expect(header.scrollWidth).toBeLessThanOrEqual(header.clientWidth)
+    expect(trail.getBoundingClientRect().right).toBeLessThanOrEqual(
+      header.getBoundingClientRect().right,
+    )
+    expect(lead.getBoundingClientRect().right).toBeLessThanOrEqual(
+      trail.getBoundingClientRect().left,
+    )
+
+    /*
+      And the two that actually bite, because only the leading group shrinks. A trailing group
+      that outgrows the bar takes the width out of the LEAD, which collapses to zero and lets its
+      title and count render outside their own box — straight across the buttons. Measured at a
+      forced width: the group reports `width: 0` while its contents still want 110px, and the
+      title's right edge lands 58px past where the trailing group starts.
+
+      Every edge-based check misses that. The header does not overflow (the lead gave up its
+      width), the groups do not intersect (a zero-width box sits left of everything), and the
+      title is not clipped (nothing declares `overflow: hidden`, so it simply spills). The
+      question that catches it is whether the leading group has room for what is inside it.
+    */
+    const title = shadow.querySelector<HTMLElement>('.piko-clips-title')!
+    expect(lead.scrollWidth).toBeLessThanOrEqual(lead.clientWidth)
+    expect(title.getBoundingClientRect().right).toBeLessThanOrEqual(
+      trail.getBoundingClientRect().left,
+    )
+  })
 })
 
 describe('the span markers under real layout', () => {
@@ -197,3 +247,4 @@ describe('the span markers under real layout', () => {
     }
   })
 })
+
