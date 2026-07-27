@@ -59,7 +59,16 @@ export async function serveFixtures(
       response.end('not found')
       return
     }
-    response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+
+    // One fixture is served with the directive that broke extraction in the wild. A <base>
+    // element is governed by the *host page's* base-uri policy even inside a DOMParser
+    // document, so this page is the only place the suite can tell a mechanism the page can
+    // veto from one it cannot. Wikipedia serves exactly this.
+    const headers: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8' }
+    if (path.basename(requested) === 'csp-host.html') {
+      headers['Content-Security-Policy'] = "base-uri 'self'"
+    }
+    response.writeHead(200, headers)
     response.end(readFileSync(file))
   })
 
