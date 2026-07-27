@@ -67,6 +67,14 @@ or a rebase**; a merge commit is refused at the remote whatever the local hooks 
 `--no-verify` exists on both hooks for genuine exceptions, of which the commit introducing the
 hooks was one.
 
+**A branch stays linear too, which makes updating one a rebase.** `git merge main` is refused by
+the pre-push hook, so a stale branch catches up with `git fetch origin && git rebase origin/main`
+and then needs `git push --force-with-lease` — never a bare `--force`, which will happily discard
+a commit someone else pushed while you were rebasing. `npm install` also sets `pull.rebase`, so a
+plain `git pull` on a branch rebases rather than quietly writing the merge the hook would then
+reject. The cost is real and worth stating: rewriting a pushed branch is only safe because
+branches here are short-lived and single-author.
+
 **Three suites, split by what each needs.** `npm test` runs all of them; `vitest.config.ts` is
 where each one's requirement is argued.
 
