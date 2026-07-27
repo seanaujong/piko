@@ -111,10 +111,20 @@ const firstClippingText = (page: Page): Promise<string> =>
 const POLL = { timeout: 15_000, interval: 150 }
 
 describe('the loaded extension', () => {
-  it('mounts its content script on an ordinary page', async () => {
+  it('puts nothing in the page until the reader asks for something', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)
 
+    // Settle well past document_idle — the content script has certainly run by now, and the
+    // point is that having run, it has added nothing. Piko's claim on every site it can reach
+    // is that it does nothing until gestured at; this is that claim as an assertion.
+    await page.waitForTimeout(750)
+    expect(
+      await page.evaluate('[...document.documentElement.children].some(e => e.shadowRoot)'),
+    ).toBe(false)
+
+    // …and it is listening, so the first gesture still builds it.
+    await dragLink(page, 'article-link')
     await expect
       .poll(
         () => page.evaluate('[...document.documentElement.children].some(e => e.shadowRoot)'),
@@ -361,10 +371,12 @@ describe('the loaded extension', () => {
     await dragLink(page, 'fragment-link')
     await page.waitForTimeout(1200)
 
-    const hidden = await page.evaluate(
-      '[...document.documentElement.children].find(e => e.shadowRoot).hasAttribute("data-hidden")',
+    // Nothing was built at all, which is a stronger result than a panel that stayed hidden:
+    // a gesture the reducer declines never reaches the point of mounting anything.
+    const built = await page.evaluate(
+      '[...document.documentElement.children].some(e => e.shadowRoot)',
     )
-    expect(hidden).toBe(true)
+    expect(built).toBe(false)
 
     await page.close()
   })
@@ -466,10 +478,19 @@ describe('the loaded extension', () => {
       }, url)
     }
 
+    /**
+     * Whether the journal rail is not showing. Before the first gesture there is no panel in
+     * the page at all, which is the strongest form of hidden there is — so an absent host
+     * answers true rather than throwing, and every "starts hidden, ends hidden" assertion below
+     * keeps saying what it always said.
+     */
     const railHidden = (page: Page): Promise<boolean> =>
-      page.evaluate(
-        `${SHADOW}.querySelector('.piko-rail').hasAttribute('data-hidden')`,
-      ) as Promise<boolean>
+      page.evaluate(`(() => {
+        const host = [...document.documentElement.children].find(e => e.shadowRoot)
+        if (!host) return true
+        const rail = host.shadowRoot.querySelector('.piko-rail')
+        return rail === null || rail.hasAttribute('data-hidden')
+      })()`) as Promise<boolean>
 
     it('docks the journal without dragging, and without covering the page', async () => {
       const page = await context.newPage()
@@ -679,6 +700,71 @@ describe('what the background fetch carries', () => {
     } finally {
       await context.clearCookies()
       recorder.close()
+    }
+  })
+})
+
+/**
+ * Extraction on a page that forbids the shortcut.
+ *
+ * A `<base href>` inside a DOMParser document is governed by the *host page's* `base-uri`
+ * directive, so on a site serving `base-uri 'self'` the insertion is blocked, the document keeps
+ * its `about:blank` base, and every relative image and link in the reader resolves against that.
+ * It fails silently and only on some sites — reported from Wikipedia, where dragging a link to
+ * www.wikipedia.org from en.wikipedia.org trips it.
+ *
+ * Two details are load-bearing, and both were got wrong before they were got right:
+ *
+ *  - jsdom has no CSP, so the `<base>` approach passes every test in `extract.test.ts`. Only a
+ *    real page serving the directive can tell the two mechanisms apart.
+ *  - the dragged page must be a DIFFERENT ORIGIN from the host page. `'self'` permits a base
+ *    pointing at the host's own origin, so a same-origin fixture reproduces nothing. A second
+ *    server on a second port is what makes the directive bite.
+ */
+describe('extraction under a hostile base-uri policy', () => {
+  it('resolves relative urls when the page forbids a cross-origin base element', async () => {
+    // Same fixtures, different port — a different origin as far as `base-uri 'self'` is concerned.
+    const elsewhere = await serveFixtures()
+    const page = await context.newPage()
+
+    const violations: string[] = []
+    page.on('console', (message) => {
+      if (/Content Security Policy/i.test(message.text())) violations.push(message.text())
+    })
+
+    try {
+      await page.goto(`${base}/csp-host.html`)
+      await page.evaluate((href) => {
+        const anchor = document.createElement('a')
+        anchor.id = 'cross-origin-link'
+        anchor.href = href
+        anchor.textContent = 'an article on another origin'
+        anchor.setAttribute('style', 'position:fixed;left:40px;top:240px;padding:8px;z-index:1')
+        document.body.appendChild(anchor)
+      }, `${elsewhere.base}/relative.html`)
+
+      await dragLink(page, 'cross-origin-link')
+      await waitForReader(page)
+
+      const urls = (await page.evaluate(`(() => {
+        const article = ${SHADOW}.querySelector('.piko-article')
+        return {
+          link: article.querySelector('a')?.getAttribute('href') ?? null,
+          image: article.querySelector('img')?.getAttribute('src') ?? null,
+        }
+      })()`)) as { link: string | null; image: string | null }
+
+      // Resolved against the article's own origin — not against about:blank, and not against
+      // the host page, which is what a blocked base leaves behind.
+      expect(urls.link).toBe(`${elsewhere.base}/other.html`)
+      expect(urls.image).toBe(`${elsewhere.base}/tide-chart.png`)
+
+      // The page never had to refuse anything. Restore the <base> element and this is the
+      // assertion that goes red first, with the violation Sean saw on Wikipedia.
+      expect(violations).toEqual([])
+    } finally {
+      elsewhere.close()
+      await page.close()
     }
   })
 })
