@@ -455,9 +455,17 @@ export const PANEL_STYLES = `
 /**
  * One label, two words — and it is the gap that decides whether a reader sees it that way.
  *
- * 5px, the same gap the chip sets between its own label and its own count, because this is the
- * same relationship: a name meeting the number that belongs to it. It was 8px, which is about
- * two and a half word-spaces at this size, and read as two items that happened to be adjacent.
+ * 5px, the number the chip sets between its own label and its own count, because this is the
+ * same relationship: a name meeting the number that belongs to it. It was 8px, about two and a
+ * half word-spaces at this size, and read as two items that happened to be adjacent.
+ *
+ * The shared thing is the number, not the whitespace, and that is worth knowing before chasing
+ * the difference. Measured against a chip, this renders 0.60px looser: 0.47px of it is the
+ * trailing letter-space a tracked name carries inside its own box, and the remaining 0.13px is
+ * the right side bearing of whichever glyph each name happens to end on. Only the first is
+ * artificial, and paying it back with a negative margin buys 0.47px of an equality the second
+ * makes unreachable — on a flex item that also shrinks and ellipsises. The number is what two
+ * places can genuinely hold in common.
  *
  * The count sits on the title's baseline, not on its box, so the pair survives a future size
  * difference between them without the numerals riding high. Its own element rather than a rule
