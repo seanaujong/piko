@@ -4,9 +4,10 @@
 # push, which is the cheapest place to catch it. Wired in via core.hooksPath (see package.json's
 # "prepare" script), so it applies the moment you `npm install` with no manual setup.
 #
-# The server-side half is a GitHub ruleset requiring a pull request before merging. Note that
-# main also has a linear-history ruleset, so a PR has to land as a squash or a rebase; a merge
-# commit is refused at the remote.
+# The server-side half is a GitHub ruleset requiring a pull request before merging, plus a
+# linear-history ruleset, so a PR has to land as a squash or a rebase; a merge commit is refused
+# at the remote. Feature branches are held to the same shape one step later, by the pre-push
+# hook: bringing main into a branch is a rebase here, never a merge.
 branch=$(git symbolic-ref --short HEAD 2>/dev/null)
 if [ "$branch" = "main" ]; then
   echo "✗ refusing to commit directly to main." >&2
