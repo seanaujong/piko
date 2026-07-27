@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest'
-import { fetchRefusal } from './fetchPolicy'
+import { fetchRefusal as refusalFor } from './fetchPolicy'
 
 /** The page doing the dragging, unless a test cares. Public, which is the ordinary case. */
 const FROM_PUBLIC = 'https://news.example.com'
 const FROM_LOCAL = 'http://127.0.0.1:8080'
+
+/**
+ * The reader's excluded-site list, defaulted away for the tests that predate it — they are about
+ * network tiers and the shipped list, and threading an empty array through every one of them
+ * would say the two concerns are related when they are not. The tests that *are* about it pass
+ * it explicitly, at the bottom of this file.
+ */
+const fetchRefusal = (url: string, pageOrigin: string, excluded: readonly string[] = []) =>
+  refusalFor(url, pageOrigin, excluded)
 
 const refused = (url: string, pageOrigin = FROM_PUBLIC) => fetchRefusal(url, pageOrigin) !== null
 
@@ -96,5 +105,34 @@ describe('schemes and sensitive hosts', () => {
 
   it('refuses something that is not a URL at all rather than throwing', () => {
     expect(refused('not a url')).toBe(true)
+  })
+})
+
+describe('a site the reader turned Piko off on', () => {
+  const MY_BANK = ['chase.com']
+
+  it('is refused, even though it is an ordinary public address', () => {
+    // Keeping the content script off an excluded site stops Piko running *there*. It says
+    // nothing about a link *to* there being dragged from somewhere else, which is a fetch of
+    // that site from the reader's network position after they said not to touch it.
+    expect(fetchRefusal('https://chase.com/statements', FROM_PUBLIC, MY_BANK)).not.toBeNull()
+  })
+
+  it('covers everything beneath the entry', () => {
+    expect(fetchRefusal('https://secure.chase.com/', FROM_PUBLIC, MY_BANK)).not.toBeNull()
+  })
+
+  it('names the entry, because the refusal is read by the person who wrote it', () => {
+    expect(fetchRefusal('https://secure.chase.com/', FROM_PUBLIC, MY_BANK)).toBe(
+      'Piko is turned off on chase.com.',
+    )
+  })
+
+  it('leaves a lookalike host alone', () => {
+    expect(fetchRefusal('https://notchase.com/', FROM_PUBLIC, MY_BANK)).toBeNull()
+  })
+
+  it('leaves every other site alone', () => {
+    expect(fetchRefusal('https://en.wikipedia.org/wiki/Bank', FROM_PUBLIC, MY_BANK)).toBeNull()
   })
 })

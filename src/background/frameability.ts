@@ -15,6 +15,7 @@
 import type { CheckFrameabilityResponse } from '../shared/messages'
 import { FRAMEABILITY_FETCH_TIMEOUT_MS, MAX_FETCHED_HTML_BYTES } from '../shared/constants'
 import { fetchRefusal } from './fetchPolicy'
+import { readExcludedSites } from './excludedSites'
 
 /**
  * frame-ancestors (CSP) wins over X-Frame-Options when both are present (CSP2 precedence).
@@ -55,7 +56,12 @@ export async function checkFrameability(
   targetUrl: string,
   pageOrigin: string,
 ): Promise<CheckFrameabilityResponse> {
-  const refused = fetchRefusal(targetUrl, pageOrigin)
+  // Read once and used for both judgements below. Re-reading after the redirect would let a
+  // change mid-flight decide the two halves differently, which is a difference no caller could
+  // account for and no test could reproduce.
+  const excludedSites = await readExcludedSites()
+
+  const refused = fetchRefusal(targetUrl, pageOrigin, excludedSites)
   if (refused) return { type: 'FETCH_ERROR', reason: refused }
 
   const controller = new AbortController()
@@ -87,7 +93,7 @@ export async function checkFrameability(
   const finalUrl = response.url || targetUrl
   // Judged again after the redirect chain: the policy applied to `targetUrl` says nothing about
   // where a 302 landed, and landing somewhere private is exactly the interesting case.
-  const refusedAfterRedirect = fetchRefusal(finalUrl, pageOrigin)
+  const refusedAfterRedirect = fetchRefusal(finalUrl, pageOrigin, excludedSites)
   if (refusedAfterRedirect) return { type: 'FETCH_ERROR', reason: refusedAfterRedirect }
 
   const contentType = response.headers.get('content-type') ?? ''

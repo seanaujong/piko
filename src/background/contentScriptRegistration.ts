@@ -13,7 +13,8 @@
  * one of the few places where the shipped path and the tested path genuinely differ, and the
  * `declaredStatically` guard below is where they meet.
  */
-import { excludeMatchPatterns } from '../shared/sensitiveHosts'
+import { excludeMatchPatterns, SENSITIVE_HOSTS } from '../shared/sensitiveHosts'
+import { readExcludedSites } from './excludedSites'
 
 const SCRIPT_ID = 'piko-content'
 
@@ -54,19 +55,39 @@ export async function syncContentScriptRegistration(): Promise<void> {
     if (registered.length > 0) await chrome.scripting.unregisterContentScripts({ ids: [SCRIPT_ID] })
     return
   }
-  if (registered.length > 0) return
+
+  // Two lists, one set of patterns: the categories Piko ships a refusal for, and the sites this
+  // reader excluded by hand. `excludedSites.ts` says why they stay separate concepts.
+  const excludeMatches = excludeMatchPatterns([...SENSITIVE_HOSTS, ...(await readExcludedSites())])
+
+  // Registration is not write-once any more — the reader's list changes under it, and a
+  // registration that merely *exists* is no longer evidence it excludes the right sites. So the
+  // patterns are compared rather than the presence, and a drift is pushed with `update` rather
+  // than an unregister/register pair, which would leave a window where the script matches
+  // everything.
+  const current = registered[0]
+  if (current) {
+    if (samePatterns(current.excludeMatches ?? [], excludeMatches)) return
+    await chrome.scripting.updateContentScripts([{ id: SCRIPT_ID, excludeMatches }])
+    return
+  }
 
   await chrome.scripting.registerContentScripts([
     {
       id: SCRIPT_ID,
       matches: ['<all_urls>'],
-      // The same list the manifest used to carry, from the same source. `sensitiveHosts.ts`
-      // explains why the exclusions exist and why banking is not among them.
-      excludeMatches: excludeMatchPatterns(),
+      excludeMatches,
       js: ['content.js'],
       runAt: 'document_idle',
       // Survives a browser restart, so the grant is asked for once and not once per session.
       persistAcrossSessions: true,
     },
   ])
+}
+
+/** Order is not part of the meaning, so a reordering must not read as a change worth pushing. */
+function samePatterns(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false
+  const have = new Set(a)
+  return b.every((pattern) => have.has(pattern))
 }

@@ -19,7 +19,7 @@
  * Fetch API in an extension worker will not allow — `redirect: 'manual'` yields an opaque
  * response with no readable `Location`. The residual is named here rather than papered over.
  */
-import { isSensitiveUrl } from '../shared/sensitiveHosts'
+import { isSensitiveUrl, matchesHost } from '../shared/sensitiveHosts'
 
 /**
  * Blocks of IPv4 space that are not publicly routable, plus the ones that are routable but
@@ -97,7 +97,11 @@ function isPrivateAddress(hostname: string): boolean {
  * CORS-RFC1918) — and the worker holding itself to the same tier check is the point: the fetch
  * happens outside the page, so nothing else would apply it.
  */
-export function fetchRefusal(url: string, pageOrigin: string): string | null {
+export function fetchRefusal(
+  url: string,
+  pageOrigin: string,
+  excludedSites: readonly string[],
+): string | null {
   let parsed: URL
   try {
     parsed = new URL(url)
@@ -116,6 +120,13 @@ export function fetchRefusal(url: string, pageOrigin: string): string | null {
   if (isSensitiveUrl(url)) {
     return 'Piko does not open links to email, chat, password managers or sign-in pages.'
   }
+
+  // Keeping the content script out of an excluded site stops Piko running *there*; it does
+  // nothing about a link *to* there being dragged from somewhere else, which is a fetch of that
+  // site from the reader's network position with the reader having said not to touch it. The
+  // reader's list is not a rule about where Piko runs, it is a rule about a site.
+  const excluded = matchesHost(url, excludedSites)
+  if (excluded) return `Piko is turned off on ${excluded}.`
 
   return null
 }

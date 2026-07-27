@@ -69,22 +69,41 @@ export const SENSITIVE_HOSTS: readonly string[] = [
  * `example.com` is a detail of Chrome's pattern semantics that this project would otherwise be
  * betting on silently; emitting `*://example.com/*` alongside it makes the question moot, at
  * the cost of a longer array nobody reads by hand.
+ *
+ * Deduplicated because the two lists overlap: a reader who excludes `slack.com` by hand names
+ * a host the shipped list already carries. The duplicate would be harmless to Chrome and not
+ * to `syncContentScriptRegistration`, which decides whether to re-register by comparing this
+ * array against the one already registered.
  */
 export function excludeMatchPatterns(hosts: readonly string[] = SENSITIVE_HOSTS): string[] {
-  return hosts.flatMap((host) => [`*://${host}/*`, `*://*.${host}/*`])
+  return [...new Set(hosts.flatMap((host) => [`*://${host}/*`, `*://*.${host}/*`]))]
 }
 
 /**
  * Mirrors the match patterns above: a host matches if it *is* one of the entries or sits
  * beneath one. Suffix matching is anchored on a dot so that `notbitwarden.com` cannot pass for
  * `bitwarden.com` — the check a bare `endsWith` gets wrong.
+ *
+ * The list is a parameter because there are now two of them — the one Piko ships and the one
+ * the reader builds in `excludedSites.ts` — and they must be judged by the same rule. Two lists
+ * with two matchers is how a lookalike host gets past one of them.
+ *
+ * Answers with the *entry* that matched rather than a boolean, because a caller that has to
+ * explain itself needs to name it: the site menu's undo item says which entry it would remove,
+ * and "Run Piko on chase.com again" is only writable if the match knows it was `chase.com` and
+ * not the `secure.chase.com` the reader happens to be standing on.
  */
-export function isSensitiveUrl(url: string): boolean {
+export function matchesHost(url: string, hosts: readonly string[]): string | null {
   let host: string
   try {
     host = new URL(url).hostname.toLowerCase()
   } catch {
-    return false // not a URL this predicate can judge; fetchPolicy rejects it on other grounds
+    return null // not a URL this predicate can judge; fetchPolicy rejects it on other grounds
   }
-  return SENSITIVE_HOSTS.some((entry) => host === entry || host.endsWith(`.${entry}`))
+  return hosts.find((entry) => host === entry || host.endsWith(`.${entry}`)) ?? null
+}
+
+/** The shipped list's application of that rule — the claim Piko makes without being asked. */
+export function isSensitiveUrl(url: string): boolean {
+  return matchesHost(url, SENSITIVE_HOSTS) !== null
 }

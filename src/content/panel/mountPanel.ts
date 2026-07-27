@@ -19,6 +19,14 @@ export type PanelHandle = {
    * intercepted, so there is no invisible mode to forget you are in.
    */
   toggleHostClipping: () => void
+  /**
+   * Take the panel back out of the page and leave nothing behind — the shadow host, the two
+   * document-level listeners, and the page's own `margin-right` if the rail was borrowing it.
+   * The last one is the reason this cannot be `host.remove()` at the call site: the rail takes
+   * its width out of the page's layout, so a panel removed while armed would leave the page
+   * permanently indented by a rail that is no longer there.
+   */
+  unmount: () => void
 }
 
 /**
@@ -171,6 +179,9 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   /** The page's own inline margin, held while the rail is borrowing space from it. */
   let pageMarginRight: string | null = null
 
+  /** Both of the listeners this panel puts outside its own shadow root, retired together. */
+  const pageListeners = new AbortController()
+
   document.addEventListener(
     'keydown',
     (event) => {
@@ -187,7 +198,7 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
       if (detachHostClipping) stopHostClipping()
       else if (isOpen) dispatch({ type: 'Dismissed' })
     },
-    { capture: true },
+    { capture: true, signal: pageListeners.signal },
   )
 
   /** The pane is one instance, re-parented — its filters and scroll survive the move. */
@@ -239,9 +250,13 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
   }
 
   // The rail is capped in viewport units, so its width changes as the window does.
-  window.addEventListener('resize', () => {
-    if (detachHostClipping) reserveRailSpace()
-  })
+  window.addEventListener(
+    'resize',
+    () => {
+      if (detachHostClipping) reserveRailSpace()
+    },
+    { signal: pageListeners.signal },
+  )
 
   function stopHostClipping(): void {
     detachHostClipping?.()
@@ -339,6 +354,14 @@ export function mountPanel(dispatch: Dispatch): PanelHandle {
     toggleHostClipping() {
       if (detachHostClipping) stopHostClipping()
       else startHostClipping()
+    },
+    unmount() {
+      // Before the host goes, not after: this is what hands the page its margin back, and it
+      // reads the rail's box to do it.
+      if (detachHostClipping) stopHostClipping()
+      pageListeners.abort()
+      cleanupCurrentView?.()
+      host.remove()
     },
   }
 }
