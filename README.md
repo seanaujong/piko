@@ -136,3 +136,16 @@ keeps running the old content script, and it can't talk to the reloaded extensio
 machine) and `<all_urls>` host access, which is what lets the background worker fetch a
 dragged link to check whether it can be framed. There is no analytics, no account, and no
 network call to anywhere but the page you dragged.
+
+Access that broad is worth saying more about than which permission it is:
+
+- **Piko does not run on webmail, password managers, chat, or sign-in pages.** The list is
+  `src/shared/sensitiveHosts.ts`, the manifest's `exclude_matches` is asserted against it, and
+  the background worker refuses to fetch those hosts too. Banking is deliberately *not* on the
+  list — it cannot be enumerated, and a partial list would claim more than it delivers.
+- **A preview starts only from a real drag.** An event synthesised by page script is ignored, so
+  a page cannot decide what Piko fetches.
+- **The fetch carries no cookies and no referrer**, and it will not reach an address on your own
+  network — a public page cannot use Piko to read your router, your intranet or your localhost.
+- **Nothing is read from a page until you ask.** Piko notices a drag and a toolbar click; it
+  looks at the text only once one of those has happened, and stores only what you clip.

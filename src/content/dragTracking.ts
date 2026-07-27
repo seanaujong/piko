@@ -15,6 +15,12 @@ function isSamePageAnchor(anchor: HTMLAnchorElement): boolean {
 }
 
 function resolveLinkTarget(event: DragEvent): LinkTarget | null {
+  // `isTrusted` is false for any event page script synthesised with dispatchEvent. Without this
+  // the page itself can start a preview with no reader involved at all — fabricate a drag on an
+  // anchor of its choosing and the background worker fetches that URL from the reader's network
+  // position. The gesture is supposed to be evidence that a person wanted this; a synthetic
+  // event is evidence of nothing. See `fetchPolicy.ts` for what a fetch is worth to an attacker.
+  if (!event.isTrusted) return null
   if (!(event.target instanceof Element)) return null
   const anchor = event.target.closest('a[href]')
   if (!(anchor instanceof HTMLAnchorElement)) return null
