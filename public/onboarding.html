@@ -92,6 +92,9 @@
         background: color-mix(in srgb, currentColor 8%, transparent);
       }
       .tryit p:last-child { margin-bottom: 0; }
+      /* Capped rather than full-bleed: past about this width the two ringed shapes stop being
+         the thing the eye lands on and the mock browser starts looking like the subject. */
+      .pinshot { display: block; width: 100%; max-width: 340px; height: auto; margin: 10px 0 4px; }
 
       /* `revert` rather than `block`, so each element goes back to whatever it would have
          displayed as — the pair inside the heading are spans, the rest are paragraphs. */
@@ -146,6 +149,52 @@
         on Wikipedia — thick with links, and about the very thing your journal is.
       </p>
       <ol>
+        <li>
+          Pin Piko to your toolbar: the puzzle piece at the right of the address bar, then the
+          pin beside Piko. Chrome hides a new extension behind that menu, and every step from
+          here begins with pressing Piko's icon.
+          <!-- Drawn rather than captured. A screenshot of a real browser ships whoever took it —
+               their other extensions, their bookmarks, their avatar — to every install, and goes
+               stale the next time Chrome moves something. This carries the two shapes the reader
+               has to find and nothing else, costs about a kilobyte, and needs no request. The
+               icon in the row is the shipping raster, so what they look for is what they saw. -->
+          <svg class="pinshot" viewBox="0 0 380 168" role="img" aria-labelledby="pinshot-title">
+            <title id="pinshot-title">
+              Chrome's toolbar with the puzzle-piece button ringed, and the extensions menu below
+              it with the pin beside Piko ringed.
+            </title>
+
+            <!-- the right end of the toolbar -->
+            <rect x="8" y="8" width="364" height="40" rx="20"
+                  fill="none" stroke="currentColor" stroke-opacity="0.22" />
+            <rect x="28" y="24" width="170" height="8" rx="4" fill="currentColor" fill-opacity="0.13" />
+            <path d="M232 19l3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3 1.2-6.9-5-4.9 6.9-1z"
+                  fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.6" />
+            <circle cx="344" cy="28" r="9" fill="currentColor" fill-opacity="0.18" />
+
+            <!-- the puzzle piece, which is the button to press -->
+            <circle cx="288" cy="28" r="17" fill="#3d5afe" fill-opacity="0.14"
+                    stroke="#3d5afe" stroke-width="2" />
+            <path transform="translate(276 16)" fill="currentColor" fill-opacity="0.85"
+                  d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+
+            <path d="M288 50v14" stroke="#3d5afe" stroke-width="2" stroke-dasharray="3 3" />
+            <path d="M288 70l-5-8h10z" fill="#3d5afe" />
+
+            <!-- the menu it opens -->
+            <rect x="148" y="72" width="224" height="88" rx="12"
+                  fill="currentColor" fill-opacity="0.06" stroke="currentColor" stroke-opacity="0.2" />
+            <text x="166" y="96" font-size="11" fill="currentColor" fill-opacity="0.55">Extensions</text>
+            <image href="icons/icon128.png" x="166" y="112" width="20" height="20" />
+            <text x="196" y="127" font-size="13" fill="currentColor" fill-opacity="0.9">Piko</text>
+
+            <!-- the pin, which is the thing to click -->
+            <rect x="322" y="108" width="28" height="28" rx="9" fill="#3d5afe" fill-opacity="0.14"
+                  stroke="#3d5afe" stroke-width="2" />
+            <path transform="translate(327 113) scale(0.75)" fill="currentColor" fill-opacity="0.85"
+                  d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+          </svg>
+        </li>
         <li>Press Piko's toolbar icon. The journal docks on the right, and the page becomes
           clippable.</li>
         <li>Read until you find the one sentence that says what the article is <em>about</em>.

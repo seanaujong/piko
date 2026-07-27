@@ -98,6 +98,8 @@ ignored at runtime. So what follows is checked by hand or not at all.
 After `npm run build` and **Load unpacked** on a *fresh* profile:
 
 1. The onboarding page opens by itself, titled "Piko needs to be allowed on the pages you read".
+   Pin Piko before going further — a fresh profile hides the icon behind the puzzle piece, and
+   steps 7 below and the whole site-menu pass need it in the toolbar.
 2. Before pressing anything: drag a link on any page. **Nothing should happen** — that is the
    shipped default, not a bug.
 3. Press **Allow Piko on all sites** and confirm Chrome's prompt. The status line turns green.

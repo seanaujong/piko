@@ -233,7 +233,9 @@ button and the list of sites Piko stays off.
 4. HOVER a sentence in that panel — it highlights. CLICK it, and it is saved to the journal in
    the column on the right.
 5. Alternatively, press Piko's toolbar icon on any article. The journal docks to the right of
-   the page and the page itself becomes clippable in the same way.
+   the page and the page itself becomes clippable in the same way. (Chrome hides a new
+   extension's icon: click the puzzle piece at the right of the address bar, then the pin
+   beside Piko, and the icon appears in the toolbar.)
 6. In the journal, the download button exports everything as a Markdown file, and each entry's
    link reopens the source page at that exact sentence.
 
