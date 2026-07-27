@@ -27,6 +27,7 @@
       h2 { font-size: 1.05rem; margin: 2.5em 0 0.5em; }
       p { margin: 0 0 1em; }
       ul { margin: 0 0 1em; padding-left: 1.2em; }
+      ol { margin: 0 0 1em; padding-left: 1.4em; }
       li { margin-bottom: 0.4em; }
       .lede { font-size: 1.1rem; }
 
@@ -130,6 +131,11 @@
          takes to answer, and this is the one section where that would be a lie worth avoiding. -->
     <div id="sites"></div>
 
+    <!-- A reading, not a feature tour. Both surfaces appear here because the sequence needs
+         them, in the order the reading needs them — and the task in step 2 is the whole product
+         argument in one instruction: the reader summarises the article by choosing a sentence,
+         which is the thing a generated summary would have done instead of them. A tour of the
+         same two gestures would teach what Piko does and not what it is for. -->
     <h2>Try it</h2>
     <div class="tryit">
       <p>
@@ -137,14 +143,27 @@
         <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
           >Commonplace book</a
         >
-        on Wikipedia — a page thick with links, and about the very thing Piko's journal is.
-        <strong>Drag any link in its text</strong> a short distance and let go: the article you
-        dragged opens in place. Hover a sentence in it and it highlights; click, and it is kept.
+        on Wikipedia — thick with links, and about the very thing your journal is.
+      </p>
+      <ol>
+        <li>Press Piko's toolbar icon. The journal docks on the right, and the page becomes
+          clippable.</li>
+        <li>Read until you find the one sentence that says what the article is <em>about</em>.
+          Click it. That sentence is now the article, in your journal.</li>
+        <li>Keep going. When a link matters to what you just kept, drag it a short distance and
+          let go — that article opens in place, in reader mode, journal still beside it.</li>
+        <li>Find its one sentence too, and click that. Escape brings you back.</li>
+      </ol>
+      <p>
+        What you are left with is the article in the sentences you chose, and its neighbours in
+        one line each. Piko will not choose them for you: choosing is the reading.
       </p>
       <p class="fineprint">
-        The drag has to happen over there rather than here: Piko cannot run on its own pages. And
-        a tab that was already open before you pressed the button needs a reload first — a content
-        script cannot enter a page that finished loading before the script existed.
+        Three things that are not bugs. Dragging a link puts the page's own clipping away, so
+        press the icon again when you want it back. The drag has to happen over there rather than
+        here, because Piko does not run on its own pages. And a tab that was already open before
+        you pressed the button needs a reload first — a content script cannot enter a page that
+        finished loading without it.
       </p>
     </div>
 
