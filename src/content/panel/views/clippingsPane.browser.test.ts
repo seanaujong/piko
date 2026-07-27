@@ -279,7 +279,48 @@ describe('the header under real layout', () => {
 
     expect(collisions(header)).toEqual([])
   })
+
+  /**
+   * The pair reads as one label or as two adjacent things, and its top edge is what decides.
+   *
+   * Asked of the painted glyphs rather than of the declared sizes, because the sizes were never
+   * the rule — the rule is that the digits reach the word's cap line, and a font whose figures
+   * were not cap-tall would break it at identical sizes. Two halves, neither sufficient: the
+   * boxes must coincide, which is what baseline alignment buys and what an `align-items` change
+   * would take away, and the fonts' ink ascents must coincide, which is what a size change would
+   * take away. The bug this replaced was 0.74px of the second kind.
+   */
+  it('sets the count so its figures reach the title cap line', () => {
+    const { shadow } = mountPane(MANY)
+    const title = shadow.querySelector<HTMLElement>('.piko-clips-title')!
+    const count = shadow.querySelector<HTMLElement>('.piko-clips-count')!
+
+    // Guards the fixture: a count of nothing has no figures to align.
+    expect(count.textContent).toMatch(/\d/)
+
+    expect(count.getBoundingClientRect().top).toBe(title.getBoundingClientRect().top)
+
+    // A quarter pixel rather than nothing, because the two are set at different weights and the
+    // bold cap's ink box is a hair taller than the regular figure's — 0.018px of it here. CI
+    // resolves this font stack to a different family than macOS does and may synthesise the bold,
+    // which moves that hair; it does not move 0.74px.
+    const raggedness = Math.abs(inkAscent(count, '20') - inkAscent(title, 'CLIPPINGS'))
+    expect(raggedness).toBeLessThan(0.25)
+  })
 })
+
+/**
+ * How far the tallest glyph of `text` rises above its baseline, as Chrome will actually paint it
+ * in `el`'s font. Canvas is the only route to a font's ink metrics from script: a client rect
+ * reports the line box, which is generous by the leading on both sides and identical for a cap
+ * and a digit.
+ */
+function inkAscent(el: HTMLElement, text: string): number {
+  const pen = document.createElement('canvas').getContext('2d')!
+  const style = getComputedStyle(el)
+  pen.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  return pen.measureText(text).actualBoundingBoxAscent
+}
 
 describe('the span markers under real layout', () => {
   afterEach(() => vi.useRealTimers())
