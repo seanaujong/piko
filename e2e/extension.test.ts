@@ -4,7 +4,7 @@ import type { AddressInfo } from 'node:net'
 import type { BrowserContext, Page } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
-  buildExtension,
+  buildTestExtension,
   launchWithExtension,
   serveFixtures,
   SHADOW,
@@ -27,7 +27,7 @@ let context: BrowserContext
 let base: string
 
 beforeAll(async () => {
-  buildExtension()
+  buildTestExtension()
   server = await serveFixtures()
   base = server.base
   context = await launchWithExtension()

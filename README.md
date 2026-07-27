@@ -124,7 +124,9 @@ From source, which is currently the only way:
 1. `npm install && npm run build`
 2. Visit `chrome://extensions`, enable **Developer mode** (top-right).
 3. **Load unpacked** → select `dist/`.
-4. Open any link-dense page and drag a hyperlink.
+4. Piko opens its onboarding page. Press **Allow Piko on all sites** and confirm — nothing works
+   until you do, by design.
+5. Open any link-dense page and drag a hyperlink.
 
 After any later rebuild you must click the reload icon on Piko's card at
 `chrome://extensions` **and** refresh the tabs you're testing in — an already-open tab
@@ -132,10 +134,16 @@ keeps running the old content script, and it can't talk to the reloaded extensio
 
 ## Permissions
 
-`storage` (the clippings journal, kept in `chrome.storage.local` — nothing leaves your
-machine) and `<all_urls>` host access, which is what lets the background worker fetch a
-dragged link to check whether it can be framed. There is no analytics, no account, and no
-network call to anywhere but the page you dragged.
+**Installing Piko grants it nothing.** The manifest declares `storage` and `scripting` — neither
+of which mentions your browsing — and asks for host access *optionally*, at runtime. After
+install, Piko opens a page explaining what the access is for; until you press the button there
+and confirm, Piko is inert on every site.
+
+Once granted, that access is `<all_urls>`, because the gesture is dragging a link on whatever
+page you are already reading and there is no way to know in advance which pages those are. If you
+would rather grant particular sites, `chrome://extensions` will do that instead.
+
+There is no analytics, no account, and no network call to anywhere but the page you dragged.
 
 Access that broad is worth saying more about than which permission it is:
 

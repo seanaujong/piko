@@ -10,78 +10,16 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "Piko — clip this page"
+    "default_title": "Piko \u2014 clip this page"
   },
   "background": {
     "service_worker": "background.js"
   },
-  "content_scripts": [
-    {
-      "matches": [
-        "<all_urls>"
-      ],
-      "js": [
-        "content.js"
-      ],
-      "run_at": "document_idle",
-      "exclude_matches": [
-        "*://accounts.google.com/*",
-        "*://*.accounts.google.com/*",
-        "*://login.microsoftonline.com/*",
-        "*://*.login.microsoftonline.com/*",
-        "*://appleid.apple.com/*",
-        "*://*.appleid.apple.com/*",
-        "*://okta.com/*",
-        "*://*.okta.com/*",
-        "*://auth0.com/*",
-        "*://*.auth0.com/*",
-        "*://id.atlassian.com/*",
-        "*://*.id.atlassian.com/*",
-        "*://mail.google.com/*",
-        "*://*.mail.google.com/*",
-        "*://outlook.live.com/*",
-        "*://*.outlook.live.com/*",
-        "*://outlook.office.com/*",
-        "*://*.outlook.office.com/*",
-        "*://outlook.office365.com/*",
-        "*://*.outlook.office365.com/*",
-        "*://mail.yahoo.com/*",
-        "*://*.mail.yahoo.com/*",
-        "*://mail.proton.me/*",
-        "*://*.mail.proton.me/*",
-        "*://app.fastmail.com/*",
-        "*://*.app.fastmail.com/*",
-        "*://mail.zoho.com/*",
-        "*://*.mail.zoho.com/*",
-        "*://1password.com/*",
-        "*://*.1password.com/*",
-        "*://bitwarden.com/*",
-        "*://*.bitwarden.com/*",
-        "*://lastpass.com/*",
-        "*://*.lastpass.com/*",
-        "*://dashlane.com/*",
-        "*://*.dashlane.com/*",
-        "*://keepersecurity.com/*",
-        "*://*.keepersecurity.com/*",
-        "*://web.whatsapp.com/*",
-        "*://*.web.whatsapp.com/*",
-        "*://messages.google.com/*",
-        "*://*.messages.google.com/*",
-        "*://web.telegram.org/*",
-        "*://*.web.telegram.org/*",
-        "*://discord.com/*",
-        "*://*.discord.com/*",
-        "*://slack.com/*",
-        "*://*.slack.com/*",
-        "*://teams.microsoft.com/*",
-        "*://*.teams.microsoft.com/*"
-      ]
-    }
-  ],
   "permissions": [
-    "storage"
+    "storage",
+    "scripting"
   ],
-  "host_permissions": [
+  "optional_host_permissions": [
     "<all_urls>"
   ]
 }

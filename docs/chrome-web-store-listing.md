@@ -84,10 +84,19 @@ user clipped: the sentence, the page it came from, that page's title, the page t
 when they dragged the link, and the time. It stays on the device and is never transmitted.
 ```
 
-### Host permission justification — all sites
+### Host permission justification — all sites, requested at runtime
 
-The honest version of why this cannot be `activeTab`, which is the first question a reviewer
-will have.
+Piko declares `optional_host_permissions`, not `host_permissions`, and declares no
+`content_scripts` — so **the install prompt says nothing about your browsing**. Access is asked
+for on Piko's own onboarding page, which the install opens, and Chrome's confirmation follows a
+paragraph explaining what it enables. That is still `<all_urls>` once granted, and the
+justification below is what the dashboard wants for it.
+
+Two things a reviewer may check, both true: an extension declaring only `content_scripts` for
+`<all_urls>` and no `host_permissions` at all still receives the broad-host grant and its
+warning, which is why neither key appears here; and the grant is one decision covering every
+site rather than a prompt per site, because the gesture Piko exists for is dragging a link on a
+page the reader is *already* on.
 
 ```
 Piko is a drag gesture on a hyperlink, so it has to already be listening on whatever page the
@@ -95,6 +104,11 @@ reader is on when they perform it. activeTab grants access only after the user c
 extension's icon, which is one click too late — by then the drag has happened and been missed.
 There is also no way to know in advance which sites a reader will use it on, and a fixed list
 would simply not work anywhere else.
+
+The permission is optional and is not requested at install. After installing, Piko opens a page
+explaining what the access is for; nothing works until the reader presses the button there and
+confirms Chrome's prompt. A reader who prefers to grant particular sites only can do that from
+chrome://extensions instead, and Piko stays inert everywhere else.
 
 Two capabilities need the access:
 
@@ -111,10 +125,13 @@ Two capabilities need the access:
 The access is broad, so it is narrowed everywhere it can be:
 
 • Piko does not run on webmail, password managers, chat or single-sign-on pages. The list is in
-  the source at src/shared/sensitiveHosts.ts, the manifest's exclude_matches is generated from
-  it and asserted against it by a test, and the background worker refuses to fetch those hosts
-  as well. Banking is deliberately not on the list: it cannot be enumerated honestly, and a
-  partial list would claim more than it delivers.
+  the source at src/shared/sensitiveHosts.ts and is passed as excludeMatches when the content
+  script is registered; the background worker refuses to fetch those hosts as well. Banking is
+  deliberately not on the list: it cannot be enumerated honestly, and a partial list would claim
+  more than it delivers.
+
+• Nothing is added to any page until the reader drags a link or presses the toolbar icon. The
+  panel is built on first use, not on page load.
 
 • A preview begins only from a genuine drag. Events synthesised by page script are ignored, so a
   page cannot decide what the extension fetches.
@@ -127,8 +144,8 @@ No other host is contacted, there is no server belonging to this extension, and 
 the pages a reader visits is stored unless they clip a sentence from one.
 ```
 
-Each of the four claims above is enforced by a test rather than by intention; `CLAUDE.md`'s
-invariants table names the file for each. If one is ever relaxed, this text has to change with it.
+Each claim above is enforced by a test rather than by intention; `CLAUDE.md`'s invariants table
+names the file for each. If one is ever relaxed, this text has to change with it.
 
 ### Remote code
 
@@ -177,22 +194,27 @@ submitting whether that address should serve both extensions or whether Piko wan
 
 ## Instructions for reviewers (test instructions)
 
-Piko shows nothing on install until a gesture is made, so a reviewer who only clicks around will
-conclude it does nothing. Give them the trigger explicitly.
+Piko shows nothing on install until access is granted and a gesture is made, so a reviewer who
+only clicks around will conclude it does nothing. **Step 1 is not optional** — without the grant
+Piko is inert by design, and a reviewer who skips it will find a broken extension and say so.
 
 ```
-Piko does nothing until you drag a link or press its toolbar icon — there is no popup and no
-options page. No account, login, or payment is needed. To see it work:
+Piko asks for no host access at install. It requests it afterwards, from its own page, and does
+nothing at all until that is granted — so please start at step 1. There is no popup and no
+options page, and no account, login, or payment is needed.
 
-1. Install the extension, then open any article with links in it — for example
+1. Install the extension. Piko opens a page titled "Piko needs to be allowed on the pages you
+   read". Press "Allow Piko on all sites" and confirm Chrome's prompt. (If the page was closed,
+   pressing Piko's toolbar icon reopens it.)
+2. Open any article with links in it — for example
    https://en.wikipedia.org/wiki/Photosynthesis
-2. DRAG any hyperlink in the text a short distance and let go. That linked article opens in a
+3. DRAG any hyperlink in the text a short distance and let go. That linked article opens in a
    panel over the page, in reader mode. Press Escape to close it.
-3. HOVER a sentence in that panel — it highlights. CLICK it, and it is saved to the journal in
+4. HOVER a sentence in that panel — it highlights. CLICK it, and it is saved to the journal in
    the column on the right.
-4. Alternatively, press Piko's toolbar icon on any article. The journal docks to the right of
+5. Alternatively, press Piko's toolbar icon on any article. The journal docks to the right of
    the page and the page itself becomes clippable in the same way.
-5. In the journal, the download button exports everything as a Markdown file, and each entry's
+6. In the journal, the download button exports everything as a Markdown file, and each entry's
    link reopens the source page at that exact sentence.
 
 Everything runs locally. The only network request is for the page whose link was dragged — the
