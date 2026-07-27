@@ -111,10 +111,20 @@ const firstClippingText = (page: Page): Promise<string> =>
 const POLL = { timeout: 15_000, interval: 150 }
 
 describe('the loaded extension', () => {
-  it('mounts its content script on an ordinary page', async () => {
+  it('puts nothing in the page until the reader asks for something', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)
 
+    // Settle well past document_idle — the content script has certainly run by now, and the
+    // point is that having run, it has added nothing. Piko's claim on every site it can reach
+    // is that it does nothing until gestured at; this is that claim as an assertion.
+    await page.waitForTimeout(750)
+    expect(
+      await page.evaluate('[...document.documentElement.children].some(e => e.shadowRoot)'),
+    ).toBe(false)
+
+    // …and it is listening, so the first gesture still builds it.
+    await dragLink(page, 'article-link')
     await expect
       .poll(
         () => page.evaluate('[...document.documentElement.children].some(e => e.shadowRoot)'),
@@ -361,10 +371,12 @@ describe('the loaded extension', () => {
     await dragLink(page, 'fragment-link')
     await page.waitForTimeout(1200)
 
-    const hidden = await page.evaluate(
-      '[...document.documentElement.children].find(e => e.shadowRoot).hasAttribute("data-hidden")',
+    // Nothing was built at all, which is a stronger result than a panel that stayed hidden:
+    // a gesture the reducer declines never reaches the point of mounting anything.
+    const built = await page.evaluate(
+      '[...document.documentElement.children].some(e => e.shadowRoot)',
     )
-    expect(hidden).toBe(true)
+    expect(built).toBe(false)
 
     await page.close()
   })
@@ -466,10 +478,19 @@ describe('the loaded extension', () => {
       }, url)
     }
 
+    /**
+     * Whether the journal rail is not showing. Before the first gesture there is no panel in
+     * the page at all, which is the strongest form of hidden there is — so an absent host
+     * answers true rather than throwing, and every "starts hidden, ends hidden" assertion below
+     * keeps saying what it always said.
+     */
     const railHidden = (page: Page): Promise<boolean> =>
-      page.evaluate(
-        `${SHADOW}.querySelector('.piko-rail').hasAttribute('data-hidden')`,
-      ) as Promise<boolean>
+      page.evaluate(`(() => {
+        const host = [...document.documentElement.children].find(e => e.shadowRoot)
+        if (!host) return true
+        const rail = host.shadowRoot.querySelector('.piko-rail')
+        return rail === null || rail.hasAttribute('data-hidden')
+      })()`) as Promise<boolean>
 
     it('docks the journal without dragging, and without covering the page', async () => {
       const page = await context.newPage()

@@ -12,16 +12,34 @@ import type {
   TabRequest,
 } from '../shared/messages'
 import { startDragTracking } from './dragTracking'
-import { mountPanel } from './panel/mountPanel'
+import { mountPanel, type PanelHandle } from './panel/mountPanel'
 import type { LinkTarget, PreviewEvent, PreviewState } from './state/previewState'
 import { transition } from './state/previewState'
 
 let state: PreviewState = { kind: 'idle' }
-const panel = mountPanel(dispatch)
+
+/**
+ * The panel is built on the first gesture, not on page load.
+ *
+ * Piko runs on every site a reader visits, and mounting eagerly meant every one of them got a
+ * shadow host on `<html>` and a stylesheet injected before the reader had asked for anything.
+ * Nothing was *read* that way — the trackers below only attach listeners — but "Piko does
+ * nothing until you drag a link or press the icon", which is the claim the broad host permission
+ * rests on, was true of the data and false of the DOM.
+ *
+ * A guarantee that holds on every site is worth more than a list of the sites it holds on, so
+ * this is the stronger half of the same promise `shared/sensitiveHosts.ts` makes narrowly.
+ */
+let panel: PanelHandle | null = null
+
+function livePanel(): PanelHandle {
+  panel ??= mountPanel(dispatch)
+  return panel
+}
 
 function dispatch(event: PreviewEvent): void {
   state = transition(state, event)
-  panel.render(state)
+  livePanel().render(state)
 }
 
 // Bumped on every new drag so a late-arriving response from an earlier, superseded drag
@@ -86,5 +104,5 @@ startDragTracking(startPreview)
 // The toolbar icon is the entry point that needs no drag: it arms clipping on this page and
 // docks the journal beside it.
 chrome.runtime.onMessage.addListener((message: TabRequest) => {
-  if (message.type === 'TOGGLE_CLIPPING') panel.toggleHostClipping()
+  if (message.type === 'TOGGLE_CLIPPING') livePanel().toggleHostClipping()
 })
