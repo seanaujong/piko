@@ -74,8 +74,10 @@ scrolling is broken — that has never been shown.
 **A blank-looking reader pane is usually a large lead image still loading**, not failed
 extraction. Check `.piko-article`'s `textContent.length` before believing a screenshot.
 
-**Everything lives in one open shadow root** on a `<div>` appended to `document.documentElement`.
-Reach it with:
+**Everything lives in one open shadow root** on a `<div>` appended to `document.documentElement`
+— but not until the first gesture. The panel mounts lazily, so on a page you have not yet dragged
+on or pressed the icon on, the selector below throws rather than returning empty. That is the
+extension working, not a broken build. Reach it with:
 
 ```js
 [...document.documentElement.children].find(e => e.shadowRoot).shadowRoot
