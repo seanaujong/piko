@@ -600,14 +600,22 @@ export const PANEL_STYLES = `
   background: #cc302c;
 }
 
-/* The row, and the reset that must not scroll away with it: a filter you cannot see is a
-   trap, and so is the only control that clears one. */
+/**
+ * The rail along the foot of the pane: a filter you cannot see is a trap, so this sits outside
+ * the scrolling list and stays put however far the reader has scrolled.
+ *
+ * Ruled and opaque because the list now ends *against* it rather than at the pane's own edge.
+ * Without both, a clipping cut off mid-card by the bottom of the list reads as the chips
+ * floating over the text instead of the list continuing underneath them.
+ */
 .piko-clips-filters {
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  padding: 0 13px 4px;
+  padding: 7px 13px 0;
   flex: 0 0 auto;
+  background: #fcfcfb;
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
 }
 
 /**

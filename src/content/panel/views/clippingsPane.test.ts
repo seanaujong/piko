@@ -81,6 +81,29 @@ afterEach(() => {
 })
 
 describe('the chip row', () => {
+  it('sits after the list, so the clippings are what the reader meets first', () => {
+    const { pane } = paneWithTwoSources()
+    const list = pane.root.querySelector('.piko-clips-list')!
+    const row = pane.root.querySelector('.piko-clips-filters')!
+
+    // Not a matter of height — the pane is a fixed column, so the row costs the list the same
+    // either way. It is a matter of order: the journal is the reading and the chips are
+    // instrumentation about it, and the instrumentation goes last.
+    expect(list.compareDocumentPosition(row) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+  })
+
+  it('draws nothing at all when there is nothing to narrow', () => {
+    const store = createClippingsStore()
+    store.toggle(clip('Only.', ENCYCLOPEDIA, T0))
+    const pane = createClippingsPane(store, { onClose: () => {}, here: () => null })
+    document.body.appendChild(pane.root)
+
+    // A filter over one source narrows nothing. At the head of the pane the empty row was
+    // invisible padding; at the foot it is a ruled strip across the bottom containing nothing,
+    // which reads as a control that has broken rather than one that is not needed.
+    expect(pane.root.querySelector('.piko-clips-filters')).toBeNull()
+  })
+
   it('keeps keyboard focus on the chip that was just toggled', async () => {
     const { pane } = paneWithTwoSources()
     const chip = chips(pane)[0]!

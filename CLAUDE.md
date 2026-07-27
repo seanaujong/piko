@@ -189,6 +189,7 @@ font-size contrast made it real.
 | Every narrowing goes through `visibleClippings`; filters intersect, sources union among themselves | ✅ | `content/state/clippings.ts` (`visibleClippings`, `JournalFilters`) | `clippings.test.ts` |
 | Chips are ordered by sitting, not by count | ✅ | `content/state/clippings.ts` (`sourcesInSessionOrder`) | `clippings.test.ts` |
 | The chip row is ordered by time and nothing else — "here" marks chips, it never moves them | ✅ | `content/state/clippings.ts` (`sourcesOnOrFrom`), `clippingsPane.tsx` (`ChipRow`) | `clippingsPane.test.ts` |
+| The chip row is the pane's foot and draws nothing when there is nothing to narrow; rows that open from a header control stay under it | ✅ | `clippingsPane.tsx` (`ChipRow`), `content/panel/styles.ts` (`.piko-clips-filters`) | `clippingsPane.test.ts` |
 | A span label is one short word, because vertical text's length is its height | ✅ | `content/state/clippings.ts` (`AgeBand.label`) | `clippingsPane.browser.test.ts` |
 | Spans subdivide past a month, and their order only ever moves further back | ✅ | `content/state/clippings.ts` (`ageBandOf`) | `clippings.test.ts`, `clippingsPane.test.ts` |
 | The store hands out snapshots — the array is replaced on every change, never mutated | ✅ | `content/state/clippings.ts` (`createClippingsStore`) | `clippings.test.ts`, `npm run typecheck` |
