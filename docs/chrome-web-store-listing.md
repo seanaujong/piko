@@ -59,9 +59,10 @@ Free and open source (MIT). No account, no analytics, no servers, and no data co
 
 ## Privacy practices
 
-These map onto the **Privacy practices** tab. Piko requests one API permission (`storage`) and
-broad host access, so there are two justification boxes to fill rather than hi-chu's one. Fill
-them in order.
+These map onto the **Privacy practices** tab. Piko requests two API permissions (`storage` and
+`contextMenus`) and broad host access, so there are three justification boxes to fill. Neither
+API permission raises an install warning — that is what qualified them — but the dashboard asks
+for a justification per declared permission whether it warns or not. Fill them in order.
 
 ### Single purpose
 
@@ -82,6 +83,23 @@ The journal of clipped sentences is kept in chrome.storage.local so that it surv
 tab or restarting the browser, which is the entire point of a journal. It holds only what the
 user clipped: the sentence, the page it came from, that page's title, the page they were on
 when they dragged the link, and the time. It stays on the device and is never transmitted.
+
+The same local storage holds the list of sites the user has told Piko to stay off, which is
+a list of hostnames they chose themselves and is likewise never transmitted.
+```
+
+### Permission justification — `contextMenus`
+
+The reviewer-facing point is that this permission is what makes the broad host access
+*revocable per site* by the user, which is worth saying plainly in the box.
+
+```
+Right-clicking Piko's toolbar icon offers "Never run Piko on <this site>", which is how a user
+keeps Piko off a site they consider sensitive — their bank, for example. The extension holds no
+list of such sites on the user's behalf beyond a few sign-in, webmail and password-manager
+hosts it refuses by default; this permission is what lets the user name their own. The same
+menu offers the reverse, so the choice can be undone from where it was made. No page content is
+read to build the menu: it is titled from the address of the active tab.
 ```
 
 ### Host permission justification — all sites, requested at runtime

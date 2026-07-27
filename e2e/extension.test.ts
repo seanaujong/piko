@@ -768,3 +768,58 @@ describe('extraction under a hostile base-uri policy', () => {
     }
   })
 })
+
+/**
+ * The wiring the unit tests cannot reach.
+ *
+ * `fetchPolicy.test.ts` proves the predicate refuses an excluded site, and
+ * `excludedSites.test.ts` proves the list survives a round-trip through a fake `chrome.storage`.
+ * Neither says the worker actually *reads* that storage on the path a drag takes — the one place
+ * the two halves meet is `checkFrameability`, in the real worker, against real storage.
+ *
+ * What this still cannot cover is the other half of the feature: `excludeMatches` keeping the
+ * script out of the page. Under the substituted manifest the script is declared statically and
+ * `syncContentScriptRegistration` returns early by design, so there is nothing here to observe.
+ * `contentScriptRegistration.test.ts` holds that half, and `e2e/MANUAL.md` holds the rest.
+ */
+describe('a site the reader turned Piko off on', () => {
+  const excludedSitesInStorage = async (hosts: string[]): Promise<void> => {
+    const [worker] = context.serviceWorkers()
+    await worker!.evaluate(
+      (value) => chrome.storage.local.set({ 'piko.excludedSites': value }),
+      hosts,
+    )
+  }
+
+  it('refuses the fetch, and says which entry refused it', async () => {
+    // The fixtures are served from a loopback address, so excluding that host excludes every
+    // link in them — which is what makes one entry enough to drive the whole path.
+    await excludedSitesInStorage([new URL(base).hostname])
+
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+
+    await expect
+      .poll(
+        () => page.evaluate(`${SHADOW}.querySelector('.piko-error')?.textContent ?? null`),
+        POLL,
+      )
+      .toBe(`Piko is turned off on ${new URL(base).hostname}.`)
+
+    await page.close()
+  })
+
+  it('opens the same link once the reader lets Piko back on', async () => {
+    // The other direction, and the reason it is worth a second test: a refusal that never lifts
+    // would pass the test above just as well.
+    await excludedSitesInStorage([])
+
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    await page.close()
+  })
+})

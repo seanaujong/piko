@@ -40,10 +40,18 @@ function resolveLinkTarget(event: DragEvent): LinkTarget | null {
  * the panel's entrance transition) never actually gets painted mid-drag — it just snaps to
  * its final state once the drag concludes. Waiting for dragend (which always fires, whether
  * the drag was dropped or cancelled) is what lets that transition actually play.
+ *
+ * Returns the way to stop. Excluding a site has to take effect on the tab the reader is standing
+ * on, and these four listeners are the part of Piko with an effect the page can *feel*: the
+ * gated preventDefault on dragover is what makes a link droppable. Leaving them attached after a
+ * stand-down would keep altering drag behaviour on the one site the reader asked Piko to leave.
  */
-export function startDragTracking(onDragEnd: (target: LinkTarget) => void): void {
+export function startDragTracking(onDragEnd: (target: LinkTarget) => void): () => void {
   let isTrackingDrag = false
   let pendingTarget: LinkTarget | null = null
+  // One signal for all four, so a listener added later cannot be forgotten by the teardown.
+  const listeners = new AbortController()
+  const options = { capture: true, signal: listeners.signal }
 
   document.addEventListener(
     'dragstart',
@@ -53,7 +61,7 @@ export function startDragTracking(onDragEnd: (target: LinkTarget) => void): void
       isTrackingDrag = true
       pendingTarget = target
     },
-    { capture: true },
+    options,
   )
 
   document.addEventListener(
@@ -61,7 +69,7 @@ export function startDragTracking(onDragEnd: (target: LinkTarget) => void): void
     (event) => {
       if (isTrackingDrag) event.preventDefault()
     },
-    { capture: true },
+    options,
   )
 
   document.addEventListener(
@@ -69,7 +77,7 @@ export function startDragTracking(onDragEnd: (target: LinkTarget) => void): void
     (event) => {
       if (isTrackingDrag) event.preventDefault()
     },
-    { capture: true },
+    options,
   )
 
   document.addEventListener(
@@ -81,6 +89,8 @@ export function startDragTracking(onDragEnd: (target: LinkTarget) => void): void
       pendingTarget = null
       onDragEnd(target)
     },
-    { capture: true },
+    options,
   )
+
+  return () => listeners.abort()
 }

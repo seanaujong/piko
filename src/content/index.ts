@@ -99,10 +99,44 @@ function startPreview(target: LinkTarget): void {
   requestFrameabilityCheck(target)
 }
 
-startDragTracking(startPreview)
+const stopDragTracking = startDragTracking(startPreview)
+
+/**
+ * Undo the injection, as far as an injected script can.
+ *
+ * `excludeMatches` keeps Piko out of an excluded site from its next load; it can do nothing
+ * about this tab, where the script is already running. Chrome offers no way to unload a content
+ * script, so what is reachable is everything it *does* — the listeners, the panel, the page's
+ * borrowed margin — and that is what this gives back. The script stays resident and inert.
+ *
+ * Deliberately one-way, with no matching wake-up. Re-arming would mean this file holding a rule
+ * about whether Piko may run, and that rule belongs to the worker, which owns the list. A tab
+ * that is told to stand down stands down until it is reloaded.
+ */
+let stoodDown = false
+
+function standDown(): void {
+  stoodDown = true
+  stopDragTracking()
+  panel?.unmount()
+  panel = null
+  state = { kind: 'idle' }
+}
 
 // The toolbar icon is the entry point that needs no drag: it arms clipping on this page and
 // docks the journal beside it.
 chrome.runtime.onMessage.addListener((message: TabRequest) => {
-  if (message.type === 'TOGGLE_CLIPPING') livePanel().toggleHostClipping()
+  switch (message.type) {
+    case 'TOGGLE_CLIPPING':
+      // The worker will not send this for an excluded site, and this checks anyway — the same
+      // both-directions instinct as `fetchPolicy` guarding a fetch that `excludeMatches` should
+      // already have prevented. A remounted panel on the site a reader just excluded is exactly
+      // the failure this whole feature exists to prevent, so it is worth one boolean.
+      if (stoodDown) break
+      livePanel().toggleHostClipping()
+      break
+    case 'STAND_DOWN':
+      standDown()
+      break
+  }
 })

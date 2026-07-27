@@ -25,4 +25,12 @@ export type ExtensionResponse = CheckFrameabilityResponse
  */
 export type ToggleClippingRequest = { type: 'TOGGLE_CLIPPING' }
 
-export type TabRequest = ToggleClippingRequest
+/**
+ * Sent to a tab the reader has just excluded. A content script cannot be unloaded once injected,
+ * so keeping it out of the *next* load — which is all `excludeMatches` can do — would leave Piko
+ * live on the page where the reader just said "not here", until they happened to reload it.
+ * This is the half of "not here" that can be delivered immediately.
+ */
+export type StandDownRequest = { type: 'STAND_DOWN' }
+
+export type TabRequest = ToggleClippingRequest | StandDownRequest
