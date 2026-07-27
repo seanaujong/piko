@@ -57,6 +57,16 @@ opens with what it measures and why that number is the interesting one; `vitest.
 says why they're kept out of the gate and why the command is `vitest run` rather than
 `vitest bench`.
 
+## How a change lands
+Every change goes through a branch or worktree and a pull request; nothing is committed or
+pushed while standing on main. The two hooks in `.githooks` enforce that locally — `npm install`
+wires them through `core.hooksPath`, so there is no step to remember — and main's branch
+protection enforces it at the remote, where both CI jobs have to be green and the branch has to
+be up to date first. A separate linear-history ruleset means a pull request lands as a **squash
+or a rebase**; a merge commit is refused at the remote whatever the local hooks allow.
+`--no-verify` exists on both hooks for genuine exceptions, of which the commit introducing the
+hooks was one.
+
 **Three suites, split by what each needs.** `npm test` runs all of them; `vitest.config.ts` is
 where each one's requirement is argued.
 
