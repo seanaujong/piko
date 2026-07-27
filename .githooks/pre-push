@@ -1,11 +1,34 @@
 #!/bin/sh
-# Refuse a direct push to main on any remote — the same rule as the pre-commit hook, caught one
-# step later for anything that got past it (a branch renamed to main, a --no-verify commit, a
-# push of someone else's work). Fails locally, before the network round-trip.
+# Two refusals, both about the shape of what lands: nothing goes straight to main, and nothing
+# arrives carrying a merge commit. Fails locally, before the network round-trip.
 # Wired in via core.hooksPath (see package.json's "prepare" script).
 while read -r local_ref local_sha remote_ref remote_sha; do
+  # Refuse a direct push to main on any remote — the same rule as the pre-commit hook, caught one
+  # step later for anything that got past it (a branch renamed to main, a --no-verify commit, a
+  # push of someone else's work).
   if [ "$remote_ref" = "refs/heads/main" ]; then
     echo "✗ refusing to push directly to main — open a PR instead." >&2
+    echo "  Genuine exception: git push --no-verify" >&2
+    exit 1
+  fi
+
+  # A ref being deleted has no commits to inspect. An all-zero sha is how git says so.
+  case "$local_sha" in *[!0]*) ;; *) continue ;; esac
+
+  # What this push would actually add. For a branch the remote already has, that is the span past
+  # its current tip; for a new one, everything not already sitting on some remote-tracking ref.
+  # Asking the commits rather than asking whether main is an ancestor is what catches the case
+  # that prompted this: a merge whose second parent was already merged reports as up to date.
+  case "$remote_sha" in
+    *[!0]*) set -- "$remote_sha..$local_sha" ;;
+    *) set -- "$local_sha" --not --remotes ;;
+  esac
+
+  if [ -n "$(git rev-list --merges "$@")" ]; then
+    echo "✗ refusing to push a merge commit — this history has to stay linear." >&2
+    echo "  Bringing main into a branch is a rebase here, never a merge:" >&2
+    echo "    git fetch origin && git rebase origin/main" >&2
+    echo "  Then push the rewritten branch with --force-with-lease, never a bare --force." >&2
     echo "  Genuine exception: git push --no-verify" >&2
     exit 1
   fi
