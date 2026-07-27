@@ -142,6 +142,7 @@ font-size contrast made it real.
 | Rules live in the reducer; events stay mechanical, and the content script decides nothing | ✅ | `content/state/previewState.ts`, `content/index.ts` | `previewState.test.ts` |
 | `PreviewState`/`PreviewEvent` are discriminated unions and `transition`'s `switch` is exhaustive — never add a `default:` | ✅ | `content/state/previewState.ts` | `npm run typecheck` |
 | Frameability is answered in the background worker; a page-context `fetch()` cannot see response headers | 👁 | `background/frameability.ts` | — |
+| Relative URLs are resolved explicitly, never by a `<base>` element the host page's CSP can veto | ✅ | `content/extraction/extract.ts` (`absolutiseUrls`) | `extract.test.ts`, `e2e/extension.test.ts` (`hostile base-uri`) |
 | Nothing is added to a page until a gesture asks for it — the panel mounts lazily | ✅ | `content/index.ts` (`livePanel`) | `e2e/extension.test.ts` (`puts nothing in the page`) |
 | A preview starts from a trusted event only — a synthesised drag is not evidence a reader wanted anything | ✅ | `content/dragTracking.ts` | `dragTracking.test.ts` |
 | The worker refuses to reach a network tier the dragging page couldn't — public page, private address | ✅ | `background/fetchPolicy.ts` (`fetchRefusal`) | `fetchPolicy.test.ts` |

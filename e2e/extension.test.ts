@@ -703,3 +703,68 @@ describe('what the background fetch carries', () => {
     }
   })
 })
+
+/**
+ * Extraction on a page that forbids the shortcut.
+ *
+ * A `<base href>` inside a DOMParser document is governed by the *host page's* `base-uri`
+ * directive, so on a site serving `base-uri 'self'` the insertion is blocked, the document keeps
+ * its `about:blank` base, and every relative image and link in the reader resolves against that.
+ * It fails silently and only on some sites — reported from Wikipedia, where dragging a link to
+ * www.wikipedia.org from en.wikipedia.org trips it.
+ *
+ * Two details are load-bearing, and both were got wrong before they were got right:
+ *
+ *  - jsdom has no CSP, so the `<base>` approach passes every test in `extract.test.ts`. Only a
+ *    real page serving the directive can tell the two mechanisms apart.
+ *  - the dragged page must be a DIFFERENT ORIGIN from the host page. `'self'` permits a base
+ *    pointing at the host's own origin, so a same-origin fixture reproduces nothing. A second
+ *    server on a second port is what makes the directive bite.
+ */
+describe('extraction under a hostile base-uri policy', () => {
+  it('resolves relative urls when the page forbids a cross-origin base element', async () => {
+    // Same fixtures, different port — a different origin as far as `base-uri 'self'` is concerned.
+    const elsewhere = await serveFixtures()
+    const page = await context.newPage()
+
+    const violations: string[] = []
+    page.on('console', (message) => {
+      if (/Content Security Policy/i.test(message.text())) violations.push(message.text())
+    })
+
+    try {
+      await page.goto(`${base}/csp-host.html`)
+      await page.evaluate((href) => {
+        const anchor = document.createElement('a')
+        anchor.id = 'cross-origin-link'
+        anchor.href = href
+        anchor.textContent = 'an article on another origin'
+        anchor.setAttribute('style', 'position:fixed;left:40px;top:240px;padding:8px;z-index:1')
+        document.body.appendChild(anchor)
+      }, `${elsewhere.base}/relative.html`)
+
+      await dragLink(page, 'cross-origin-link')
+      await waitForReader(page)
+
+      const urls = (await page.evaluate(`(() => {
+        const article = ${SHADOW}.querySelector('.piko-article')
+        return {
+          link: article.querySelector('a')?.getAttribute('href') ?? null,
+          image: article.querySelector('img')?.getAttribute('src') ?? null,
+        }
+      })()`)) as { link: string | null; image: string | null }
+
+      // Resolved against the article's own origin — not against about:blank, and not against
+      // the host page, which is what a blocked base leaves behind.
+      expect(urls.link).toBe(`${elsewhere.base}/other.html`)
+      expect(urls.image).toBe(`${elsewhere.base}/tide-chart.png`)
+
+      // The page never had to refuse anything. Restore the <base> element and this is the
+      // assertion that goes red first, with the violation Sean saw on Wikipedia.
+      expect(violations).toEqual([])
+    } finally {
+      elsewhere.close()
+      await page.close()
+    }
+  })
+})
