@@ -452,13 +452,22 @@ export const PANEL_STYLES = `
   gap: 8px;
 }
 
-/* The count sits on the title's baseline, not on its box — smaller numerals aligned by box
-   ride visibly high beside the word. Its own element rather than a rule on the count, because
-   a lone baseline item inside the stretched heading aligns to the top of that box instead. */
+/**
+ * One label, two words — and it is the gap that decides whether a reader sees it that way.
+ *
+ * 5px, the same gap the chip sets between its own label and its own count, because this is the
+ * same relationship: a name meeting the number that belongs to it. It was 8px, which is about
+ * two and a half word-spaces at this size, and read as two items that happened to be adjacent.
+ *
+ * The count sits on the title's baseline, not on its box, so the pair survives a future size
+ * difference between them without the numerals riding high. Its own element rather than a rule
+ * on the count, because a lone baseline item inside the stretched heading aligns to the top of
+ * that box instead.
+ */
 .piko-clips-label {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 5px;
   min-width: 0;
 }
 
@@ -485,10 +494,19 @@ export const PANEL_STYLES = `
   white-space: nowrap;
 }
 
-/* Never the thing that gives — a truncated count is a wrong number, where a truncated word is
-   still the word. */
+/**
+ * Never the thing that gives — a truncated count is a wrong number, where a truncated word is
+ * still the word.
+ *
+ * Set at the title's own size so the digits reach its cap line. This font's figures are lining
+ * ones, cap-tall by design, so at a shared size and a shared baseline the pair's top edge is
+ * flush to within 0.02px. At 11px against the title's 12px the figures fell 0.74px short of the
+ * cap line — under a pixel, which is the worst amount there is: too little to read as hierarchy,
+ * enough to see the top edge go ragged. Weight, colour and tracking carry the hierarchy here,
+ * and they carry it without touching the alignment.
+ */
 .piko-clips-count {
-  font-size: 11px;
+  font-size: 12px;
   color: #8a8a80;
   font-variant-numeric: tabular-nums;
   flex-shrink: 0;
