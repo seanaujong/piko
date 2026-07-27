@@ -128,6 +128,54 @@ describe('the clippings list under real layout', () => {
   })
 })
 
+/**
+ * Everything in a bar that paints, whatever depth it sits at: the leaves, with an `<svg>`
+ * counted whole rather than descended into.
+ *
+ * Leaves rather than a list of selectors, because the point of the rule below is that it holds
+ * for controls nobody has added yet. A named list would have to be maintained by whoever adds
+ * the next one, which is the maintenance the four bugs in this bar have already proven nobody
+ * remembers to do.
+ */
+function paintedControls(bar: HTMLElement): HTMLElement[] {
+  const found: HTMLElement[] = []
+  const walk = (element: Element): void => {
+    const children = element.tagName.toLowerCase() === 'svg' ? [] : [...element.children]
+    if (children.length > 0) {
+      for (const child of children) walk(child)
+      return
+    }
+    const rect = element.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) found.push(element as HTMLElement)
+  }
+  walk(bar)
+  return found
+}
+
+/** Overlapping in both axes, past the subpixel slack that abutting boxes leave. */
+function overlap(a: DOMRect, b: DOMRect): boolean {
+  const across = Math.min(a.right, b.right) - Math.max(a.left, b.left)
+  const down = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top)
+  return across > 0.5 && down > 0.5
+}
+
+/** Every pair of controls that are drawn on top of each other, named for the failure message. */
+function collisions(bar: HTMLElement): string[] {
+  const controls = paintedControls(bar)
+  const hits: string[] = []
+  for (let i = 0; i < controls.length; i++) {
+    for (let j = i + 1; j < controls.length; j++) {
+      const a = controls[i]!.getBoundingClientRect()
+      const b = controls[j]!.getBoundingClientRect()
+      if (!overlap(a, b)) continue
+      const name = (el: HTMLElement) => el.textContent?.trim() || el.className || el.tagName
+      const by = Math.round(Math.min(a.right, b.right) - Math.max(a.left, b.left))
+      hits.push(`${name(controls[i]!)} / ${name(controls[j]!)} overlap by ${by}px`)
+    }
+  }
+  return hits
+}
+
 describe('the header under real layout', () => {
   /**
    * Applying a filter puts a Show all button on the header row, and the row must not move when
@@ -198,6 +246,38 @@ describe('the header under real layout', () => {
     expect(title.getBoundingClientRect().right).toBeLessThanOrEqual(
       trail.getBoundingClientRect().left,
     )
+  })
+
+  /**
+   * The one law, after four alignment bugs in this bar: no two controls in it may be drawn on
+   * top of each other.
+   *
+   * The checks above are the same rule asked of named pairs, one group at a time, and that is
+   * why they kept missing the next recurrence. This one found the fourth: with a filter on, the
+   * heading group has room for its own two children (`scrollWidth === clientWidth`, so every
+   * edge-based check above passes), and *inside* it the label was shrunk to 72px around content
+   * that wanted 103px. Nothing declares `overflow: hidden`, so the count spilled 31px past its
+   * own right edge and landed under Show all, 23px of it — the header read `CLIPPINGS 3/1Show
+   * all`.
+   *
+   * Asking it of the leaves is what makes it survive the next control: a group can always give
+   * its width away, but two things that paint cannot occupy one place.
+   */
+  it('never draws two of its controls on top of each other', async () => {
+    const { shadow } = mountPane(MANY, { here: SOURCE })
+
+    await act(() => shadow.querySelector<HTMLButtonElement>('.piko-clips-find')!.click())
+    await act(() => shadow.querySelector<HTMLButtonElement>('.piko-clips-here')!.click())
+
+    const header = shadow.querySelector<HTMLElement>('.piko-clips-header')!
+
+    // Guards the fixture: the collision only exists once Show all is on the row beside the
+    // count, and a bar without it would pass this while proving nothing.
+    expect(shadow.querySelector('.piko-chip-reset')).not.toBeNull()
+    expect(shadow.querySelectorAll('.piko-clips-actions .piko-icon-button')).toHaveLength(5)
+    expect(paintedControls(header).length).toBeGreaterThan(5)
+
+    expect(collisions(header)).toEqual([])
   })
 })
 

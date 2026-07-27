@@ -467,18 +467,31 @@ export const PANEL_STYLES = `
   gap: 2px;
 }
 
+/* The word gives up width before anything else in the bar does, because it is the only thing
+   here the reader has already learned. Once a filter is on, the count and its undo beside it
+   are the pair carrying the meaning, and at the bar's fullest there is not room for all three:
+   the leading group is held to a width its contents overflow, and without a limit here the
+   count spilled past its own box and printed across Show all. Shrinking needs both halves —
+   a flex item will not go below its content until min-width says it may. */
 .piko-clips-title {
   font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
   color: #555;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
+/* Never the thing that gives — a truncated count is a wrong number, where a truncated word is
+   still the word. */
 .piko-clips-count {
   font-size: 11px;
   color: #8a8a80;
   font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
 }
 
 
