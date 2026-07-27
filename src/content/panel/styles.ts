@@ -533,6 +533,70 @@ export const PANEL_STYLES = `
   color: #4a3fe0;
 }
 
+/* The delete's question, sitting where the search field does and for the same reason: at this
+   width a question and two answers do not fit in the header beside the title. Tinted rather
+   than bordered, because unlike the field this row is not asking to be typed into — the colour
+   is the whole of what makes it read as consequential before it reads as text. */
+.piko-clips-confirm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 13px 6px;
+  padding: 4px 6px 4px 10px;
+  border-radius: 7px;
+  background: rgba(229, 57, 53, 0.09);
+  flex: 0 0 auto;
+}
+
+/* The one thing here allowed to give up width: both answers have to stay readable, and a
+   truncated verb is a control nobody should press. */
+.piko-clips-confirm-question {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: #8c3330;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Words, where every other control in this pane is a glyph. An icon earns its place by being
+   recognisable after you have pressed it once; these two have to be right the first time, and
+   the difference between them is not a shape. */
+.piko-clips-answer {
+  all: initial;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  font-family: inherit;
+  font-size: 11.5px;
+  line-height: 1;
+  padding: 5px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  color: #8c3330;
+  transition: background-color 120ms ease;
+}
+
+.piko-clips-answer:hover {
+  background: rgba(229, 57, 53, 0.16);
+}
+
+.piko-clips-answer:focus-visible {
+  outline: 2px solid #6c5ce7;
+  outline-offset: 1px;
+}
+
+/* Filled, so which of the two answers is the one that takes something away survives being read
+   at a glance by someone who is not reading carefully — which is who this row is for. */
+.piko-clips-answer.is-destructive {
+  background: #e53935;
+  color: #ffffff;
+}
+
+.piko-clips-answer.is-destructive:hover {
+  background: #cc302c;
+}
+
 /* The row, and the reset that must not scroll away with it: a filter you cannot see is a
    trap, and so is the only control that clears one. */
 .piko-clips-filters {
@@ -861,13 +925,15 @@ export const PANEL_STYLES = `
 }
 
 /*
-  An armed delete, waiting for its second click. Filled rather than tinted, because the resting
+  The delete, while its question is open below. Filled rather than tinted, because the resting
   state of every other button in this row is also a coloured glyph and the difference has to be
-  legible at a glance in a 22px square. The hover selector is repeated so the cursor sitting on
-  the button it just armed cannot take the warning back off.
+  legible at a glance in a 22px square. Deliberately not the blue that marks Search and Here as
+  engaged: those two describe what the list is showing, and this one is a question still waiting
+  on an answer. The hover selector is repeated so the cursor sitting on the button it just
+  pressed cannot take the warning back off.
 */
-.piko-clips-clear.is-armed,
-.piko-clips-clear.is-armed:hover {
+.piko-clips-clear.is-on,
+.piko-clips-clear.is-on:hover {
   background: #e53935;
   color: #ffffff;
 }

@@ -3,7 +3,15 @@ import { act } from 'preact/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Clipping } from '../../state/clippings'
 import { createClippingsStore } from '../../state/clippings'
-import { ARM_MS, createClippingsPane, FLASH_MS } from './clippingsPane'
+import { downloadText } from '../download'
+import { createClippingsPane, FLASH_MS } from './clippingsPane'
+
+/**
+ * Stubbed because the real one hands a file to the browser, which jsdom has no notion of — and
+ * because its return value is the thing under test here. `false` is how a refused export reaches
+ * the pane, and there is no other way to provoke one.
+ */
+vi.mock('../download', () => ({ downloadText: vi.fn(() => true) }))
 
 /**
  * The pane rebuilds itself from the store on every change, so the question these tests ask is
@@ -65,6 +73,7 @@ const settle = (change: () => void): Promise<void> => act(change)
 
 beforeEach(() => {
   document.body.replaceChildren()
+  vi.mocked(downloadText).mockReset().mockReturnValue(true)
 })
 
 afterEach(() => {
@@ -412,8 +421,11 @@ describe('the clippings list', () => {
  * ignores. The label is the only place the promise is visible, so the label is what is pinned.
  */
 describe('what export offers', () => {
+  const exportButton = (pane: { root: HTMLElement }): HTMLButtonElement =>
+    pane.root.querySelector<HTMLButtonElement>('.piko-clips-export')!
+
   const exportLabel = (pane: { root: HTMLElement }): string =>
-    pane.root.querySelector('.piko-clips-export')?.getAttribute('aria-label') ?? ''
+    exportButton(pane).getAttribute('aria-label') ?? ''
 
   it('offers the whole journal even while the list is narrowed', async () => {
     const { pane } = paneWithTwoSources()
@@ -426,44 +438,102 @@ describe('what export offers', () => {
     // ...and the export still promises all three.
     expect(exportLabel(pane)).toBe('Export all 3 clippings as Markdown')
   })
+
+  /**
+   * Export is also the delete's first answer, which is the one way this could go wrong: a reader
+   * who only wants the file must not be able to reach the journal's deletion through the button
+   * that only promised them a copy.
+   */
+  it('takes one click and costs the journal nothing', async () => {
+    const { pane } = paneWithTwoSources()
+
+    await settle(() => exportButton(pane).click())
+
+    expect(downloadText).toHaveBeenCalledOnce()
+    expect(entries(pane)).toHaveLength(3)
+  })
 })
 
 /**
  * The journal's one destructive control, which is why the interesting assertions are the ones
- * about the click that does NOT empty it.
+ * about the clicks that do NOT empty it.
+ *
+ * The delete opens a question with two answers rather than arming itself, and the export is one
+ * of those answers. That coupling is what these tests are really about: nothing on screen tells a
+ * journal that was emptied apart from one that was never full, so an export the browser refused
+ * taking the clippings with it would be a silent loss.
  */
 describe('emptying the journal', () => {
   const clearButton = (pane: { root: HTMLElement }): HTMLButtonElement =>
     pane.root.querySelector<HTMLButtonElement>('.piko-clips-clear')!
 
-  it('keeps the journal on the first click and empties it on the second', async () => {
+  /** The question the delete asks, or null while it is not asking. */
+  const question = (pane: { root: HTMLElement }): string | null =>
+    pane.root.querySelector('.piko-clips-confirm-question')?.textContent ?? null
+
+  const exportFirst = (pane: { root: HTMLElement }): HTMLButtonElement =>
+    pane.root.querySelector<HTMLButtonElement>('.piko-clips-answer-export')!
+
+  const deleteNow = (pane: { root: HTMLElement }): HTMLButtonElement =>
+    pane.root.querySelector<HTMLButtonElement>('.piko-clips-answer.is-destructive')!
+
+  it('asks first, and asking again is not answering', async () => {
     const { pane } = paneWithTwoSources()
-    const button = clearButton(pane)
 
-    await settle(() => button.click())
+    await settle(() => clearButton(pane).click())
     expect(entries(pane)).toHaveLength(3)
-    expect(button.getAttribute('aria-label')).toBe('Click again to delete all 3 clippings')
+    expect(question(pane)).toBe('Delete all 3 clippings?')
 
-    await settle(() => button.click())
+    // The icon toggles its own question, so the way back out is the button the reader just
+    // pressed and is still standing on. Pressing it again must close the question, never answer
+    // it — this is the click the armed version of this control used to treat as confirmation.
+    await settle(() => clearButton(pane).click())
+    expect(entries(pane)).toHaveLength(3)
+    expect(question(pane)).toBeNull()
+  })
+
+  it('empties on the answer that says only that', async () => {
+    const { pane } = paneWithTwoSources()
+
+    await settle(() => clearButton(pane).click())
+    await settle(() => deleteNow(pane).click())
+
+    expect(entries(pane)).toHaveLength(0)
+    expect(downloadText).not.toHaveBeenCalled()
+    // The question goes with the journal it was asking about, rather than standing over an empty
+    // list waiting to reappear on the next thing clipped.
+    expect(question(pane)).toBeNull()
+  })
+
+  it('writes the whole journal out before emptying it', async () => {
+    const { pane } = paneWithTwoSources()
+
+    await settle(() => clearButton(pane).click())
+    await settle(() => exportFirst(pane).click())
+
+    // The file is the real export, so this also pins that the copy the reader keeps holds the
+    // clippings from both sources and not just the ones a filter had left on screen.
+    const [, written] = vi.mocked(downloadText).mock.calls[0]!
+    expect(written).toContain('First.')
+    expect(written).toContain('Third.')
     expect(entries(pane)).toHaveLength(0)
   })
 
   /**
-   * An armed delete left sitting under the cursor is a trap: the next absent-minded click on
-   * this corner of the header would empty the journal, minutes after the click that armed it.
+   * The gate the whole coupling rests on, and the one failure this design can produce that two
+   * separate buttons could not: a journal emptied on the strength of an export that never
+   * happened. What `downloadText` cannot see — a file the browser accepted and the reader then
+   * cancelled — is documented where that limit lives.
    */
-  it('stands back down on its own', async () => {
-    vi.useFakeTimers()
+  it('keeps every clipping when the export is refused, and says so', async () => {
+    vi.mocked(downloadText).mockReturnValue(false)
     const { pane } = paneWithTwoSources()
-    const button = clearButton(pane)
 
-    await settle(() => button.click())
-    await settle(() => vi.advanceTimersByTime(ARM_MS))
-    expect(button.getAttribute('aria-label')).toBe('Delete all 3 clippings')
+    await settle(() => clearButton(pane).click())
+    await settle(() => exportFirst(pane).click())
 
-    // The click that would have confirmed now only arms again.
-    await settle(() => button.click())
     expect(entries(pane)).toHaveLength(3)
+    expect(question(pane)).toBe('Export failed — nothing was deleted.')
   })
 
   it('offers the whole journal even while the list is narrowed', async () => {
@@ -473,6 +543,8 @@ describe('emptying the journal', () => {
     expect(entries(pane).length).toBeLessThan(3)
 
     expect(clearButton(pane).getAttribute('aria-label')).toBe('Delete all 3 clippings')
+    await settle(() => clearButton(pane).click())
+    expect(question(pane)).toBe('Delete all 3 clippings?')
   })
 })
 

@@ -154,7 +154,8 @@ font-size contrast made it real.
 | A file leaves through an anchor, never `chrome.downloads` — the permission costs an install warning | 👁 | `content/panel/download.ts` | — |
 | The export writes every field of a `Clipping`, because the document is also the archive | ✅ | `content/panel/exportMarkdown.ts` | `exportMarkdown.test.ts` |
 | An export is of the whole journal, never the narrowed view, and its label says which | ✅ | `clippingsPane.tsx`, `content/panel/exportMarkdown.ts` | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
-| Emptying the journal takes a second click, stands down on its own, and reaches storage | ✅ | `clippingsPane.tsx` (`ClearAllButton`), `content/state/clippings.ts` (`clear`) | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
+| Emptying the journal takes a labelled second click on a different control, and reaches storage | ✅ | `clippingsPane.tsx` (`ClearRow`), `content/state/clippings.ts` (`clear`) | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
+| The export is one of the delete's two answers, and a refused export empties nothing | ✅ | `clippingsPane.tsx` (`ClearRow`), `content/panel/download.ts` | `clippingsPane.test.ts` |
 | A control added to a header bar must leave the leading group room — only the lead shrinks | ✅ | `content/panel/styles.ts` (`.piko-bar-lead`) | `clippingsPane.browser.test.ts` |
 | `:host(:hover)`, never `:host:hover` — the bare-chained form silently never matches | 👁 | `content/panel/styles.ts` | — |
 | No backticks inside `styles.ts`'s CSS comments; the sheet is one template literal | ✅ | `content/panel/styles.ts` | `npm run typecheck` |
