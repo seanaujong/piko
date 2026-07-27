@@ -113,6 +113,35 @@ After `npm run build` and **Load unpacked** on a *fresh* profile:
 A reviewer submitting to the store follows steps 1 and 3; if either has regressed, the listing's
 test instructions are wrong and the submission will come back.
 
+## The site menu, which no suite can click
+
+The menu on Piko's toolbar icon is browser chrome rather than page content, so Playwright has no
+selector for it — the decision behind it is covered by `siteMenu.test.ts` and what an exclusion
+does is covered in three suites, but that Chrome draws the items and delivers the click is on
+eyes. With access granted:
+
+1. On an ordinary article, **right-click the Piko icon**. One item: *Never run Piko on
+   `<site>`*. On a site with a subdomain — anything at `secure.example.com` — there are **two**,
+   the specific host and its parent, in that order.
+2. Right-click the icon on `mail.google.com`. One **greyed-out** item reading *Piko never runs on
+   mail.google.com*. This is the shipped list saying so, and it is the only place a reader ever
+   sees that list exists.
+3. Back on the article, click *Never run Piko on `<site>`*. **The panel and rail vanish
+   immediately** if either was up, and the page's right margin is handed back — no leftover
+   indent where the rail was. Drag a link: nothing happens.
+4. Press the toolbar icon on that page. **Nothing should happen** — not the onboarding page,
+   which is what a missing grant does, and not a panel.
+5. Open the same site in a *second* tab before excluding a third one, to confirm every open tab
+   on the site stands down, not just the one that was right-clicked.
+6. Right-click the icon again: the menu now reads *Run Piko on `<site>` again*. Click it, then
+   **reload the page** — the preview works once more. The reload is required and is not a bug: a
+   content script cannot be injected into a page that already loaded without it.
+7. Drag a link *pointing at* the excluded site from somewhere else. The panel opens and shows
+   *Piko is turned off on `<site>`.* — the exclusion is about the site, not only about where
+   Piko runs.
+
+Step 3's margin and step 6's reload are the two most likely to regress silently.
+
 ## The pass that finds bugs fastest
 
 In this order:

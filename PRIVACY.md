@@ -23,7 +23,14 @@ analytics. Specifically:
   the sentence, the page it came from, that page's title, the page you were on when you
   dragged the link, and the time you clipped it. This is stored **on your device only** and
   is never uploaded. You can delete all of it at any time from the journal's own delete
-  button, or by removing the extension.
+  button, or by removing the extension. The same storage holds any sites you have told Piko
+  to stay off — hostnames you chose yourself, kept on the same terms.
+- **Sites you exclude.** Right-clicking Piko's toolbar icon offers to keep Piko off the site
+  you are on; the same menu takes it back. Piko then neither runs on that site nor fetches
+  links pointing at it. Piko also refuses a short built-in list of sign-in, webmail,
+  password-manager and chat hosts without being asked. That list is short on purpose: it
+  covers categories that can be listed nearly completely, and banking cannot — so your bank
+  is yours to name.
 - **What leaves your browser, and only when you ask.** Copying a clipping puts it on your
   clipboard. Exporting the journal writes a Markdown file to your downloads. Both happen only
   on a click you make, and both go where you tell them.

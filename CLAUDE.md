@@ -108,6 +108,8 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | how host access is asked for, or what the install opens | `public/onboarding.html` + `src/onboarding/index.ts` |
 | when the content script is registered | `background/contentScriptRegistration.ts` |
+| which sites Piko stays off | `background/excludedSites.ts` — the reader's list; `shared/sensitiveHosts.ts` is the shipped one |
+| what the icon's right-click menu offers | `background/siteMenu.ts`, then the plumbing in `background/index.ts` |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
 | what an exported file says, or how it leaves | `content/panel/exportMarkdown.ts`, then `download.ts` |
@@ -160,6 +162,13 @@ font-size contrast made it real.
 | The worker refuses to reach a network tier the dragging page couldn't — public page, private address | ✅ | `background/fetchPolicy.ts` (`fetchRefusal`) | `fetchPolicy.test.ts` |
 | The fetch carries no cookie — `credentials: 'omit'` is explicit, because the default sends one | ✅ | `background/frameability.ts` | `e2e/extension.test.ts` (`what the background fetch carries`) |
 | Sensitive hosts are one list asked by both the manifest and the worker, and the manifest is asserted against it | ✅ | `shared/sensitiveHosts.ts` | `sensitiveHosts.test.ts` |
+| Two lists — what Piko ships and what the reader excluded — judged by one matcher, never two | ✅ | `shared/sensitiveHosts.ts` (`matchesHost`), `background/excludedSites.ts` | `excludedSites.test.ts`, `npm run typecheck` |
+| The shipped list names only categories that terminate; a bank is the reader's to name, never Piko's to guess | ✅ | `shared/sensitiveHosts.ts` | `sensitiveHosts.test.ts` |
+| An exclusion is enforced in all three places it can be — registration, the fetch, and the tabs already open | ✅ | `background/contentScriptRegistration.ts`, `background/fetchPolicy.ts`, `background/index.ts` | `contentScriptRegistration.test.ts`, `fetchPolicy.test.ts`, `e2e/extension.test.ts` |
+| Registration is compared against the current lists, never assumed correct because it exists | ✅ | `background/contentScriptRegistration.ts` (`samePatterns`) | `contentScriptRegistration.test.ts` |
+| A menu item carries its own host and verb, because the worker is dead by the time it is clicked | ✅ | `background/siteMenu.ts` (`SiteMenuItem.id`) | `siteMenu.test.ts` |
+| Whatever the menu can do, it can undo — it is the only repair surface until an options page exists | ✅ | `background/siteMenu.ts` (`siteMenuItems`) | `siteMenu.test.ts` |
+| Standing down is one-way; only the worker decides that Piko may run, and a tab never re-arms itself | 👁 | `content/index.ts` (`standDown`) | — |
 | Article text is never mutated to highlight it — paint an overlay, don't wrap in `<span>`s | 👁 | `content/extraction/sentences.ts`, `content/panel/highlight.ts` | — |
 | Bands come from the block's measured lines, never a line-height grid and never the drawn sentence's own rects | ✅ | `content/extraction/sentences.ts` (`lineBandsFor`) | `sentences.browser.test.ts` |
 | Client rects are merged by visual line before painting, never used raw | ✅ | `content/extraction/sentences.ts` (`lineRectsForSentence`) | `sentences.browser.test.ts` |
@@ -199,8 +208,8 @@ font-size contrast made it real.
 | `keyOf` mirrors `isSame`, and one pane instance is re-parented rather than rendered twice | ✅ | `clippingsPane.tsx` (`keyOf`), `content/panel/mountPanel.ts` (`dockPaneIn`) | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
 
 ### What only a human can guard
-Two effects leave the page entirely, and no suite here can follow them. Re-confirm both by hand
-after touching either path; the traps that make them unreachable from automation are in
+Three effects leave the page entirely, and no suite here can follow them. Re-confirm each by hand
+after touching its path; the traps that make them unreachable from automation are in
 `e2e/MANUAL.md`.
 
 - **A clipboard write landing.** Reading it back to check raises a permission prompt that
@@ -210,6 +219,11 @@ after touching either path; the traps that make them unreachable from automation
   navigation; driven through CDP the page loads at the top with nothing highlighted, even for
   text that is verbatim on the page. The URL it needs *is* tested — `textFragment.test.ts` pins
   the construction — so only the browser's half is on eyes.
+- **The icon's right-click menu opening, and a click on it landing.** The menu is browser chrome,
+  not page content, so Playwright cannot reach it at all — no selector addresses it. The same
+  split as the text fragment: what the menu *offers* is tested exhaustively in `siteMenu.test.ts`
+  and what an exclusion *does* is tested in three places, so only Chrome's half — that the items
+  render, and that a click reaches `contextMenus.onClicked` — is on eyes.
 
 **A third effect leaves the page and is guarded anyway**, and the contrast is worth keeping: the
 export's download was expected to land in this list beside the clipboard and does not. A download
