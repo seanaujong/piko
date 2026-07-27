@@ -185,6 +185,7 @@ font-size contrast made it real.
 | The export is one of the delete's two answers, and a refused export empties nothing | ✅ | `clippingsPane.tsx` (`ClearRow`), `content/panel/download.ts` | `clippingsPane.test.ts` |
 | A control added to a header bar must leave the leading group room — only the lead shrinks | ✅ | `content/panel/styles.ts` (`.piko-bar-lead`) | `clippingsPane.browser.test.ts` |
 | The same rule wherever a name meets a number: a chip's label yields to its count, a source line's title yields to its site, and a title is never wider than the row holding it | ✅ | `content/panel/styles.ts` (`.piko-chip`, `.piko-chip-label`, `.piko-clip-source`) | `clippingsPane.browser.test.ts` |
+| A name and its number are one label: they share a baseline, the figures reach the name's cap line, and the gap between them is the chip's | ✅ | `content/panel/styles.ts` (`.piko-clips-label`, `.piko-clips-count`) | `clippingsPane.browser.test.ts` |
 | `:host(:hover)`, never `:host:hover` — the bare-chained form silently never matches | 👁 | `content/panel/styles.ts` | — |
 | No backticks inside `styles.ts`'s CSS comments; the sheet is one template literal | ✅ | `content/panel/styles.ts` | `npm run typecheck` |
 | Source order is the mechanism in `styles.ts`, and `all: initial` erases what earlier rules set | 👁 | `content/panel/styles.ts` | — |

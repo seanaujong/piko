@@ -13,3 +13,11 @@ icon-sheet.png
 
 # Local agent scratch: worktrees are checkouts of this same repo, never content.
 .claude/worktrees/
+
+# What a failing browser test leaves behind, in both the places Vitest writes it. Kept on disk,
+# because a picture of the frame is the fastest way to read a geometry failure — and out of the
+# history, because every one of them was committed by accident and every one of them documents a
+# bug that was fixed in the same session. Nothing here is a baseline: no test calls
+# toMatchScreenshot, so nothing compares against these. Un-ignore the directory the day one does.
+.vitest-attachments/
+__screenshots__/
