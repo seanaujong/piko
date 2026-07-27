@@ -482,7 +482,7 @@ describe('emptying the journal', () => {
 
     await settle(() => clearButton(pane).click())
     expect(entries(pane)).toHaveLength(3)
-    expect(question(pane)).toBe('Delete all 3 clippings?')
+    expect(question(pane)).toBe('Delete all 3?')
 
     // The icon toggles its own question, so the way back out is the button the reader just
     // pressed and is still standing on. Pressing it again must close the question, never answer
@@ -544,7 +544,7 @@ describe('emptying the journal', () => {
 
     expect(clearButton(pane).getAttribute('aria-label')).toBe('Delete all 3 clippings')
     await settle(() => clearButton(pane).click())
-    expect(question(pane)).toBe('Delete all 3 clippings?')
+    expect(question(pane)).toBe('Delete all 3?')
   })
 })
 

@@ -548,16 +548,19 @@ export const PANEL_STYLES = `
   flex: 0 0 auto;
 }
 
-/* The one thing here allowed to give up width: both answers have to stay readable, and a
-   truncated verb is a control nobody should press. */
+/* Wraps rather than truncating, and is the one thing here allowed to give up width: both
+   answers have to stay readable, and a truncated verb is a control nobody should press.
+
+   An ellipsis was the first attempt and it cut "Delete all 3 clippings?" to "Delete all 3
+   clippin…" at the pane's own resting width — losing the noun, on the row whose entire job is
+   saying what is about to go. A row that grows by a line is the cheaper failure, and the
+   failure message is longer than any question, so it needs the room anyway. */
 .piko-clips-confirm-question {
   flex: 1 1 auto;
   min-width: 0;
   font-size: 12px;
+  line-height: 1.35;
   color: #8c3330;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Words, where every other control in this pane is a glyph. An icon earns its place by being

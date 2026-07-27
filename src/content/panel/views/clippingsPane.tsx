@@ -211,8 +211,13 @@ function ClearRow({
         pushes them down, so the place a chip was a moment ago is now inside this row — and what
         a mis-aimed click lands on there should be a sentence, not Delete.
       */}
+      {/*
+        The count without its noun, which the header says a line above and says larger: at this
+        width spelling it out here cost the answers their room. The full sentence is still what
+        a screen reader gets, on the two controls that act on it.
+      */}
       <span class="piko-clips-confirm-question" role="status">
-        {failed ? 'Export failed — nothing was deleted.' : `Delete all ${noun}?`}
+        {failed ? 'Export failed — nothing was deleted.' : `Delete all ${count}?`}
       </span>
       <button
         class="piko-clips-answer piko-clips-answer-export"
