@@ -30,25 +30,41 @@ const button = document.getElementById('grant') as HTMLButtonElement | null
 const status = document.getElementById('status')
 const sites = document.getElementById('sites')
 
-function say(message: string, state: 'idle' | 'granted' | 'declined'): void {
+/**
+ * The one answer the button cannot give for itself: that the grant did not happen, and why.
+ *
+ * Success has no counterpart here. A granted button turns green and says so, which is the same
+ * news a green line under it would carry — and the heading and the paragraph above have both
+ * already changed by then, so a fourth telling was three too many. A refusal has no such
+ * spokesman: nothing about a button that still reads *Allow Piko on all sites* explains that
+ * Chrome was asked and said no.
+ */
+function refuse(message: string): void {
   if (!status) return
   status.textContent = message
-  status.dataset.state = state
+  status.dataset.state = 'declined'
 }
 
 /** Reveals the copy written for one of the two states, and settles the control that changes it. */
 function showAccess(granted: boolean): void {
   document.documentElement.dataset.access = granted ? 'granted' : 'absent'
-  if (granted && button) {
-    button.disabled = true
-    button.textContent = 'Already allowed'
+  if (!granted || !button) return
+
+  button.disabled = true
+  button.textContent = '✓ Already allowed'
+  button.dataset.state = 'granted'
+
+  // A reader who declined and then changed their mind still has the refusal on screen, and it is
+  // not true any more. Cleared here rather than in the click handler because this is the one
+  // place that knows access was granted, whichever of the two routes arrived at it.
+  if (status) {
+    status.textContent = ''
+    status.dataset.state = 'idle'
   }
 }
 
 async function reflectCurrentAccess(): Promise<void> {
-  const granted = await chrome.permissions.contains(ALL_SITES)
-  showAccess(granted)
-  if (granted) say('Piko is allowed on all sites.', 'granted')
+  showAccess(await chrome.permissions.contains(ALL_SITES))
 }
 
 button?.addEventListener('click', async () => {
@@ -56,16 +72,14 @@ button?.addEventListener('click', async () => {
     const granted = await chrome.permissions.request(ALL_SITES)
     if (granted) {
       showAccess(true)
-      say('Done. Try it below.', 'granted')
       return
     }
-    say('Not allowed, so Piko will not run anywhere. Press the button again whenever you change your mind.', 'declined')
+    refuse('Not allowed, so Piko will not run anywhere. Press the button again whenever you change your mind.')
   } catch (error) {
     // Requesting outside a gesture is the usual cause, and it cannot happen from here — but a
     // silent failure on the one control this page has would be the worst outcome, so say it.
-    say(
+    refuse(
       error instanceof Error ? `Chrome refused the request: ${error.message}` : 'Chrome refused the request.',
-      'declined',
     )
   }
 })
