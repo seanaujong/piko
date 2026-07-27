@@ -159,54 +159,84 @@ function ConfirmingIconButton({
   )
 }
 
-/** How long an armed delete waits for its second click before standing down. */
-export const ARM_MS = 3000
+/** The plural the delete's question and both its answers have to agree on. */
+const clippingsNoun = (count: number): string =>
+  `${count} ${count === 1 ? 'clipping' : 'clippings'}`
 
 /**
- * Emptying the journal, behind a second click.
+ * The question the delete asks, and its two answers.
  *
- * The second click is the whole safety mechanism, and it is deliberately not the two obvious
+ * A second click is the whole safety mechanism, and it is deliberately not the two obvious
  * alternatives. A `confirm()` would be a modal belonging to whatever page the rail is docked
  * beside, blocking it — the panel is a guest here and does not get to freeze its host. An undo
  * would mean the store growing a way to be handed its old contents back, which is real interface
- * for a button nobody presses twice a year; the journal's way back is the export sitting next to
- * this one, which is why these two arrived together.
+ * for a button nobody presses twice a year.
  *
- * Arming lives in this button rather than in the pane, so waiting for the second click redraws
- * one element instead of the list behind it.
+ * What the journal has instead of an undo is the export, and that is why the export is one of
+ * the answers rather than only a neighbouring icon. The two were adjacent on the argument that
+ * the file beside the delete is the copy the reader keeps — an argument the reader had to
+ * reconstruct from two buttons happening to sit together, at exactly the moment they were about
+ * to lose something. Offering it here states it instead: the way to keep what is about to go is
+ * the button next to the one that takes it.
+ *
+ * A row rather than a popover, in the same place the search field opens and for the same reason:
+ * at this width a question and two answers do not fit in the header beside the title, and a
+ * floating menu would be the only thing in this panel needing its own positioning and dismissal.
+ * The way back out is the delete icon itself, which toggles — the reader's cursor is already
+ * there, having just pressed it.
+ *
+ * Nothing stands this row back down on a timer, where the armed icon it replaces had to. That
+ * timer guarded a specific trap: the click that armed the icon and the click that fired it were
+ * the same pixel, so an armed delete left under the cursor turned the next absent-minded click
+ * into an emptied journal. Here the second click lands somewhere else and says what it does, and
+ * pressing the delete again closes the row rather than confirming anything.
  */
-function ClearAllButton({ count, onClear }: { count: number; onClear: () => void }) {
-  const [armed, setArmed] = useState(false)
-
-  // Standing down on its own matters more than it looks: an armed delete left under the cursor
-  // turns the next absent-minded click on this corner of the header into an emptied journal.
-  useEffect(() => {
-    if (!armed) return
-    const timer = setTimeout(() => setArmed(false), ARM_MS)
-    return () => clearTimeout(timer)
-  }, [armed])
-
-  const noun = count === 1 ? 'clipping' : 'clippings'
-  const label = armed
-    ? `Click again to delete all ${count} ${noun}`
-    : `Delete all ${count} ${noun}`
+function ClearRow({
+  count,
+  onExportThenClear,
+  onClear,
+}: {
+  count: number
+  /** Reports whether the browser took the file; a journal is never emptied on an export that did not happen. */
+  onExportThenClear: () => boolean
+  onClear: () => void
+}) {
+  const [failed, setFailed] = useState(false)
+  const noun = clippingsNoun(count)
 
   return (
-    <button
-      class={`piko-icon-button piko-clips-clear${armed ? ' is-armed' : ''}`}
-      title={label}
-      aria-label={label}
-      onClick={() => {
-        if (!armed) {
-          setArmed(true)
-          return
-        }
-        setArmed(false)
-        onClear()
-      }}
-    >
-      <Icon parts={ICON.trash} />
-    </button>
+    <div class="piko-clips-confirm">
+      {/*
+        Inert on purpose, and holding the leading edge. This row appears above the chips and
+        pushes them down, so the place a chip was a moment ago is now inside this row — and what
+        a mis-aimed click lands on there should be a sentence, not Delete.
+      */}
+      {/*
+        The count without its noun, which the header says a line above and says larger: at this
+        width spelling it out here cost the answers their room. The full sentence is still what
+        a screen reader gets, on the two controls that act on it.
+      */}
+      <span class="piko-clips-confirm-question" role="status">
+        {failed ? 'Export failed — nothing was deleted.' : `Delete all ${count}?`}
+      </span>
+      <button
+        class="piko-clips-answer piko-clips-answer-export"
+        aria-label={`Export all ${noun} as Markdown, then delete them`}
+        // Synchronous, inside the click handler — see download.ts.
+        onClick={() => {
+          if (!onExportThenClear()) setFailed(true)
+        }}
+      >
+        Export first
+      </button>
+      <button
+        class="piko-clips-answer is-destructive"
+        aria-label={`Delete all ${noun} without exporting`}
+        onClick={onClear}
+      >
+        Delete
+      </button>
+    </div>
   )
 }
 
@@ -450,6 +480,27 @@ function Pane({
   const [searching, setSearching] = useState(false)
   const [query, setQuery] = useState('')
   const [band, setBand] = useState<AgeBandKey | null>(null)
+  const [clearing, setClearing] = useState(false)
+
+  /**
+   * The whole journal, written out. One instant for both, so the name on the file and the date
+   * inside it agree.
+   *
+   * Shared by the header's export and the delete's first answer, because those two write the
+   * same file — and a second copy of this would be a second answer to "what does export mean",
+   * which is exactly the question the delete row exists to settle.
+   */
+  const exportAll = (): boolean => {
+    const at = Date.now()
+    return downloadText(exportFilename(at), journalToMarkdown(all, at))
+  }
+
+  // Closing the row along with the journal it was asking about: left standing, it would reappear
+  // over an empty list, and then over the next thing clipped.
+  const clearAll = (): void => {
+    store.clear()
+    setClearing(false)
+  }
 
   // Read once per render, so a chip and the list cannot land on opposite sides of midnight.
   const now = Date.now()
@@ -575,6 +626,10 @@ function Pane({
               // something no longer on screen.
               if (searching) setQuery('')
               setSearching(!searching)
+              // A search is a mode the reader stays in; the delete's question is a decision they
+              // are in the middle of. Two rows for those at once is one row too many at this
+              // width, and the transient one is the one that gives way.
+              setClearing(false)
             }}
           >
             <Icon parts={ICON.search} />
@@ -588,21 +643,28 @@ function Pane({
           {all.length > 0 && (
             <ConfirmingIconButton
               className="piko-clips-export"
-              label={`Export all ${all.length} ${all.length === 1 ? 'clipping' : 'clippings'} as Markdown`}
+              label={`Export all ${clippingsNoun(all.length)} as Markdown`}
               resting={ICON.download}
-              // One instant for both, so the name on the file and the date inside it agree.
-              onAct={() => {
-                const at = Date.now()
-                return downloadText(exportFilename(at), journalToMarkdown(all, at))
-              }}
+              onAct={exportAll}
             />
           )}
           {/*
-            Next to the export on purpose: it is what makes emptying the journal a thing worth
-            offering, since the file beside it is the copy the reader keeps. Like the export it
-            acts on the whole journal rather than the narrowed view, and says so.
+            Opens its question rather than arming itself, and stays a single click away from the
+            reader who only wants the file: the export beside it is untouched by any of this.
+            Like the export it acts on the whole journal rather than the narrowed view, and says
+            so.
           */}
-          {all.length > 0 && <ClearAllButton count={all.length} onClear={() => store.clear()} />}
+          {all.length > 0 && (
+            <button
+              class={`piko-icon-button piko-clips-clear${clearing ? ' is-on' : ''}`}
+              title={`Delete all ${clippingsNoun(all.length)}`}
+              aria-label={`Delete all ${clippingsNoun(all.length)}`}
+              aria-expanded={clearing ? 'true' : 'false'}
+              onClick={() => setClearing(!clearing)}
+            >
+              <Icon parts={ICON.trash} />
+            </button>
+          )}
           {/*
             An icon, because the control has no honest one-word label — "Close" beside an
             article would read as closing the preview the pane sits inside.
@@ -626,6 +688,21 @@ function Pane({
             setQuery('')
             setSearching(false)
           }}
+        />
+      )}
+
+      {clearing && all.length > 0 && (
+        <ClearRow
+          count={all.length}
+          // The gate the whole coupling rests on: an export that the browser refused leaves the
+          // journal exactly where it was. What this cannot see is a file the browser accepted
+          // and the reader then cancelled — downloadText says why nothing can.
+          onExportThenClear={() => {
+            if (!exportAll()) return false
+            clearAll()
+            return true
+          }}
+          onClear={clearAll}
         />
       )}
 

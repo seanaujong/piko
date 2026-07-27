@@ -289,17 +289,15 @@ describe('the loaded extension', () => {
     await clipFirstSentence(page)
     await expect.poll(() => clippingCount(page), POLL).toBe(1)
 
-    const armed = (): Promise<boolean> =>
-      page.evaluate(
-        `${SHADOW}.querySelector('.piko-clips-clear').classList.contains('is-armed')`,
-      ) as Promise<boolean>
+    const asking = (): Promise<boolean> =>
+      page.evaluate(`${SHADOW}.querySelector('.piko-clips-confirm') !== null`) as Promise<boolean>
 
-    // Two clicks, with the redraw in between. Clicking twice faster than the pane can re-render
-    // re-arms instead of confirming, since the second click is handled by the render that has
-    // not yet heard about the first — a destructive control failing closed, which is right.
+    // The delete asks before it empties, and the answer is a different element — so the redraw
+    // in between is not optional here: the answer does not exist to be clicked until the pane
+    // has drawn the question.
     await page.evaluate(`${SHADOW}.querySelector('.piko-clips-clear').click()`)
-    await expect.poll(armed, POLL).toBe(true)
-    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-clear').click()`)
+    await expect.poll(asking, POLL).toBe(true)
+    await page.evaluate(`${SHADOW}.querySelector('.piko-clips-answer.is-destructive').click()`)
     await expect.poll(() => clippingCount(page), POLL).toBe(0)
 
     const [worker] = context.serviceWorkers()
