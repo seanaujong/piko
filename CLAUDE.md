@@ -74,10 +74,16 @@ where each one's requirement is argued.
 |---|---|---|
 | `unit` | `src/**/*.test.ts` | jsdom — enough DOM for `DOMParser`, `textContent` and `Range` |
 | `geometry` | `src/**/*.browser.test.ts` | real Chrome, because it measures *layout*; jsdom reports every rect as zero |
-| `e2e` | `e2e/*.test.ts` | the actually-loaded extension — the only suite reaching the manifest, the worker and `chrome.storage` |
+| `e2e` | `e2e/*.test.ts` | the actually-loaded extension — the only suite reaching the manifest, the worker and `chrome.storage`. Loads `dist-test/`, not `dist/`: see below |
 
-The e2e suite rebuilds `dist/` first, so it always tests the shipped bundle, and **it replaces
-the manual reload-and-drag loop** — the most expensive step in developing this project. Its two
+The e2e suite rebuilds `dist/` first and tests the shipped **bundle** — but under a substituted
+**manifest**. Piko ships with `optional_host_permissions`, and no automation can perform a host
+grant (three routes measured and dead; `e2e/harness.ts` lists them), so `dist-test/` is `dist/`
+with the content script declared statically. `e2e/testManifest.ts` is the whole of the
+difference and `e2e/manifest.test.ts` fails the build if it grows beyond three injection keys.
+What that leaves on eyes is the grant flow itself, in `e2e/MANUAL.md`.
+
+The suite **replaces the manual reload-and-drag loop** — the most expensive step in developing this project. Its two
 non-obvious launch requirements are documented where they are enforced, in `e2e/harness.ts`.
 
 ## Verifying a change in Chrome
@@ -100,6 +106,8 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | the clippings pane's markup or behaviour | `content/panel/views/clippingsPane.tsx` — the one Preact component |
 | clipping the live page | `content/panel/hostClipping.ts` |
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
+| how host access is asked for, or what the install opens | `public/onboarding.html` + `src/onboarding/index.ts` |
+| when the content script is registered | `background/contentScriptRegistration.ts` |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
 | what an exported file says, or how it leaves | `content/panel/exportMarkdown.ts`, then `download.ts` |
@@ -143,6 +151,9 @@ font-size contrast made it real.
 | `PreviewState`/`PreviewEvent` are discriminated unions and `transition`'s `switch` is exhaustive — never add a `default:` | ✅ | `content/state/previewState.ts` | `npm run typecheck` |
 | Frameability is answered in the background worker; a page-context `fetch()` cannot see response headers | 👁 | `background/frameability.ts` | — |
 | Relative URLs are resolved explicitly, never by a `<base>` element the host page's CSP can veto | ✅ | `content/extraction/extract.ts` (`absolutiseUrls`) | `extract.test.ts`, `e2e/extension.test.ts` (`hostile base-uri`) |
+| Host access is optional and requested at runtime — neither `host_permissions` nor `content_scripts` is declared | ✅ | `manifest.json`, `background/contentScriptRegistration.ts` | `e2e/manifest.test.ts` |
+| The e2e manifest differs from the shipped one in injection keys only, never in a permission | ✅ | `e2e/testManifest.ts` | `e2e/manifest.test.ts` |
+| Registration is gated on `permissions.contains`, never inferred from the call succeeding | ✅ | `background/contentScriptRegistration.ts` | `contentScriptRegistration.test.ts` |
 | Nothing is added to a page until a gesture asks for it — the panel mounts lazily | ✅ | `content/index.ts` (`livePanel`) | `e2e/extension.test.ts` (`puts nothing in the page`) |
 | A preview starts from a trusted event only — a synthesised drag is not evidence a reader wanted anything | ✅ | `content/dragTracking.ts` | `dragTracking.test.ts` |
 | The worker refuses to reach a network tier the dragging page couldn't — public page, private address | ✅ | `background/fetchPolicy.ts` (`fetchRefusal`) | `fetchPolicy.test.ts` |
