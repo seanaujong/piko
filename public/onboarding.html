@@ -35,6 +35,11 @@
          leaves out of dist/ — 64 CSS pixels of a 128px source is exact at 2x. */
       .mark { display: block; width: 64px; height: 64px; margin: 0 0 20px; }
 
+      /* The same icon at text size, so a sentence can point at the thing to click instead of
+         describing it. Sized in em so it tracks whatever text it sits in, and dropped onto the
+         baseline so it sits *in* the line rather than on top of it. */
+      .inline-icon { width: 1.15em; height: 1.15em; vertical-align: -0.25em; }
+
       button {
         font: inherit;
         font-weight: 600;
@@ -216,8 +221,8 @@
           </svg>
           </details>
         </li>
-        <li>Press Piko's toolbar icon. The journal docks on the right, and the page becomes
-          clippable.</li>
+        <li>Press <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> in your
+          toolbar. The journal docks on the right, and the page becomes clippable.</li>
         <li>
           Read until you find the one sentence that says what the article is <em>about</em>.
           Click it. That sentence is now the article, in your journal.

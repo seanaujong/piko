@@ -64,6 +64,17 @@ describe('the sites section as drawn', () => {
     expect(letBackOn).toHaveBeenCalledWith('second.test')
   })
 
+  it('shows the icon it asks the reader to right-click, in both directions', () => {
+    // The instruction appears once for a reader with nothing excluded and once for a reader with
+    // something, and both send them to the same small picture in the toolbar.
+    for (const excluded of [[], ['bank.example.test']]) {
+      const icon = draw(excluded).querySelector<HTMLImageElement>('p .inline-icon')
+      expect(icon?.getAttribute('src')).toBe('icons/icon128.png')
+      // Read aloud, the sentence still has to say what to right-click.
+      expect(icon?.alt).toBe('the Piko icon')
+    }
+  })
+
   it('says the list is empty rather than drawing an empty list', () => {
     const drawn = draw([])
 

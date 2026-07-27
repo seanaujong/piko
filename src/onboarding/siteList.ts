@@ -61,8 +61,11 @@ export function renderSiteList(rows: readonly SiteRow[], letBackOn: (host: strin
   if (reader.length === 0) {
     const empty = document.createElement('p')
     empty.className = 'sites-empty'
-    empty.textContent =
-      'You have not turned Piko off anywhere yet. To do that, right-click Piko’s toolbar icon while you are on the site.'
+    empty.append(
+      'You have not turned Piko off anywhere yet. To do that, right-click ',
+      toolbarIcon(),
+      ' in your toolbar while you are on the site.',
+    )
     fragment.append(empty)
   } else {
     fragment.append(
@@ -83,8 +86,11 @@ export function renderSiteList(rows: readonly SiteRow[], letBackOn: (host: strin
     // the open tabs at once.
     const note = document.createElement('p')
     note.className = 'fineprint'
-    note.textContent =
-      'Add one by right-clicking Piko’s toolbar icon while you are on the site. A tab already open on a site you let Piko back on needs a reload first — a content script cannot enter a page that finished loading without it.'
+    note.append(
+      'Add one by right-clicking ',
+      toolbarIcon(),
+      ' in your toolbar while you are on the site. A tab already open on a site you let Piko back on needs a reload first: Piko can only get into a page while that page is loading.',
+    )
     fragment.append(note)
   }
 
@@ -107,6 +113,23 @@ export function renderSiteList(rows: readonly SiteRow[], letBackOn: (host: strin
   fragment.append(always)
 
   return fragment
+}
+
+/**
+ * The toolbar icon at text size, inside the sentence asking the reader to click it.
+ *
+ * Naming a control is weaker than showing it. What the sentence sends them to is a row of small
+ * pictures in browser chrome, and picking the right one out of that row is the whole difficulty —
+ * so the sentence carries the picture. Same file the page's own logo comes from, which is the
+ * file Chrome draws the toolbar from, so this cannot come to differ from what they are looking at.
+ */
+function toolbarIcon(): HTMLImageElement {
+  const icon = document.createElement('img')
+  icon.className = 'inline-icon'
+  icon.src = 'icons/icon128.png'
+  // Carries the words it replaced: read aloud, the sentence still says what to right-click.
+  icon.alt = 'the Piko icon'
+  return icon
 }
 
 function item(host: string, trailing: Node): HTMLLIElement {
