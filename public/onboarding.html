@@ -24,7 +24,13 @@
         font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.5em; }
-      h2 { font-size: 1.05rem; margin: 2.5em 0 0.5em; }
+      /* Roughly 3:1 above to below, and about twice the 16px gap between paragraphs. A heading
+         this close to body size — 16.8px against 16px — is a quiet one, and quiet headings can
+         carry less air than the space they were originally given: past about two paragraph gaps
+         the band above stops reading as "a new section starts here" and starts reading as a hole
+         in the page. Both halves matter. The space below has to stay clearly smaller than the
+         space above, or the heading detaches from the section it names. */
+      h2 { font-size: 1.05rem; margin: 1.75em 0 0.6em; }
       p { margin: 0 0 1em; }
       ul { margin: 0 0 1em; padding-left: 1.2em; }
       ol { margin: 0 0 1em; padding-left: 1.4em; }
