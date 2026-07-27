@@ -109,6 +109,9 @@ After `npm run build` and **Load unpacked** on a *fresh* profile:
    again, and no error appears in the page console.
 7. Press the toolbar icon while revoked — the onboarding page should reopen rather than the
    click doing nothing.
+8. Grant again, then **right-click the icon and choose *Options***. The same page opens, and now
+   reads *Piko is allowed on the pages you read* with the button already spent. The e2e suite
+   covers that swap; what is on eyes here is Chrome drawing the item at all.
 
 A reviewer submitting to the store follows steps 1 and 3; if either has regressed, the listing's
 test instructions are wrong and the submission will come back.

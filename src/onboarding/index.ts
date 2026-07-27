@@ -10,6 +10,11 @@
  * `chrome.permissions.onAdded`. This page deliberately does not register anything itself: a
  * grant made from `chrome://extensions` rather than from this button has to work identically,
  * and it will only do that if one listener owns the consequence.
+ *
+ * The page is reached a second time, from the icon's Options item, so it has a *state* and not
+ * just a control. That state is one attribute — `showAccess` is the only writer of it, and the
+ * two versions of the copy are in the HTML rather than in strings here. What belongs in script
+ * is the answer to "is Piko allowed?"; which sentence that answer selects is presentation.
  */
 import { ALL_SITES } from '../background/contentScriptRegistration'
 
@@ -22,23 +27,27 @@ function say(message: string, state: 'idle' | 'granted' | 'declined'): void {
   status.dataset.state = state
 }
 
-async function reflectCurrentAccess(): Promise<void> {
-  if (await chrome.permissions.contains(ALL_SITES)) {
-    say('Piko is allowed on all sites. Drag a hyperlink on any page to try it.', 'granted')
-    if (button) {
-      button.disabled = true
-      button.textContent = 'Already allowed'
-    }
+/** Reveals the copy written for one of the two states, and settles the control that changes it. */
+function showAccess(granted: boolean): void {
+  document.documentElement.dataset.access = granted ? 'granted' : 'absent'
+  if (granted && button) {
+    button.disabled = true
+    button.textContent = 'Already allowed'
   }
+}
+
+async function reflectCurrentAccess(): Promise<void> {
+  const granted = await chrome.permissions.contains(ALL_SITES)
+  showAccess(granted)
+  if (granted) say('Piko is allowed on all sites.', 'granted')
 }
 
 button?.addEventListener('click', async () => {
   try {
     const granted = await chrome.permissions.request(ALL_SITES)
     if (granted) {
-      say('Done. Drag a hyperlink on any page to try it.', 'granted')
-      button.disabled = true
-      button.textContent = 'Already allowed'
+      showAccess(true)
+      say('Done. Try it below.', 'granted')
       return
     }
     say('Not allowed, so Piko will stay inert. You can press the button again whenever.', 'declined')

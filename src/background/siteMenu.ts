@@ -14,8 +14,9 @@
  * *do* want. So a reader who has met either other browser reaches for the icon's context menu,
  * and Chrome is the one that has to be given the item.
  *
- * **The menu is also the undo.** There is no options page yet, so a menu that could only add
- * would be a one-way door — and `exclusionChoicesFor` offers a parent host it cannot verify is
+ * **The menu is also the undo.** Nothing lists what a reader has excluded — the options page is
+ * the install's explainer, which holds the host grant and no list — so a menu that could only add
+ * would be a one-way door, and `exclusionChoicesFor` offers a parent host it cannot verify is
  * not a public suffix. Making the same menu offer "Run Piko on X again" is what makes that guess
  * safe to show: a wrong choice is repaired where it was made.
  */

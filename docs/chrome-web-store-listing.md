@@ -218,12 +218,13 @@ Piko is inert by design, and a reviewer who skips it will find a broken extensio
 
 ```
 Piko asks for no host access at install. It requests it afterwards, from its own page, and does
-nothing at all until that is granted — so please start at step 1. There is no popup and no
-options page, and no account, login, or payment is needed.
+nothing at all until that is granted — so please start at step 1. There is no popup, and no
+account, login, or payment is needed. The options page is that same page, and holds nothing but
+the access button.
 
 1. Install the extension. Piko opens a page titled "Piko needs to be allowed on the pages you
    read". Press "Allow Piko on all sites" and confirm Chrome's prompt. (If the page was closed,
-   pressing Piko's toolbar icon reopens it.)
+   right-click Piko's toolbar icon and choose "Options" to reopen it.)
 2. Open any article with links in it — for example
    https://en.wikipedia.org/wiki/Photosynthesis
 3. DRAG any hyperlink in the text a short distance and let go. That linked article opens in a

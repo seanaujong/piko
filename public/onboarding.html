@@ -3,6 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <title>Piko — one thing to turn on</title>
+
+    <!--
+      Both the page the install opens and the page Chrome's "Options" item opens, which is the
+      reason every part of it has to read correctly on a *second* visit as well as a first. The
+      copy that only makes sense while access is missing and the copy that only makes sense once
+      it is granted are both written here; `data-access` on <html> is what picks between them,
+      and `onboarding.js` sets it once Chrome has answered which is true.
+
+      Missing is the default, so a page whose script never ran — or whose `permissions.contains`
+      threw — shows the version that asks. That is the state where being wrong is recoverable:
+      the button is still there and pressing it while already allowed changes nothing.
+    -->
     <style>
       :root { color-scheme: light dark; }
       body {
@@ -12,11 +24,16 @@
         font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.5em; }
-      h2 { font-size: 1rem; margin: 2.5em 0 0.5em; }
+      h2 { font-size: 1.05rem; margin: 2.5em 0 0.5em; }
       p { margin: 0 0 1em; }
       ul { margin: 0 0 1em; padding-left: 1.2em; }
       li { margin-bottom: 0.4em; }
       .lede { font-size: 1.1rem; }
+
+      /* Rendered from the shipping raster rather than icon.svg, which the build deliberately
+         leaves out of dist/ — 64 CSS pixels of a 128px source is exact at 2x. */
+      .mark { display: block; width: 64px; height: 64px; margin: 0 0 20px; }
+
       button {
         font: inherit;
         font-weight: 600;
@@ -33,10 +50,32 @@
       .status[data-state="declined"] { color: #9a5b00; }
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
+
+      /* A block of instruction rather than another paragraph of prose, because it is the one
+         part of the page asking the reader to leave it and do something. */
+      .tryit {
+        margin: 0 0 1em;
+        padding: 16px 20px;
+        border-left: 4px solid #3d5afe;
+        border-radius: 0 8px 8px 0;
+        background: color-mix(in srgb, currentColor 8%, transparent);
+      }
+      .tryit p:last-child { margin-bottom: 0; }
+
+      /* `revert` rather than `block`, so each element goes back to whatever it would have
+         displayed as — the pair inside the heading are spans, the rest are paragraphs. */
+      .after-grant { display: none; }
+      [data-access="granted"] .after-grant { display: revert; }
+      [data-access="granted"] .before-grant { display: none; }
     </style>
   </head>
   <body>
-    <h1>Piko needs to be allowed on the pages you read</h1>
+    <img class="mark" src="icons/icon128.png" alt="" width="64" height="64" />
+
+    <h1>
+      <span class="before-grant">Piko needs to be allowed on the pages you read</span>
+      <span class="after-grant">Piko is allowed on the pages you read</span>
+    </h1>
 
     <p class="lede">
       Piko waits for you to drag a hyperlink. To notice that, it has to already be running on
@@ -44,13 +83,34 @@
       every site rather than a prompt each time.
     </p>
 
-    <p>
+    <p class="before-grant">
       Chrome will ask you to confirm. Nothing happens until you do, and you can withdraw it at any
       time from <code>chrome://extensions</code>.
+    </p>
+    <p class="after-grant">
+      You can withdraw that at any time from <code>chrome://extensions</code>.
     </p>
 
     <button id="grant">Allow Piko on all sites</button>
     <p class="status" id="status" data-state="idle"></p>
+
+    <h2>Try it</h2>
+    <div class="tryit">
+      <p>
+        Open
+        <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
+          >Commonplace book</a
+        >
+        on Wikipedia — a page thick with links, and about the very thing Piko's journal is.
+        <strong>Drag any link in its text</strong> a short distance and let go: the article you
+        dragged opens in place. Hover a sentence in it and it highlights; click, and it is kept.
+      </p>
+      <p class="fineprint">
+        The drag has to happen over there rather than here: Piko cannot run on its own pages. And
+        a tab that was already open before you pressed the button needs a reload first — a content
+        script cannot enter a page that finished loading before the script existed.
+      </p>
+    </div>
 
     <h2>What Piko does with it</h2>
     <ul>
@@ -72,7 +132,14 @@
     <p class="fineprint">
       Piko is free and open source. If you would rather grant access to particular sites only, you
       can do that from <code>chrome://extensions</code> instead — Piko will work on the sites you
-      choose and stay inert elsewhere.
+      choose and stay inert elsewhere. To keep it off one site in particular, right-click Piko's
+      toolbar icon while you are on that site and choose <em>Never run Piko on</em> that address.
+      The same menu takes it back.
+    </p>
+
+    <p class="fineprint">
+      This page is also Piko's options page. Right-click the toolbar icon and choose
+      <em>Options</em> to read it again.
     </p>
 
     <script src="onboarding.js"></script>

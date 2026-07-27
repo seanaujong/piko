@@ -823,3 +823,58 @@ describe('a site the reader turned Piko off on', () => {
     await page.close()
   })
 })
+
+/**
+ * The page the install opens, and the way back to it.
+ *
+ * A page shown once at install and never again is a page nobody reads twice — so it is declared
+ * as the extension's options page, which puts it on the icon's own right-click menu and on the
+ * card at `chrome://extensions` for the cost of a manifest key. `openOptionsPage` is exactly what
+ * Chrome calls when either of those is clicked, and it rejects outright when no options page is
+ * declared, so driving the real API is what makes this an assertion about reachability rather
+ * than about a string in a JSON file.
+ *
+ * Under the substituted manifest the host grant is already in place, which is the *other* state
+ * this page has to render — the one a first install never shows and every later visit does.
+ */
+describe('the page the install opens', () => {
+  it('opens again through the options item, in the state a returning reader is in', async () => {
+    const [worker] = context.serviceWorkers()
+    await worker!.evaluate(() => chrome.runtime.openOptionsPage())
+
+    // The tab is found in the context rather than waited for as a `page` event: Playwright
+    // attaches to a tab the browser opened on the extension's behalf, but does not announce it.
+    const optionsPage = (): Page | undefined =>
+      context.pages().find((open) => open.url().endsWith('/onboarding.html'))
+    await expect.poll(() => optionsPage() !== undefined, POLL).toBe(true)
+
+    const page = optionsPage()
+    if (!page) throw new Error('the options page went away between finding it and using it')
+    await page.waitForLoadState('load')
+
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.access), POLL)
+      .toBe('granted')
+
+    // `innerText` and not `textContent`: the heading holds both versions of itself and only one
+    // of them is displayed, which is the whole of the mechanism worth checking here.
+    const heading = () => page.evaluate(() => document.querySelector('h1')?.innerText.trim())
+    expect(await heading()).toBe('Piko is allowed on the pages you read')
+    expect(await page.locator('#grant').isDisabled()).toBe(true)
+
+    // The asking state is the static default, so taking the attribute away is how the other half
+    // of the pair gets checked — a rule that hid the wrong one would pass the assertion above.
+    await page.evaluate(() => delete document.documentElement.dataset.access)
+    expect(await heading()).toBe('Piko needs to be allowed on the pages you read')
+
+    // The logo is the only asset the page loads. A build that stopped copying icons/ would leave
+    // it broken here and nowhere else, because every other reader of those files is Chrome.
+    const logoLoaded = await page.evaluate(() => {
+      const mark = document.querySelector('.mark')
+      return mark instanceof HTMLImageElement && mark.complete && mark.naturalWidth > 0
+    })
+    expect(logoLoaded).toBe(true)
+
+    await page.close()
+  })
+})

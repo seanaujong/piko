@@ -125,7 +125,8 @@ From source, which is currently the only way:
 2. Visit `chrome://extensions`, enable **Developer mode** (top-right).
 3. **Load unpacked** → select `dist/`.
 4. Piko opens its onboarding page. Press **Allow Piko on all sites** and confirm — nothing works
-   until you do, by design.
+   until you do, by design. That page is also Piko's options page: right-click the toolbar icon
+   and choose **Options** to read it again.
 5. Open any link-dense page and drag a hyperlink.
 
 After any later rebuild you must click the reload icon on Piko's card at
