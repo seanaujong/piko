@@ -14,10 +14,13 @@
  * *do* want. So a reader who has met either other browser reaches for the icon's context menu,
  * and Chrome is the one that has to be given the item.
  *
- * **The menu is also the undo.** There is no options page yet, so a menu that could only add
- * would be a one-way door — and `exclusionChoicesFor` offers a parent host it cannot verify is
- * not a public suffix. Making the same menu offer "Run Piko on X again" is what makes that guess
- * safe to show: a wrong choice is repaired where it was made.
+ * **The menu is also the undo.** `exclusionChoicesFor` offers a parent host it cannot verify is
+ * not a public suffix, so a menu that could only add would hand the reader a guess and no way
+ * back from it. Making the same menu offer "Run Piko on X again" is what makes that guess safe to
+ * show: a wrong choice is repaired where it was made, without leaving the page it was made on.
+ * The options page lists the same entries for the case this cannot serve — a reader who wants the
+ * whole list, or who took the parent and would now have to navigate to a site they turned Piko
+ * off on to get it back.
  */
 import { excludedEntryFor, exclusionChoicesFor } from './excludedSites'
 import { matchesHost, SENSITIVE_HOSTS } from '../shared/sensitiveHosts'

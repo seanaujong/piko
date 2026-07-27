@@ -5,6 +5,7 @@ import type { BrowserContext, Page } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   buildTestExtension,
+  dragElement,
   launchWithExtension,
   serveFixtures,
   SHADOW,
@@ -48,30 +49,9 @@ beforeEach(async () => {
   await worker?.evaluate(() => chrome.storage.local.clear())
 })
 
-/**
- * Drives the real gesture, with real input.
- *
- * Dispatching a DragEvent pair is far easier and no longer works: `startDragTracking` refuses
- * an untrusted event, because a page that can synthesise one can choose what the background
- * worker fetches. That guard is only worth having if the shipped bundle is what gets tested, so
- * this suite pays the cost of driving the mouse — which also makes it the only place the
- * trusted path is exercised at all (`dragTracking.test.ts` explains the split).
- *
- * The move happens in steps because Chrome starts a native drag on movement *while* the button
- * is down; a single jump can be delivered as one event and never crosses the threshold.
- */
-async function dragLink(page: Page, linkId: string): Promise<void> {
-  const box = await page.locator(`#${linkId}`).boundingBox()
-  if (!box) throw new Error(`no link #${linkId}`)
-
-  const fromX = box.x + box.width / 2
-  const fromY = box.y + box.height / 2
-  await page.mouse.move(fromX, fromY)
-  await page.mouse.down()
-  await page.mouse.move(fromX + 30, fromY + 30, { steps: 12 })
-  await page.mouse.move(fromX + 90, fromY + 70, { steps: 12 })
-  await page.mouse.up()
-}
+/** The fixtures address their links by id; `dragElement` in the harness does the gesture. */
+const dragLink = (page: Page, linkId: string): Promise<void> =>
+  dragElement(page, page.locator(`#${linkId}`))
 
 async function waitForReader(page: Page): Promise<void> {
   await page.waitForFunction(
@@ -819,6 +799,112 @@ describe('a site the reader turned Piko off on', () => {
     await page.goto(`${base}/`)
     await dragLink(page, 'article-link')
     await waitForReader(page)
+
+    await page.close()
+  })
+})
+
+/**
+ * The page the install opens, and the way back to it.
+ *
+ * A page shown once at install and never again is a page nobody reads twice — so it is declared
+ * as the extension's options page, which puts it on the icon's own right-click menu and on the
+ * card at `chrome://extensions` for the cost of a manifest key. `openOptionsPage` is exactly what
+ * Chrome calls when either of those is clicked, and it rejects outright when no options page is
+ * declared, so driving the real API is what makes this an assertion about reachability rather
+ * than about a string in a JSON file.
+ *
+ * Under the substituted manifest the host grant is already in place, which is the *other* state
+ * this page has to render — the one a first install never shows and every later visit does.
+ */
+describe('the page the install opens', () => {
+  /** Opens it the way Chrome does, and hands back the tab it landed in. */
+  const openOptions = async (): Promise<Page> => {
+    const [worker] = context.serviceWorkers()
+    await worker!.evaluate(() => chrome.runtime.openOptionsPage())
+
+    // The tab is found in the context rather than waited for as a `page` event: Playwright
+    // attaches to a tab the browser opened on the extension's behalf, but does not announce it.
+    const optionsPage = (): Page | undefined =>
+      context.pages().find((open) => open.url().endsWith('/onboarding.html'))
+    await expect.poll(() => optionsPage() !== undefined, POLL).toBe(true)
+
+    const page = optionsPage()
+    if (!page) throw new Error('the options page went away between finding it and using it')
+    await page.waitForLoadState('load')
+    return page
+  }
+
+  it('opens again through the options item, in the state a returning reader is in', async () => {
+    const page = await openOptions()
+
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.dataset.access), POLL)
+      .toBe('granted')
+
+    // `innerText` and not `textContent`: the heading holds both versions of itself and only one
+    // of them is displayed, which is the whole of the mechanism worth checking here.
+    const heading = () => page.evaluate(() => document.querySelector('h1')?.innerText.trim())
+    expect(await heading()).toBe('Piko is allowed on the pages you read')
+    expect(await page.locator('#grant').isDisabled()).toBe(true)
+
+    // The asking state is the static default, so taking the attribute away is how the other half
+    // of the pair gets checked — a rule that hid the wrong one would pass the assertion above.
+    await page.evaluate(() => delete document.documentElement.dataset.access)
+    expect(await heading()).toBe('Piko needs to be allowed on the pages you read')
+
+    // Every picture the page carries — the logo, and the screenshots behind the folds, which are
+    // opened first because a lazy image inside a closed `details` is never fetched. The build
+    // copies these out of `public/` by hand, so a directory it stops copying breaks them here and
+    // nowhere else: every other reader of those files is Chrome.
+    await page.evaluate(() => {
+      for (const fold of document.querySelectorAll('details')) fold.open = true
+    })
+    const broken = await page.evaluate(async () => {
+      const images = [...document.images]
+      await Promise.all(
+        images.map(
+          (image) =>
+            new Promise((settled) => {
+              if (image.complete) settled(null)
+              image.onload = image.onerror = settled
+            }),
+        ),
+      )
+      return images.filter((image) => image.naturalWidth === 0).map((image) => image.currentSrc)
+    })
+    expect(broken).toEqual([])
+
+    await page.close()
+  })
+
+  /**
+   * The half `siteList.test.ts` cannot reach. That suite proves the rule about which rows carry a
+   * control against a list handed to it; this proves the page reads the reader's actual list out
+   * of `chrome.storage.local`, and that pressing the control puts it back — the round trip the
+   * icon's menu can only make while the reader is standing on the site being repaired.
+   */
+  it('lists what the reader turned Piko off on, and gives it back', async () => {
+    const [worker] = context.serviceWorkers()
+    const stored = (): Promise<unknown> =>
+      worker!.evaluate(async () => (await chrome.storage.local.get('piko.excludedSites'))['piko.excludedSites'])
+
+    await worker!.evaluate(() =>
+      chrome.storage.local.set({ 'piko.excludedSites': ['bank.example.test'] }),
+    )
+
+    const page = await openOptions()
+    await expect.poll(() => page.locator('.site-undo').count(), POLL).toBe(1)
+    expect(await page.locator('.site-host').first().textContent()).toBe('bank.example.test')
+
+    await page.locator('.site-undo').click()
+
+    // Storage first, then the row: the row is redrawn from the change event rather than from the
+    // click, so a page that removed the row without the write landing would fail here and pass
+    // the assertion below.
+    await expect.poll(stored, POLL).toEqual([])
+    await expect.poll(() => page.locator('.site-undo').count(), POLL).toBe(0)
+    expect(await page.locator('.sites-empty').textContent()).toContain('have not turned Piko off')
 
     await page.close()
   })

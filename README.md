@@ -125,7 +125,8 @@ From source, which is currently the only way:
 2. Visit `chrome://extensions`, enable **Developer mode** (top-right).
 3. **Load unpacked** → select `dist/`.
 4. Piko opens its onboarding page. Press **Allow Piko on all sites** and confirm — nothing works
-   until you do, by design.
+   until you do, by design. That page is also Piko's options page — right-click the toolbar icon
+   and choose **Options** — where the access button sits above the list of sites Piko stays off.
 5. Open any link-dense page and drag a hyperlink.
 
 After any later rebuild you must click the reload icon on Piko's card at
@@ -157,3 +158,6 @@ Access that broad is worth saying more about than which permission it is:
   network — a public page cannot use Piko to read your router, your intranet or your localhost.
 - **Nothing is read from a page until you ask.** Piko notices a drag and a toolbar click; it
   looks at the text only once one of those has happened, and stores only what you clip.
+- **You can name your own.** Right-click Piko's icon on a site and choose *Never run Piko on* it.
+  The options page lists everything you have named, and everything Piko ships refusing, with
+  yours undoable from there — the menu can only undo an exclusion while you are standing on it.

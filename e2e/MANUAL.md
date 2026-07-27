@@ -98,6 +98,8 @@ ignored at runtime. So what follows is checked by hand or not at all.
 After `npm run build` and **Load unpacked** on a *fresh* profile:
 
 1. The onboarding page opens by itself, titled "Piko needs to be allowed on the pages you read".
+   Pin Piko before going further — a fresh profile hides the icon behind the puzzle piece, and
+   steps 7 below and the whole site-menu pass need it in the toolbar.
 2. Before pressing anything: drag a link on any page. **Nothing should happen** — that is the
    shipped default, not a bug.
 3. Press **Allow Piko on all sites** and confirm Chrome's prompt. The status line turns green.
@@ -109,6 +111,9 @@ After `npm run build` and **Load unpacked** on a *fresh* profile:
    again, and no error appears in the page console.
 7. Press the toolbar icon while revoked — the onboarding page should reopen rather than the
    click doing nothing.
+8. Grant again, then **right-click the icon and choose *Options***. The same page opens, and now
+   reads *Piko is allowed on the pages you read* with the button already spent. The e2e suite
+   covers that swap; what is on eyes here is Chrome drawing the item at all.
 
 A reviewer submitting to the store follows steps 1 and 3; if either has regressed, the listing's
 test instructions are wrong and the submission will come back.
@@ -139,6 +144,10 @@ eyes. With access granted:
 7. Drag a link *pointing at* the excluded site from somewhere else. The panel opens and shows
    *Piko is turned off on `<site>`.* — the exclusion is about the site, not only about where
    Piko runs.
+8. With that site still excluded, open **Options** from the icon's menu *while on some other
+   page*. The site is listed under *Sites Piko stays off*, and *Let Piko back on* removes it
+   without you having gone anywhere near it. Both surfaces read one list, and this is the only
+   place a human sees them agree.
 
 Step 3's margin and step 6's reload are the two most likely to regress silently.
 

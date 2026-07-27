@@ -26,7 +26,9 @@ analytics. Specifically:
   button, or by removing the extension. The same storage holds any sites you have told Piko
   to stay off — hostnames you chose yourself, kept on the same terms.
 - **Sites you exclude.** Right-clicking Piko's toolbar icon offers to keep Piko off the site
-  you are on; the same menu takes it back. Piko then neither runs on that site nor fetches
+  you are on; the same menu takes it back, and Piko's options page lists every site you have
+  named so you can read or undo the whole list without going back to any of them. Piko then
+  neither runs on that site nor fetches
   links pointing at it. Piko also refuses a short built-in list of sign-in, webmail,
   password-manager and chat hosts without being asked. That list is short on purpose: it
   covers categories that can be listed nearly completely, and banking cannot — so your bank

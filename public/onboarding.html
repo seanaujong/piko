@@ -3,6 +3,18 @@
   <head>
     <meta charset="utf-8" />
     <title>Piko — one thing to turn on</title>
+
+    <!--
+      Both the page the install opens and the page Chrome's "Options" item opens, which is the
+      reason every part of it has to read correctly on a *second* visit as well as a first. The
+      copy that only makes sense while access is missing and the copy that only makes sense once
+      it is granted are both written here; `data-access` on <html> is what picks between them,
+      and `onboarding.js` sets it once Chrome has answered which is true.
+
+      Missing is the default, so a page whose script never ran — or whose `permissions.contains`
+      threw — shows the version that asks. That is the state where being wrong is recoverable:
+      the button is still there and pressing it while already allowed changes nothing.
+    -->
     <style>
       :root { color-scheme: light dark; }
       body {
@@ -12,11 +24,22 @@
         font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.5em; }
-      h2 { font-size: 1rem; margin: 2.5em 0 0.5em; }
+      h2 { font-size: 1.05rem; margin: 2.5em 0 0.5em; }
       p { margin: 0 0 1em; }
       ul { margin: 0 0 1em; padding-left: 1.2em; }
+      ol { margin: 0 0 1em; padding-left: 1.4em; }
       li { margin-bottom: 0.4em; }
       .lede { font-size: 1.1rem; }
+
+      /* Rendered from the shipping raster rather than icon.svg, which the build deliberately
+         leaves out of dist/ — 64 CSS pixels of a 128px source is exact at 2x. */
+      .mark { display: block; width: 64px; height: 64px; margin: 0 0 20px; }
+
+      /* The same icon at text size, so a sentence can point at the thing to click instead of
+         describing it. Sized in em so it tracks whatever text it sits in, and dropped onto the
+         baseline so it sits *in* the line rather than on top of it. */
+      .inline-icon { width: 1.15em; height: 1.15em; vertical-align: -0.25em; }
+
       button {
         font: inherit;
         font-weight: 600;
@@ -33,46 +56,241 @@
       .status[data-state="declined"] { color: #9a5b00; }
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
+
+      /* One row per site, the host on the left and whatever the row can offer on the right.
+         `space-between` and not a grid: the two groups have different trailing content — a
+         button, or the words that say why there isn't one — and neither should set a column
+         width for the other. */
+      .sites { list-style: none; margin: 0 0 1em; padding: 0; }
+      .site {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0;
+        padding: 8px 0;
+        border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+      }
+      .site-host { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+      .site-note { font-size: 0.85rem; opacity: 0.6; }
+      .site-undo {
+        flex: none;
+        padding: 5px 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border-radius: 6px;
+        background: color-mix(in srgb, currentColor 12%, transparent);
+        color: inherit;
+      }
+      .sites-empty { opacity: 0.75; }
+      summary { cursor: pointer; font-size: 0.9rem; opacity: 0.75; }
+      details { margin: 0 0 1em; }
+      details[open] summary { margin-bottom: 0.5em; }
+
+      /* A block of instruction rather than another paragraph of prose, because it is the one
+         part of the page asking the reader to leave it and do something. */
+      .tryit {
+        margin: 0 0 1em;
+        padding: 16px 20px;
+        border-left: 4px solid #3d5afe;
+        border-radius: 0 8px 8px 0;
+        background: color-mix(in srgb, currentColor 8%, transparent);
+      }
+      .tryit > :last-child { margin-bottom: 0; }
+      /* Tightened against the line introducing it, so the closing list reads as belonging to
+         that sentence rather than as a second set of steps. */
+      .tryit .fineprint { margin-bottom: 0.4em; }
+      /* Capped rather than full-bleed: past about this width the two ringed shapes stop being
+         the thing the eye lands on and the mock browser starts looking like the subject. */
+      .pinshot { display: block; width: 100%; max-width: 340px; height: auto; margin: 10px 0 4px; }
+      /* Bordered because the capture's own edge is white on one side and Wikipedia grey on the
+         other, and without a frame it bleeds into whichever theme it lands in. */
+      .shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin: 10px 0 4px;
+        border-radius: 8px;
+        border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+      }
+
+      /* `revert` rather than `block`, so each element goes back to whatever it would have
+         displayed as — the pair inside the heading are spans, the rest are paragraphs. */
+      .after-grant { display: none; }
+      [data-access="granted"] .after-grant { display: revert; }
+      [data-access="granted"] .before-grant { display: none; }
     </style>
   </head>
   <body>
-    <h1>Piko needs to be allowed on the pages you read</h1>
+    <img class="mark" src="icons/icon128.png" alt="" width="64" height="64" />
+
+    <h1>
+      <span class="before-grant">Piko needs to be allowed on the pages you read</span>
+      <span class="after-grant">Piko is allowed on the pages you read</span>
+    </h1>
 
     <p class="lede">
-      Piko waits for you to drag a hyperlink. To notice that, it has to already be running on
-      whatever page you are reading when you do it — which is why this is one permission covering
-      every site rather than a prompt each time.
+      Piko waits for you to drag a hyperlink. To notice that, it has to already be running on the
+      page you are reading. That is why it asks once, for every site, instead of asking each time
+      you open one.
     </p>
 
-    <p>
-      Chrome will ask you to confirm. Nothing happens until you do, and you can withdraw it at any
-      time from <code>chrome://extensions</code>.
+    <p class="before-grant">
+      Chrome will ask you to confirm. Nothing happens until you do. You can take the permission
+      back at any time from <code>chrome://extensions</code>.
+    </p>
+    <p class="after-grant">
+      You can take that back at any time from <code>chrome://extensions</code>.
     </p>
 
     <button id="grant">Allow Piko on all sites</button>
     <p class="status" id="status" data-state="idle"></p>
 
+    <h2>Sites Piko stays off</h2>
+    <!-- Filled by `siteList.ts`, and empty in the markup on purpose: a shell with placeholder
+         rows in it would show a list of sites that is not the reader's for as long as storage
+         takes to answer, and this is the one section where that would be a lie worth avoiding. -->
+    <div id="sites"></div>
+
+    <!-- A reading, not a feature tour. Both surfaces appear here because the sequence needs
+         them, in the order the reading needs them — and the instruction to find the sentence that
+         says what the article is about is the whole product argument in one line: the reader
+         summarises by choosing, which is the thing a generated summary does instead of them.
+         A tour of the same two gestures would teach what Piko does and not what it is for. -->
+    <h2>Try it</h2>
+    <div class="tryit">
+      <p>
+        Reading is easy with Piko! Piko is a type of commonplace book (a personal notebook) in
+        your browser. Let's use its
+        <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
+          >Wikipedia page</a
+        >
+        as an example of how to engage yourself while reading:
+      </p>
+      <ol>
+        <li>
+          Pin Piko to your toolbar. Click the puzzle piece at the right of the address bar, then
+          the pin beside Piko. Chrome hides new extensions behind that menu, and every step from
+          here starts by pressing Piko's icon.
+          <!-- Folded, so a step reads as one instruction and the picture is there for whoever
+               wants it. Open by default would make the list a gallery to scroll past rather than
+               a sequence to follow.
+
+               Drawn rather than captured. A screenshot of a real browser ships whoever took it —
+               their other extensions, their bookmarks, their avatar — to every install, and goes
+               stale the next time Chrome moves something. This carries the two shapes the reader
+               has to find and nothing else, costs about a kilobyte, and needs no request. The
+               icon in the row is the shipping raster, so what they look for is what they saw. -->
+          <details>
+            <summary>What to look for</summary>
+          <svg class="pinshot" viewBox="0 0 380 168" role="img" aria-labelledby="pinshot-title">
+            <title id="pinshot-title">
+              Chrome's toolbar with the puzzle-piece button ringed, and the extensions menu below
+              it with the pin beside Piko ringed.
+            </title>
+
+            <!-- the right end of the toolbar -->
+            <rect x="8" y="8" width="364" height="40" rx="20"
+                  fill="none" stroke="currentColor" stroke-opacity="0.22" />
+            <rect x="28" y="24" width="170" height="8" rx="4" fill="currentColor" fill-opacity="0.13" />
+            <path d="M232 19l3.1 6.3 6.9 1-5 4.9 1.2 6.9-6.2-3.3-6.2 3.3 1.2-6.9-5-4.9 6.9-1z"
+                  fill="none" stroke="currentColor" stroke-opacity="0.35" stroke-width="1.6" />
+            <circle cx="344" cy="28" r="9" fill="currentColor" fill-opacity="0.18" />
+
+            <!-- the puzzle piece, which is the button to press -->
+            <circle cx="288" cy="28" r="17" fill="#3d5afe" fill-opacity="0.14"
+                    stroke="#3d5afe" stroke-width="2" />
+            <path transform="translate(276 16)" fill="currentColor" fill-opacity="0.85"
+                  d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+
+            <path d="M288 50v14" stroke="#3d5afe" stroke-width="2" stroke-dasharray="3 3" />
+            <path d="M288 70l-5-8h10z" fill="#3d5afe" />
+
+            <!-- the menu it opens -->
+            <rect x="148" y="72" width="224" height="88" rx="12"
+                  fill="currentColor" fill-opacity="0.06" stroke="currentColor" stroke-opacity="0.2" />
+            <text x="166" y="96" font-size="11" fill="currentColor" fill-opacity="0.55">Extensions</text>
+            <image href="icons/icon128.png" x="166" y="112" width="20" height="20" />
+            <text x="196" y="127" font-size="13" fill="currentColor" fill-opacity="0.9">Piko</text>
+
+            <!-- the pin, which is the thing to click -->
+            <rect x="322" y="108" width="28" height="28" rx="9" fill="#3d5afe" fill-opacity="0.14"
+                  stroke="#3d5afe" stroke-width="2" />
+            <path transform="translate(327 113) scale(0.75)" fill="currentColor" fill-opacity="0.85"
+                  d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+          </svg>
+          </details>
+        </li>
+        <li>Press <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> in your
+          toolbar. The journal docks on the right, and the page becomes clippable.</li>
+        <li>
+          Read until you find the one sentence that says what the article is <em>about</em>.
+          Click it. That sentence is now the article, in your journal.
+          <details>
+            <summary>What the docked journal and a kept sentence look like</summary>
+            <img class="shot" src="shots/armed.webp" width="1040" height="660"
+                 alt="The Commonplace book article with its opening sentence highlighted, and
+                      Piko's journal docked to the right of the page holding that sentence." />
+          </details>
+        </li>
+        <li>Keep going. When a link matters to what you just kept, drag it a short distance and
+          let go. That article opens in place, in reader mode, with your journal still beside
+          it.</li>
+        <li>
+          Find its one sentence too, and click that. Escape brings you back.
+          <details>
+            <summary>What a dragged article looks like</summary>
+            <img class="shot" src="shots/preview.webp" width="1040" height="660"
+                 alt="The dragged article open in reader mode over the page it was dragged from,
+                      its opening sentence highlighted, and the journal beside it now holding two
+                      sentences from two sources." />
+          </details>
+        </li>
+      </ol>
+      <p>
+        You end up with the article in the sentences you chose, and a line from each link that
+        mattered. Piko will not choose them for you. Choosing is the reading.
+      </p>
+      <p class="fineprint">A few things that might surprise you along the way:</p>
+      <ol class="fineprint">
+        <li>Dragging a link puts the page's own clipping away. Press Piko's icon again whenever
+          you want it back.</li>
+        <li>The drag has to happen on the Wikipedia page, not on this one. Piko does not run on
+          its own pages.</li>
+        <li>A tab you already had open before allowing Piko needs a reload first. Piko can only
+          get into a page while that page is loading.</li>
+      </ol>
+    </div>
+
     <h2>What Piko does with it</h2>
     <ul>
-      <li>Notices a dragged link, and fetches that page so it can be shown in reader mode.</li>
-      <li>Reads the text of a page only once you have dragged a link or pressed the toolbar icon.
-        Until then it adds nothing to the page at all.</li>
+      <li>Notices a dragged link and fetches that page, so it can show you the article in reader
+        mode.</li>
+      <li>Reads the text of a page only after you drag a link or press the icon. Until then it
+        adds nothing to the page at all.</li>
       <li>Saves a sentence to your journal when you click it. That journal stays on this device.</li>
     </ul>
 
     <h2>What it will not do</h2>
     <ul>
-      <li>Run on webmail, password managers, chat, or sign-in pages. That exclusion is enforced by
-        Chrome, not by Piko's own code.</li>
-      <li>Send cookies with the pages it fetches, so it never sees a signed-in version of anything.</li>
-      <li>Reach addresses on your own network — your router, your intranet, localhost.</li>
+      <li>Run on webmail, password managers, chat, or sign-in pages. Chrome blocks Piko there. It
+        is not Piko policing itself.</li>
+      <li>Send cookies when it fetches a page. It never sees a signed-in version of anything.</li>
+      <li>Reach addresses on your own network: your router, your office intranet, anything running
+        on your own machine.</li>
       <li>Send anything anywhere. There is no account, no analytics, and no server.</li>
     </ul>
 
     <p class="fineprint">
-      Piko is free and open source. If you would rather grant access to particular sites only, you
-      can do that from <code>chrome://extensions</code> instead — Piko will work on the sites you
-      choose and stay inert elsewhere.
+      Piko is free and open source. If you would rather allow it on a few sites instead of all of
+      them, you can do that from <code>chrome://extensions</code>. Piko will work on the sites you
+      choose and do nothing anywhere else.
+    </p>
+
+    <p class="fineprint">
+      This page is also Piko's options page. Right-click
+      <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> and choose
+      <em>Options</em> to read it again.
     </p>
 
     <script src="onboarding.js"></script>

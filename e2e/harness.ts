@@ -4,7 +4,7 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { chromium, type BrowserContext } from 'playwright'
+import { chromium, type BrowserContext, type Locator, type Page } from 'playwright'
 import { testManifestFrom } from './testManifest'
 
 /**
@@ -72,6 +72,35 @@ export function buildTestExtension(): string {
   )
 
   return DIST_TEST
+}
+
+/**
+ * Drives the real gesture, with real input.
+ *
+ * Dispatching a DragEvent pair is far easier and no longer works: `startDragTracking` refuses
+ * an untrusted event, because a page that can synthesise one can choose what the background
+ * worker fetches. That guard is only worth having if the shipped bundle is what gets tested, so
+ * everything here pays the cost of driving the mouse — which also makes this the only place the
+ * trusted path is exercised at all (`dragTracking.test.ts` explains the split).
+ *
+ * The move happens in steps because Chrome starts a native drag on movement *while* the button
+ * is down; a single jump can be delivered as one event and never crosses the threshold.
+ *
+ * Shared rather than owned by the suite because the screenshots in the onboarding page are
+ * captured from this same gesture. A picture of a preview that opened some other way would be a
+ * picture of something no reader can reproduce.
+ */
+export async function dragElement(page: Page, link: Locator): Promise<void> {
+  const box = await link.boundingBox()
+  if (!box) throw new Error(`nothing to drag at ${link}`)
+
+  const fromX = box.x + box.width / 2
+  const fromY = box.y + box.height / 2
+  await page.mouse.move(fromX, fromY)
+  await page.mouse.down()
+  await page.mouse.move(fromX + 30, fromY + 30, { steps: 12 })
+  await page.mouse.move(fromX + 90, fromY + 70, { steps: 12 })
+  await page.mouse.up()
 }
 
 export type FixtureServer = { base: string; close: () => void }
