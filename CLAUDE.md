@@ -112,6 +112,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | the clippings journal or its projections | `content/state/clippings.ts` |
 | what an exported file says, or how it leaves | `content/panel/exportMarkdown.ts`, then `download.ts` |
 | how a clipping reads once shown — footnote markers and the like | `content/extraction/sentences.ts` (`withoutCitations`) |
+| how a source is named on screen — its title or its address | `content/panel/formatUrl.ts` |
 | what narrows the journal (source, query, span) | `JournalFilters` + `visibleClippings` in `clippings.ts` |
 
 The panel's `.piko-body` is a flex row deliberately built to take a second child; that's
@@ -165,6 +166,7 @@ font-size contrast made it real.
 | Hit-testing goes through the shadow root's `elementFromPoint`, then rect containment — never a caret lookup | 👁 | `content/extraction/sentences.ts` (`sentenceAtPoint`) | — |
 | Segmentation is `Intl.Segmenter` plus two corrections, never a regex split on `.` | ✅ | `content/extraction/sentences.ts` (`sentencesIn`, `pastCitation`, `endsSentence`) | `sentences.test.ts` |
 | Footnote markers are stripped where a clipping is *shown*, never where it is stored or matched | ✅ | `content/extraction/sentences.ts` (`withoutCitations`) | `sentences.test.ts`, `exportMarkdown.test.ts`, `e2e/extension.test.ts` |
+| The site's tag is dropped where a source is *shown*, on the same terms — search and export still see the whole title | ✅ | `content/panel/formatUrl.ts` (`withoutSiteTag`) | `formatUrl.test.ts` |
 | A block's text is its prose nodes, never `textContent` — and one filter feeds both the text and the Range | ✅ | `content/extraction/sentences.ts` (`textNodesIn`, `NOT_PROSE`) | `sentences.test.ts` |
 | A clipboard write is synchronous inside a real click handler, in the content script | 👁 | `content/panel/clipboard.ts` | — |
 | `clipboardWrite` stays out of the manifest — it buys nothing and costs an install warning | 👁 | `content/panel/clipboard.ts` | — |
@@ -174,6 +176,7 @@ font-size contrast made it real.
 | Emptying the journal takes a labelled second click on a different control, and reaches storage | ✅ | `clippingsPane.tsx` (`ClearRow`), `content/state/clippings.ts` (`clear`) | `clippingsPane.test.ts`, `e2e/extension.test.ts` |
 | The export is one of the delete's two answers, and a refused export empties nothing | ✅ | `clippingsPane.tsx` (`ClearRow`), `content/panel/download.ts` | `clippingsPane.test.ts` |
 | A control added to a header bar must leave the leading group room — only the lead shrinks | ✅ | `content/panel/styles.ts` (`.piko-bar-lead`) | `clippingsPane.browser.test.ts` |
+| The same rule wherever a name meets a number: a chip's label yields to its count, a source line's title yields to its site, and a title is never wider than the row holding it | ✅ | `content/panel/styles.ts` (`.piko-chip`, `.piko-chip-label`, `.piko-clip-source`) | `clippingsPane.browser.test.ts` |
 | `:host(:hover)`, never `:host:hover` — the bare-chained form silently never matches | 👁 | `content/panel/styles.ts` | — |
 | No backticks inside `styles.ts`'s CSS comments; the sheet is one template literal | ✅ | `content/panel/styles.ts` | `npm run typecheck` |
 | Source order is the mechanism in `styles.ts`, and `all: initial` erases what earlier rules set | 👁 | `content/panel/styles.ts` | — |

@@ -12,7 +12,7 @@ import {
 import { copyText } from '../clipboard'
 import { downloadText } from '../download'
 import { exportFilename, journalToMarkdown } from '../exportMarkdown'
-import { hostOf } from '../formatUrl'
+import { hostOf, withoutSiteTag } from '../formatUrl'
 import { ICON } from '../iconButton'
 import { textFragmentUrl } from '../textFragment'
 
@@ -313,10 +313,13 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, now }: 
                 // carry `aria-pressed="false"`, not drop the attribute, or a screen reader
                 // stops announcing it as a toggle at all.
                 aria-pressed={active.has(tally.sourceUrl) ? 'true' : 'false'}
-                title={tally.sourceUrl}
+                // The whole title, because the label is only ever part of it — the site's tag is
+                // dropped and what is left is cut to the chip's width. The url below it is what
+                // tells two same-titled pages apart.
+                title={`${tally.sourceTitle}\n${tally.sourceUrl}`}
                 onClick={() => onToggle(tally.sourceUrl)}
               >
-                <span>{tally.sourceTitle}</span>
+                <span class="piko-chip-label">{withoutSiteTag(tally.sourceTitle)}</span>
                 <span class="piko-chip-count">{tally.count}</span>
               </button>
             </Fragment>
@@ -418,7 +421,14 @@ class ClipEntry extends Component<ClipEntryProps> {
                 : `Open ${clipping.sourceTitle} at this sentence`
             }
           >
-            {`${clipping.sourceTitle} · ${hostOf(clipping.sourceUrl)}`}
+            {/*
+              Two elements rather than one string, so the line can obey the rule the header bar
+              already does: the title yields and the site never does. As one string the site was
+              simply the tail of what got truncated, which spent the width on the least
+              identifying half of the line and cut the most identifying half off entirely.
+            */}
+            <span class="piko-clip-source-title">{withoutSiteTag(clipping.sourceTitle)}</span>
+            <span class="piko-clip-source-host">{`· ${hostOf(clipping.sourceUrl)}`}</span>
           </a>
         </div>
       </div>

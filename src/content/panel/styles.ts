@@ -706,6 +706,18 @@ export const PANEL_STYLES = `
   mask-image: linear-gradient(to right, #000 calc(100% - 22px), transparent);
 }
 
+/**
+ * Bounded, because a page title is not.
+ *
+ * The chip row is 274px of a 300px pane, and an untrimmed wiki title measured 447px — one
+ * source, 163% of the row, unreadable without scrolling sideways to a chip that is the only
+ * thing on screen. The cap is set so two chips fit the visible row side by side, which is what
+ * makes the second one a reason to scroll rather than a surprise.
+ *
+ * It is a fixed length rather than a fraction because the pane's own width is fixed — the width
+ * it would be a fraction of is itself a constant, and a percentage of a max-content grid column
+ * resolves against a width that column is still deciding.
+ */
 .piko-chip {
   all: initial;
   box-sizing: border-box;
@@ -719,6 +731,16 @@ export const PANEL_STYLES = `
   border-radius: 999px;
   border: 1px solid rgba(0, 0, 0, 0.12);
   color: #666;
+  max-width: 133px;
+}
+
+/* The half that yields. A truncated title is still the title; a truncated count is a wrong
+   number, so the count keeps its width and the label gives up the rest. */
+.piko-chip-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .piko-chip:hover {
@@ -741,6 +763,9 @@ export const PANEL_STYLES = `
   align-self: center;
   white-space: nowrap;
   flex: 0 0 auto;
+  /* Exempt from the source chips' cap: its label is two fixed words, and a control whose label
+     is the only thing explaining it has nothing to spare. */
+  max-width: none;
 }
 
 /* Belongs to the page the reader is on. Marked rather than moved: the row's order is time, and
@@ -754,6 +779,7 @@ export const PANEL_STYLES = `
   font-size: 10px;
   opacity: 0.7;
   font-variant-numeric: tabular-nums;
+  flex: 0 0 auto;
 }
 
 .piko-clips-list {
@@ -845,19 +871,37 @@ export const PANEL_STYLES = `
 
 /* A real anchor, so cmd-click and middle-click open a tab the way the reader expects and
    the target is visible in the status bar before committing to it. */
+/**
+ * Title and site, and the same rule the header bar runs on: only the lead shrinks.
+ *
+ * As one string the site sat at the tail of the ellipsis, so a long title spent the line on the
+ * half that every clipping from that page repeats and cut off the half that says where you
+ * were. A flex row with a fixed trailing element inverts that — the site is four words at most
+ * and is always drawn, and the title gives up whatever is left over.
+ */
 .piko-clip-source {
   all: initial;
   box-sizing: border-box;
-  display: block;
+  display: flex;
+  gap: 4px;
   margin-top: 3px;
   cursor: pointer;
   font-family: inherit;
   font-size: 10px;
   color: #9a9a94;
+  transition: color 120ms ease;
+}
+
+.piko-clip-source-title {
+  min-width: 0;
+  flex: 0 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  transition: color 120ms ease;
+}
+
+.piko-clip-source-host {
+  flex: 0 0 auto;
 }
 
 .piko-clip-source:hover {
