@@ -91,7 +91,10 @@
         border-radius: 0 8px 8px 0;
         background: color-mix(in srgb, currentColor 8%, transparent);
       }
-      .tryit p:last-child { margin-bottom: 0; }
+      .tryit > :last-child { margin-bottom: 0; }
+      /* Tightened against the line introducing it, so the closing list reads as belonging to
+         that sentence rather than as a second set of steps. */
+      .tryit .fineprint { margin-bottom: 0.4em; }
       /* Capped rather than full-bleed: past about this width the two ringed shapes stop being
          the thing the eye lands on and the mock browser starts looking like the subject. */
       .pinshot { display: block; width: 100%; max-width: 340px; height: auto; margin: 10px 0 4px; }
@@ -145,14 +148,14 @@
     <div id="sites"></div>
 
     <!-- A reading, not a feature tour. Both surfaces appear here because the sequence needs
-         them, in the order the reading needs them — and the task in step 2 is the whole product
-         argument in one instruction: the reader summarises the article by choosing a sentence,
-         which is the thing a generated summary would have done instead of them. A tour of the
-         same two gestures would teach what Piko does and not what it is for. -->
+         them, in the order the reading needs them — and the instruction to find the sentence that
+         says what the article is about is the whole product argument in one line: the reader
+         summarises by choosing, which is the thing a generated summary does instead of them.
+         A tour of the same two gestures would teach what Piko does and not what it is for. -->
     <h2>Try it</h2>
     <div class="tryit">
       <p>
-        Reading is easy with Piko! Piko is a type of Commonplace book (a personal notebook) in
+        Reading is easy with Piko! Piko is a type of commonplace book (a personal notebook) in
         your browser. Let's use its
         <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
           >Wikipedia page</a
@@ -219,7 +222,7 @@
           Read until you find the one sentence that says what the article is <em>about</em>.
           Click it. That sentence is now the article, in your journal.
           <details>
-            <summary>What steps 2 and 3 look like</summary>
+            <summary>What the docked journal and a kept sentence look like</summary>
             <img class="shot" src="shots/armed.webp" width="1040" height="660"
                  alt="The Commonplace book article with its opening sentence highlighted, and
                       Piko's journal docked to the right of the page holding that sentence." />
@@ -230,7 +233,7 @@
         <li>
           Find its one sentence too, and click that. Escape brings you back.
           <details>
-            <summary>What steps 4 and 5 look like</summary>
+            <summary>What a dragged article looks like</summary>
             <img class="shot" src="shots/preview.webp" width="1040" height="660"
                  alt="The dragged article open in reader mode over the page it was dragged from,
                       its opening sentence highlighted, and the journal beside it now holding two
@@ -242,13 +245,15 @@
         What you are left with is the article in the sentences you chose, and its neighbours in
         one line each. Piko will not choose them for you: choosing is the reading.
       </p>
-      <p class="fineprint">
-        Three things that are not bugs. Dragging a link puts the page's own clipping away, so
-        press the icon again when you want it back. The drag has to happen over there rather than
-        here, because Piko does not run on its own pages. And a tab that was already open before
-        you pressed the button needs a reload first — a content script cannot enter a page that
-        finished loading without it.
-      </p>
+      <p class="fineprint">A few things that might surprise you along the way:</p>
+      <ol class="fineprint">
+        <li>Dragging a link puts the page's own clipping away. Press Piko's icon again whenever
+          you want it back.</li>
+        <li>The drag has to happen on the Wikipedia page, not on this one. Piko does not run on
+          its own pages.</li>
+        <li>A tab you already had open before allowing Piko needs a reload first. Piko can only
+          get into a page while that page is loading.</li>
+      </ol>
     </div>
 
     <h2>What Piko does with it</h2>
