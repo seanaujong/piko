@@ -1,5 +1,8 @@
 node_modules/
 dist/
+# The e2e build: dist/ with a manifest that declares the content script statically, because a
+# host grant cannot be performed from automation. e2e/harness.ts argues it.
+dist-test/
 
 # Release packages belong to a GitHub Release, not to the history — `npm run package` rebuilds
 # any of them from the tag it was cut at.

@@ -1,27 +1,10 @@
-import { readFileSync } from 'node:fs'
-import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 import { SENSITIVE_HOSTS, excludeMatchPatterns, isSensitiveUrl } from './sensitiveHosts'
 
-const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-
-function manifest(): {
-  content_scripts: { exclude_matches?: string[] }[]
-} {
-  return JSON.parse(readFileSync(path.join(ROOT, 'manifest.json'), 'utf8'))
-}
-
-describe('the manifest and the list', () => {
-  // The rule this file exists for. `exclude_matches` is the only mechanism that keeps the
-  // content script out of a page — the predicate below cannot, because by the time it could run
-  // the script is already in the page. So the manifest is the enforcement and this list is the
-  // statement of intent, and the two being equal is the whole guarantee.
-  it('excludes exactly the hosts the list names, in both forms', () => {
-    expect(manifest().content_scripts[0]?.exclude_matches).toEqual(excludeMatchPatterns())
-  })
-
+describe('the patterns the list produces', () => {
   it('covers the bare host as well as its subdomains', () => {
+    // Whether Chrome's `*.example.com` also matches the bare host is a detail this project
+    // would otherwise be betting on silently. Emitting both forms makes the question moot.
     expect(excludeMatchPatterns(['example.com'])).toEqual([
       '*://example.com/*',
       '*://*.example.com/*',

@@ -26,6 +26,7 @@ await esbuild.build({
   entryPoints: {
     content: 'src/content/index.ts',
     background: 'src/background/index.ts',
+    onboarding: 'src/onboarding/index.ts',
   },
   outdir: 'dist',
   bundle: true,
@@ -38,6 +39,9 @@ await esbuild.build({
 
 mkdirSync('dist/icons', { recursive: true })
 cpSync('manifest.json', 'dist/manifest.json')
+// The page the install opens. It is the only place host access is asked for, so it ships with
+// every build rather than being a release-only extra.
+cpSync('public/onboarding.html', 'dist/onboarding.html')
 // The rasterized sizes only. `icon.svg` is what those are rendered FROM — `npm run icons` and
 // the contact sheet both read it out of public/ — so shipping it would put the source drawing
 // in every install for nothing.

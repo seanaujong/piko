@@ -1,10 +1,11 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { cpSync, existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { chromium, type BrowserContext } from 'playwright'
+import { testManifestFrom } from './testManifest'
 
 /**
  * Getting the actually-loaded extension in front of a page.
@@ -24,6 +25,7 @@ import { chromium, type BrowserContext } from 'playwright'
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const ROOT = path.join(HERE, '..')
 const DIST = path.join(ROOT, 'dist')
+const DIST_TEST = path.join(ROOT, 'dist-test')
 const FIXTURES = path.join(HERE, 'fixtures')
 
 /** Everything the panel renders lives in one open shadow root on a child of <html>. */
@@ -32,6 +34,44 @@ export const SHADOW = `[...document.documentElement.children].find(e => e.shadow
 /** Always exercise the shipped bundle rather than the source it was built from. */
 export function buildExtension(): void {
   execFileSync('npm', ['run', 'build'], { cwd: ROOT, stdio: 'ignore' })
+}
+
+/**
+ * Builds the shipped bundle, then loads it under a manifest that declares the content script
+ * statically instead of registering it after a grant.
+ *
+ * **Why this exists, since a test build is a thing worth being suspicious of.** Piko ships with
+ * `optional_host_permissions`, so on load it can reach nothing until the reader grants access —
+ * and no automation can perform that grant. Measured, three ways: `permissions.request()` from a
+ * real click never resolves because the grant is a native dialog nothing can answer;
+ * `chrome://extensions` renders no site-access control until something is already granted; and
+ * writing `granted_permissions` into the profile's Secure Preferences persists in the file but is
+ * ignored at runtime. Without this substitution the suite could not load a content script into
+ * anything, and would test nothing.
+ *
+ * **What it deliberately does not change.** Only the keys in `TEST_MANIFEST_KEYS`, which describe
+ * how the script gets into a page. `content.js` and `background.js` are the shipped bytes,
+ * untouched, and `manifest.test.ts` fails the build if anything else drifts.
+ *
+ * **What is therefore untested, and belongs to `MANUAL.md`.** The grant flow itself: the
+ * onboarding button, `permissions.onAdded` firing, and `syncContentScriptRegistration` putting
+ * the script in place. `contentScriptRegistration.test.ts` covers that logic against a fake
+ * `chrome`, but nothing here proves it works in a real browser. That is the price of the
+ * substitution, and it is why the price is kept to one button and one listener.
+ */
+export function buildTestExtension(): string {
+  buildExtension()
+
+  rmSync(DIST_TEST, { recursive: true, force: true })
+  cpSync(DIST, DIST_TEST, { recursive: true })
+
+  const shipped = JSON.parse(readFileSync(path.join(DIST, 'manifest.json'), 'utf8'))
+  writeFileSync(
+    path.join(DIST_TEST, 'manifest.json'),
+    JSON.stringify(testManifestFrom(shipped), null, 2),
+  )
+
+  return DIST_TEST
 }
 
 export type FixtureServer = { base: string; close: () => void }
@@ -86,7 +126,7 @@ export async function launchWithExtension(): Promise<BrowserContext> {
     // Spelled out because the export test depends on it: a download is how the journal leaves
     // the extension, and Playwright is what turns that effect into a file the suite can read.
     acceptDownloads: true,
-    args: [`--disable-extensions-except=${DIST}`, `--load-extension=${DIST}`],
+    args: [`--disable-extensions-except=${DIST_TEST}`, `--load-extension=${DIST_TEST}`],
   })
 
   if (context.serviceWorkers().length === 0) {

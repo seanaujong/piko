@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Piko — one thing to turn on</title>
+    <style>
+      :root { color-scheme: light dark; }
+      body {
+        margin: 0 auto;
+        padding: 48px 24px 96px;
+        max-width: 34rem;
+        font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.5em; }
+      h2 { font-size: 1rem; margin: 2.5em 0 0.5em; }
+      p { margin: 0 0 1em; }
+      ul { margin: 0 0 1em; padding-left: 1.2em; }
+      li { margin-bottom: 0.4em; }
+      .lede { font-size: 1.1rem; }
+      button {
+        font: inherit;
+        font-weight: 600;
+        padding: 12px 20px;
+        border: 0;
+        border-radius: 8px;
+        background: #3d5afe;
+        color: #fff;
+        cursor: pointer;
+      }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .status { margin-top: 1em; min-height: 1.6em; font-weight: 600; }
+      .status[data-state="granted"] { color: #1b7f3b; }
+      .status[data-state="declined"] { color: #9a5b00; }
+      .fineprint { font-size: 0.9rem; opacity: 0.75; }
+      code { font-size: 0.9em; }
+    </style>
+  </head>
+  <body>
+    <h1>Piko needs to be allowed on the pages you read</h1>
+
+    <p class="lede">
+      Piko waits for you to drag a hyperlink. To notice that, it has to already be running on
+      whatever page you are reading when you do it — which is why this is one permission covering
+      every site rather than a prompt each time.
+    </p>
+
+    <p>
+      Chrome will ask you to confirm. Nothing happens until you do, and you can withdraw it at any
+      time from <code>chrome://extensions</code>.
+    </p>
+
+    <button id="grant">Allow Piko on all sites</button>
+    <p class="status" id="status" data-state="idle"></p>
+
+    <h2>What Piko does with it</h2>
+    <ul>
+      <li>Notices a dragged link, and fetches that page so it can be shown in reader mode.</li>
+      <li>Reads the text of a page only once you have dragged a link or pressed the toolbar icon.
+        Until then it adds nothing to the page at all.</li>
+      <li>Saves a sentence to your journal when you click it. That journal stays on this device.</li>
+    </ul>
+
+    <h2>What it will not do</h2>
+    <ul>
+      <li>Run on webmail, password managers, chat, or sign-in pages. That exclusion is enforced by
+        Chrome, not by Piko's own code.</li>
+      <li>Send cookies with the pages it fetches, so it never sees a signed-in version of anything.</li>
+      <li>Reach addresses on your own network — your router, your intranet, localhost.</li>
+      <li>Send anything anywhere. There is no account, no analytics, and no server.</li>
+    </ul>
+
+    <p class="fineprint">
+      Piko is free and open source. If you would rather grant access to particular sites only, you
+      can do that from <code>chrome://extensions</code> instead — Piko will work on the sites you
+      choose and stay inert elsewhere.
+    </p>
+
+    <script src="onboarding.js"></script>
+  </body>
+</html>

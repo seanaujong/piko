@@ -14,7 +14,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { BrowserContext } from 'playwright'
-import { buildExtension, launchWithExtension } from '../e2e/harness'
+import { buildTestExtension, launchWithExtension } from '../e2e/harness'
 import { syntheticArticle } from './article'
 import { ms, spread, table } from './report'
 
@@ -26,7 +26,7 @@ const article = syntheticArticle(220)
 let context: BrowserContext
 
 beforeAll(async () => {
-  buildExtension()
+  buildTestExtension()
   context = await launchWithExtension()
 }, 180_000)
 

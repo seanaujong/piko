@@ -86,6 +86,33 @@ extension working, not a broken build. Reach it with:
 **Never trigger `alert` or `confirm`.** A modal dialog freezes the automation channel outright,
 and nothing you send afterwards arrives.
 
+## The grant, which no suite can perform
+
+**This is the one flow the e2e suite structurally cannot reach**, so it is the one that most
+needs a human. The suite loads a manifest declaring the content script statically, because a host
+grant cannot be driven from automation — `permissions.request()` from a real click never resolves
+(the grant is a native dialog nothing can answer), `chrome://extensions` shows no site-access
+control until something is already granted, and patching the profile's Secure Preferences is
+ignored at runtime. So what follows is checked by hand or not at all.
+
+After `npm run build` and **Load unpacked** on a *fresh* profile:
+
+1. The onboarding page opens by itself, titled "Piko needs to be allowed on the pages you read".
+2. Before pressing anything: drag a link on any page. **Nothing should happen** — that is the
+   shipped default, not a bug.
+3. Press **Allow Piko on all sites** and confirm Chrome's prompt. The status line turns green.
+4. Open a new tab and drag a link. The preview works. *Already-open tabs need a refresh* — a
+   newly registered content script does not enter pages that were loaded before it existed.
+5. Restart Chrome entirely, then drag a link in a new tab. It must still work: that is
+   `persistAcrossSessions` doing its job, and it is the part most likely to regress silently.
+6. Revoke access at `chrome://extensions` (site access → On click). Drag a link: nothing happens
+   again, and no error appears in the page console.
+7. Press the toolbar icon while revoked — the onboarding page should reopen rather than the
+   click doing nothing.
+
+A reviewer submitting to the store follows steps 1 and 3; if either has regressed, the listing's
+test instructions are wrong and the submission will come back.
+
 ## The pass that finds bugs fastest
 
 In this order:
