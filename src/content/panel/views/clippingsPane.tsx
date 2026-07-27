@@ -12,7 +12,7 @@ import {
 import { copyText } from '../clipboard'
 import { downloadText } from '../download'
 import { exportFilename, journalToMarkdown } from '../exportMarkdown'
-import { hostOf } from '../formatUrl'
+import { hostOf, withoutSiteTag } from '../formatUrl'
 import { ICON } from '../iconButton'
 import { textFragmentUrl } from '../textFragment'
 
@@ -255,6 +255,23 @@ type ChipRowProps = {
 /** Past this many, one line of chips can no longer hold them and the row takes a second. */
 const CHIPS_PER_ROW = 4
 
+/**
+ * The foot of the pane, not its head.
+ *
+ * It costs the reader nothing in height either way — the pane is a column of a fixed size, so
+ * the same 59px comes off the list wherever the row sits. What moving it buys is what the eye
+ * meets first, and what it should meet is the clippings; the chips are instrumentation about
+ * the reading rather than the reading itself.
+ *
+ * Two things make that safe. The filter's *state* is in the header already — the narrowed count
+ * and the Show all beside it — so a reader still learns a filter is on without looking down.
+ * And the row changes height as sources accumulate, one line becoming two; at the foot that
+ * growth eats the far edge instead of pushing the list down under the eye that is reading it.
+ *
+ * The rows that open from a header control — the search field, the delete's question — stay
+ * under the control that summoned them. A row that appears where you just clicked belongs
+ * there; this is the row that is always present, and it is the only one that moves.
+ */
 function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, now }: ChipRowProps) {
   const chips = useRef<HTMLDivElement>(null)
   const [overflowing, setOverflowing] = useState(false)
@@ -273,6 +290,10 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, now }: 
     observer.observe(element)
     return () => observer.disconnect()
   }, [shown.length])
+
+  // Nothing to narrow, nothing to draw. At the head of the pane an empty row was invisible
+  // padding; at the foot it is a bordered strip across the bottom with nothing in it.
+  if (shown.length === 0) return null
 
   return (
     <div class="piko-clips-filters">
@@ -313,10 +334,13 @@ function ChipRow({ tallies: shown, active, onToggle, band, onBand, here, now }: 
                 // carry `aria-pressed="false"`, not drop the attribute, or a screen reader
                 // stops announcing it as a toggle at all.
                 aria-pressed={active.has(tally.sourceUrl) ? 'true' : 'false'}
-                title={tally.sourceUrl}
+                // The whole title, because the label is only ever part of it — the site's tag is
+                // dropped and what is left is cut to the chip's width. The url below it is what
+                // tells two same-titled pages apart.
+                title={`${tally.sourceTitle}\n${tally.sourceUrl}`}
                 onClick={() => onToggle(tally.sourceUrl)}
               >
-                <span>{tally.sourceTitle}</span>
+                <span class="piko-chip-label">{withoutSiteTag(tally.sourceTitle)}</span>
                 <span class="piko-chip-count">{tally.count}</span>
               </button>
             </Fragment>
@@ -418,7 +442,14 @@ class ClipEntry extends Component<ClipEntryProps> {
                 : `Open ${clipping.sourceTitle} at this sentence`
             }
           >
-            {`${clipping.sourceTitle} · ${hostOf(clipping.sourceUrl)}`}
+            {/*
+              Two elements rather than one string, so the line can obey the rule the header bar
+              already does: the title yields and the site never does. As one string the site was
+              simply the tail of what got truncated, which spent the width on the least
+              identifying half of the line and cut the most identifying half off entirely.
+            */}
+            <span class="piko-clip-source-title">{withoutSiteTag(clipping.sourceTitle)}</span>
+            <span class="piko-clip-source-host">{`· ${hostOf(clipping.sourceUrl)}`}</span>
           </a>
         </div>
       </div>
@@ -706,17 +737,6 @@ function Pane({
         />
       )}
 
-      <ChipRow
-        tallies={filterable}
-        active={active}
-        onToggle={toggleSource}
-        here={hereSources}
-        band={band}
-        // Selecting the span already showing is how the reader gets back out of it.
-        onBand={(chosen) => setBand((current) => (current === chosen ? null : chosen))}
-        now={now}
-      />
-
       {/*
         Above the list rather than in place of it: what is already on screen is still true, and
         still worth keeping — the in-memory copy stays authoritative for the life of the page.
@@ -743,6 +763,17 @@ function Pane({
           })
         )}
       </div>
+
+      <ChipRow
+        tallies={filterable}
+        active={active}
+        onToggle={toggleSource}
+        here={hereSources}
+        band={band}
+        // Selecting the span already showing is how the reader gets back out of it.
+        onBand={(chosen) => setBand((current) => (current === chosen ? null : chosen))}
+        now={now}
+      />
     </>
   )
 }

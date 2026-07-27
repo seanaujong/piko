@@ -337,3 +337,82 @@ describe('the span markers under real layout', () => {
   })
 })
 
+/**
+ * Titles a real site actually serves. Every one of these was measured through this file before
+ * the cap existed: the wiki title alone drew a chip 447px wide inside a 274px row.
+ */
+const LONG_TITLED: Clipping[] = [
+  ['https://bulbapedia.bulbagarden.net/wiki/Bullet_Seed_(move)', 'Bullet Seed (move) - Bulbapedia, the community-driven Pokémon encyclopedia'],
+  ['https://bulbapedia.bulbagarden.net/wiki/Vine_Whip_(move)', 'Vine Whip (move) - Bulbapedia, the community-driven Pokémon encyclopedia'],
+  ['https://stackoverflow.com/questions/1', 'javascript - How do I check if an object has a key? - Stack Overflow'],
+  ['https://learn.microsoft.com/en-us/dotnet/api/system.string.split', 'Docs - .NET API reference - String.Split Method'],
+].map(([sourceUrl, sourceTitle], i) => ({
+  text: `A sentence clipped from ${sourceTitle}.`,
+  sourceUrl: sourceUrl!,
+  sourceTitle: sourceTitle!,
+  originUrl: null,
+  at: T0 - i * 60_000,
+}))
+
+describe('a source with a title longer than the pane', () => {
+  it('holds every chip inside the row that has to hold it', () => {
+    const { shadow } = mountPane(LONG_TITLED)
+    const row = shadow.querySelector<HTMLElement>('.piko-clips-chips')!
+
+    // Guards the fixture: chips short enough to fit anyway would satisfy the bound without the
+    // cap doing anything.
+    expect(shadow.querySelectorAll('.piko-chip:not(.piko-chip-reset)')).toHaveLength(4)
+    expect(row.clientWidth).toBeGreaterThan(0)
+
+    for (const chip of shadow.querySelectorAll<HTMLElement>('.piko-chip:not(.piko-chip-reset)')) {
+      expect(chip.getBoundingClientRect().width).toBeLessThanOrEqual(row.clientWidth)
+    }
+  })
+
+  it('keeps two chips readable side by side rather than one filling the row', () => {
+    const { shadow } = mountPane(LONG_TITLED)
+    const row = shadow.querySelector<HTMLElement>('.piko-clips-chips')!
+    const widest = Math.max(
+      ...[...shadow.querySelectorAll<HTMLElement>('.piko-chip:not(.piko-chip-reset)')].map(
+        (chip) => chip.getBoundingClientRect().width,
+      ),
+    )
+
+    // The reason the cap is a specific number rather than merely "fits": a chip that fills the
+    // visible row leaves the next one entirely off screen, so nothing on screen suggests the
+    // row continues.
+    expect(widest * 2).toBeLessThanOrEqual(row.clientWidth)
+  })
+
+  it('never spends the source line on the site at the expense of the title', () => {
+    const { shadow } = mountPane(LONG_TITLED)
+    const lines = [...shadow.querySelectorAll<HTMLElement>('.piko-clip-source')]
+    expect(lines).toHaveLength(4)
+
+    // Every part of every line is drawn inside the line. Measured as boxes rather than as
+    // scrollWidth: an inline span reports a clientWidth of zero, so the obvious assertion here
+    // is satisfied by a site name pushed clean off the end of the row — which is the bug.
+    for (const line of lines) {
+      const box = line.getBoundingClientRect()
+      for (const part of line.querySelectorAll<HTMLElement>('span')) {
+        expect(part.getBoundingClientRect().right).toBeLessThanOrEqual(box.right + 0.5)
+      }
+    }
+
+    // The site is drawn whole, whatever the title does: as one string it was the tail of the
+    // ellipsis and vanished completely, the line needing 526px inside a 256px box.
+    const host = lines[0]!.querySelector<HTMLElement>('.piko-clip-source-host')!
+    expect(host.textContent).toBe('· bulbapedia.bulbagarden.net')
+    expect(host.scrollWidth).toBeLessThanOrEqual(host.clientWidth + 1)
+
+    // And the title is what gave way to make that room — the direction matters, so it is
+    // asserted on a line whose title is genuinely too long to fit even once trimmed.
+    const overlong = lines[2]!
+    expect(overlong.querySelector('.piko-clip-source-host')!.textContent).toBe(
+      '· stackoverflow.com',
+    )
+    const title = overlong.querySelector<HTMLElement>('.piko-clip-source-title')!
+    expect(title.scrollWidth).toBeGreaterThan(title.clientWidth)
+  })
+})
+
