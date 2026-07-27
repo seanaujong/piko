@@ -78,9 +78,10 @@ export function excludedEntryFor(url: string, excluded: readonly string[]): stri
  * needs the Public Suffix List, which an extension has no access to, so `www.bbc.co.uk` offers
  * `co.uk` as its parent and there is no honest way from here to know that is too broad. Two
  * things make that acceptable and neither is the guess being right: the menu prints the exact
- * string, so nothing is hidden from the reader choosing it; and the same menu offers the undo,
- * so a wrong choice is repaired from where it was made rather than from a settings page that
- * does not exist yet.
+ * string, so nothing is hidden from the reader choosing it; and the choice can be undone from two
+ * places, the menu that made it and the list on the options page — which is the one that answers
+ * a reader who took the parent, since undoing from the menu means first finding a page on a site
+ * they have just turned Piko off on.
  */
 export function exclusionChoicesFor(url: string): string[] {
   let parsed: URL

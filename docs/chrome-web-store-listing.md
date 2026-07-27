@@ -98,8 +98,9 @@ Right-clicking Piko's toolbar icon offers "Never run Piko on <this site>", which
 keeps Piko off a site they consider sensitive — their bank, for example. The extension holds no
 list of such sites on the user's behalf beyond a few sign-in, webmail and password-manager
 hosts it refuses by default; this permission is what lets the user name their own. The same
-menu offers the reverse, so the choice can be undone from where it was made. No page content is
-read to build the menu: it is titled from the address of the active tab.
+menu offers the reverse, so the choice can be undone from where it was made, and Piko's options
+page lists every entry so it can also be undone from anywhere. No page content is read to build
+the menu: it is titled from the address of the active tab.
 ```
 
 ### Host permission justification — all sites, requested at runtime
@@ -219,8 +220,8 @@ Piko is inert by design, and a reviewer who skips it will find a broken extensio
 ```
 Piko asks for no host access at install. It requests it afterwards, from its own page, and does
 nothing at all until that is granted — so please start at step 1. There is no popup, and no
-account, login, or payment is needed. The options page is that same page, and holds nothing but
-the access button.
+account, login, or payment is needed. The options page is that same page: it holds the access
+button and the list of sites Piko stays off.
 
 1. Install the extension. Piko opens a page titled "Piko needs to be allowed on the pages you
    read". Press "Allow Piko on all sites" and confirm Chrome's prompt. (If the page was closed,

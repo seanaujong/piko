@@ -115,8 +115,9 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | clipping the live page | `content/panel/hostClipping.ts` |
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | how host access is asked for, or what the install and the icon's *Options* item open | `public/onboarding.html` + `src/onboarding/index.ts` |
+| how the options page shows and undoes what Piko stays off | `src/onboarding/siteList.ts` |
 | when the content script is registered | `background/contentScriptRegistration.ts` |
-| which sites Piko stays off | `background/excludedSites.ts` — the reader's list; `shared/sensitiveHosts.ts` is the shipped one |
+| which sites Piko stays off | `background/excludedSites.ts` — the reader's list; `shared/sensitiveHosts.ts` is the shipped one; `onboarding/siteList.ts` shows both |
 | what the icon's right-click menu offers | `background/siteMenu.ts`, then the plumbing in `background/index.ts` |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
 | the clippings journal or its projections | `content/state/clippings.ts` |
@@ -175,8 +176,10 @@ font-size contrast made it real.
 | An exclusion is enforced in all three places it can be — registration, the fetch, and the tabs already open | ✅ | `background/contentScriptRegistration.ts`, `background/fetchPolicy.ts`, `background/index.ts` | `contentScriptRegistration.test.ts`, `fetchPolicy.test.ts`, `e2e/extension.test.ts` |
 | Registration is compared against the current lists, never assumed correct because it exists | ✅ | `background/contentScriptRegistration.ts` (`samePatterns`) | `contentScriptRegistration.test.ts` |
 | A menu item carries its own host and verb, because the worker is dead by the time it is clicked | ✅ | `background/siteMenu.ts` (`SiteMenuItem.id`) | `siteMenu.test.ts` |
-| Whatever the menu can do, it can undo — nothing else lists what a reader excluded | ✅ | `background/siteMenu.ts` (`siteMenuItems`) | `siteMenu.test.ts` |
+| Whatever the menu can do, it can undo — a guessed parent is repaired without leaving the page | ✅ | `background/siteMenu.ts` (`siteMenuItems`) | `siteMenu.test.ts` |
 | The page the install opens is reachable again, and reads correctly in both access states | ✅ | `public/onboarding.html` | `e2e/extension.test.ts` (`the page the install opens`) |
+| The options page is the standing-start repair surface: the whole list, undoable from anywhere | ✅ | `src/onboarding/siteList.ts` | `siteList.test.ts`, `e2e/extension.test.ts` |
+| A row carries the undo only when pressing it would change something — shipped entries never do | ✅ | `src/onboarding/siteList.ts` (`siteRows`) | `siteList.test.ts` |
 | Standing down is one-way; only the worker decides that Piko may run, and a tab never re-arms itself | 👁 | `content/index.ts` (`standDown`) | — |
 | Article text is never mutated to highlight it — paint an overlay, don't wrap in `<span>`s | 👁 | `content/extraction/sentences.ts`, `content/panel/highlight.ts` | — |
 | Bands come from the block's measured lines, never a line-height grid and never the drawn sentence's own rects | ✅ | `content/extraction/sentences.ts` (`lineBandsFor`) | `sentences.browser.test.ts` |

@@ -51,6 +51,36 @@
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
 
+      /* One row per site, the host on the left and whatever the row can offer on the right.
+         `space-between` and not a grid: the two groups have different trailing content — a
+         button, or the words that say why there isn't one — and neither should set a column
+         width for the other. */
+      .sites { list-style: none; margin: 0 0 1em; padding: 0; }
+      .site {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin: 0;
+        padding: 8px 0;
+        border-bottom: 1px solid color-mix(in srgb, currentColor 15%, transparent);
+      }
+      .site-host { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+      .site-note { font-size: 0.85rem; opacity: 0.6; }
+      .site-undo {
+        flex: none;
+        padding: 5px 12px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        border-radius: 6px;
+        background: color-mix(in srgb, currentColor 12%, transparent);
+        color: inherit;
+      }
+      .sites-empty { opacity: 0.75; }
+      summary { cursor: pointer; font-size: 0.9rem; opacity: 0.75; }
+      details { margin: 0 0 1em; }
+      details[open] summary { margin-bottom: 0.5em; }
+
       /* A block of instruction rather than another paragraph of prose, because it is the one
          part of the page asking the reader to leave it and do something. */
       .tryit {
@@ -94,6 +124,12 @@
     <button id="grant">Allow Piko on all sites</button>
     <p class="status" id="status" data-state="idle"></p>
 
+    <h2>Sites Piko stays off</h2>
+    <!-- Filled by `siteList.ts`, and empty in the markup on purpose: a shell with placeholder
+         rows in it would show a list of sites that is not the reader's for as long as storage
+         takes to answer, and this is the one section where that would be a lie worth avoiding. -->
+    <div id="sites"></div>
+
     <h2>Try it</h2>
     <div class="tryit">
       <p>
@@ -132,9 +168,7 @@
     <p class="fineprint">
       Piko is free and open source. If you would rather grant access to particular sites only, you
       can do that from <code>chrome://extensions</code> instead — Piko will work on the sites you
-      choose and stay inert elsewhere. To keep it off one site in particular, right-click Piko's
-      toolbar icon while you are on that site and choose <em>Never run Piko on</em> that address.
-      The same menu takes it back.
+      choose and stay inert elsewhere.
     </p>
 
     <p class="fineprint">

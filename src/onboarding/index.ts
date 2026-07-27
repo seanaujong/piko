@@ -1,25 +1,34 @@
 /**
- * The one interaction on the onboarding page: asking for host access.
+ * Piko's options page, which is also the page the install opens.
  *
- * `chrome.permissions.request` must be called from inside a user gesture, which is why this is a
- * click handler and not something the worker does on install. Chrome answers with its own
- * dialog; nothing here can pre-empt or skip it, and a decline is a legitimate outcome rather
+ * Two settings, and they are the two questions the extension can be asked: *may Piko run at
+ * all*, and *where may it not*. Everything else on the page is the explanation that has to
+ * accompany the first one, which is why the install lands here rather than on a page of prose
+ * with the button somewhere else.
+ *
+ * **The grant.** `chrome.permissions.request` must be called from inside a user gesture, which is
+ * why it is a click handler and not something the worker does on install. Chrome answers with its
+ * own dialog; nothing here can pre-empt or skip it, and a decline is a legitimate outcome rather
  * than an error — Piko simply stays inert until the reader changes their mind.
  *
  * The registration that follows a grant belongs to the background worker, which listens on
  * `chrome.permissions.onAdded`. This page deliberately does not register anything itself: a
  * grant made from `chrome://extensions` rather than from this button has to work identically,
- * and it will only do that if one listener owns the consequence.
+ * and it will only do that if one listener owns the consequence. The same holds for the site
+ * list below — it writes the reader's list and nothing else, and the worker's
+ * `onExcludedSitesChanged` does the rest, exactly as it does for the icon's menu.
  *
- * The page is reached a second time, from the icon's Options item, so it has a *state* and not
- * just a control. That state is one attribute — `showAccess` is the only writer of it, and the
- * two versions of the copy are in the HTML rather than in strings here. What belongs in script
- * is the answer to "is Piko allowed?"; which sentence that answer selects is presentation.
+ * **Both readouts are derived, never remembered.** `showAccess` and `showSites` each ask their
+ * source and rebuild from the answer, so a list changed from the icon's menu while this tab sits
+ * open is not a stale view — it is the same rebuild the first paint took.
  */
 import { ALL_SITES } from '../background/contentScriptRegistration'
+import { includeSite, onExcludedSitesChanged, readExcludedSites } from '../background/excludedSites'
+import { renderSiteList, siteRows } from './siteList'
 
 const button = document.getElementById('grant') as HTMLButtonElement | null
 const status = document.getElementById('status')
+const sites = document.getElementById('sites')
 
 function say(message: string, state: 'idle' | 'granted' | 'declined'): void {
   if (!status) return
@@ -61,4 +70,16 @@ button?.addEventListener('click', async () => {
   }
 })
 
+async function showSites(): Promise<void> {
+  if (!sites) return
+  const rows = siteRows(await readExcludedSites())
+  sites.replaceChildren(renderSiteList(rows, (host) => void includeSite(host)))
+}
+
+// Redrawn from storage rather than from the click that changed it, so a list edited from the
+// icon's menu in another window lands here on the same path — and so the row only goes once the
+// write it stands for actually landed.
+onExcludedSitesChanged(() => void showSites())
+
 void reflectCurrentAccess()
+void showSites()

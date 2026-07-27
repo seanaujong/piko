@@ -142,6 +142,10 @@ eyes. With access granted:
 7. Drag a link *pointing at* the excluded site from somewhere else. The panel opens and shows
    *Piko is turned off on `<site>`.* — the exclusion is about the site, not only about where
    Piko runs.
+8. With that site still excluded, open **Options** from the icon's menu *while on some other
+   page*. The site is listed under *Sites Piko stays off*, and *Let Piko back on* removes it
+   without you having gone anywhere near it. Both surfaces read one list, and this is the only
+   place a human sees them agree.
 
 Step 3's margin and step 6's reload are the two most likely to regress silently.
 

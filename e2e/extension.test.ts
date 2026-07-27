@@ -838,7 +838,8 @@ describe('a site the reader turned Piko off on', () => {
  * this page has to render — the one a first install never shows and every later visit does.
  */
 describe('the page the install opens', () => {
-  it('opens again through the options item, in the state a returning reader is in', async () => {
+  /** Opens it the way Chrome does, and hands back the tab it landed in. */
+  const openOptions = async (): Promise<Page> => {
     const [worker] = context.serviceWorkers()
     await worker!.evaluate(() => chrome.runtime.openOptionsPage())
 
@@ -851,6 +852,11 @@ describe('the page the install opens', () => {
     const page = optionsPage()
     if (!page) throw new Error('the options page went away between finding it and using it')
     await page.waitForLoadState('load')
+    return page
+  }
+
+  it('opens again through the options item, in the state a returning reader is in', async () => {
+    const page = await openOptions()
 
     await expect
       .poll(() => page.evaluate(() => document.documentElement.dataset.access), POLL)
@@ -874,6 +880,37 @@ describe('the page the install opens', () => {
       return mark instanceof HTMLImageElement && mark.complete && mark.naturalWidth > 0
     })
     expect(logoLoaded).toBe(true)
+
+    await page.close()
+  })
+
+  /**
+   * The half `siteList.test.ts` cannot reach. That suite proves the rule about which rows carry a
+   * control against a list handed to it; this proves the page reads the reader's actual list out
+   * of `chrome.storage.local`, and that pressing the control puts it back — the round trip the
+   * icon's menu can only make while the reader is standing on the site being repaired.
+   */
+  it('lists what the reader turned Piko off on, and gives it back', async () => {
+    const [worker] = context.serviceWorkers()
+    const stored = (): Promise<unknown> =>
+      worker!.evaluate(async () => (await chrome.storage.local.get('piko.excludedSites'))['piko.excludedSites'])
+
+    await worker!.evaluate(() =>
+      chrome.storage.local.set({ 'piko.excludedSites': ['bank.example.test'] }),
+    )
+
+    const page = await openOptions()
+    await expect.poll(() => page.locator('.site-undo').count(), POLL).toBe(1)
+    expect(await page.locator('.site-host').first().textContent()).toBe('bank.example.test')
+
+    await page.locator('.site-undo').click()
+
+    // Storage first, then the row: the row is redrawn from the change event rather than from the
+    // click, so a page that removed the row without the write landing would fail here and pass
+    // the assertion below.
+    await expect.poll(stored, POLL).toEqual([])
+    await expect.poll(() => page.locator('.site-undo').count(), POLL).toBe(0)
+    expect(await page.locator('.sites-empty').textContent()).toContain('have not turned Piko off')
 
     await page.close()
   })
