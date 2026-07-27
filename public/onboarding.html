@@ -95,6 +95,16 @@
       /* Capped rather than full-bleed: past about this width the two ringed shapes stop being
          the thing the eye lands on and the mock browser starts looking like the subject. */
       .pinshot { display: block; width: 100%; max-width: 340px; height: auto; margin: 10px 0 4px; }
+      /* Bordered because the capture's own edge is white on one side and Wikipedia grey on the
+         other, and without a frame it bleeds into whichever theme it lands in. */
+      .shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin: 10px 0 4px;
+        border-radius: 8px;
+        border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+      }
 
       /* `revert` rather than `block`, so each element goes back to whatever it would have
          displayed as — the pair inside the heading are spans, the rest are paragraphs. */
@@ -142,22 +152,29 @@
     <h2>Try it</h2>
     <div class="tryit">
       <p>
-        Open
+        Reading is easy with Piko! Piko is a type of Commonplace book (a personal notebook) in
+        your browser. Let's use its
         <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
-          >Commonplace book</a
+          >Wikipedia page</a
         >
-        on Wikipedia — thick with links, and about the very thing your journal is.
+        as an example of how to engage yourself while reading:
       </p>
       <ol>
         <li>
           Pin Piko to your toolbar: the puzzle piece at the right of the address bar, then the
           pin beside Piko. Chrome hides a new extension behind that menu, and every step from
           here begins with pressing Piko's icon.
-          <!-- Drawn rather than captured. A screenshot of a real browser ships whoever took it —
+          <!-- Folded, so a step reads as one instruction and the picture is there for whoever
+               wants it. Open by default would make the list a gallery to scroll past rather than
+               a sequence to follow.
+
+               Drawn rather than captured. A screenshot of a real browser ships whoever took it —
                their other extensions, their bookmarks, their avatar — to every install, and goes
                stale the next time Chrome moves something. This carries the two shapes the reader
                has to find and nothing else, costs about a kilobyte, and needs no request. The
                icon in the row is the shipping raster, so what they look for is what they saw. -->
+          <details>
+            <summary>What to look for</summary>
           <svg class="pinshot" viewBox="0 0 380 168" role="img" aria-labelledby="pinshot-title">
             <title id="pinshot-title">
               Chrome's toolbar with the puzzle-piece button ringed, and the extensions menu below
@@ -194,14 +211,32 @@
             <path transform="translate(327 113) scale(0.75)" fill="currentColor" fill-opacity="0.85"
                   d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
           </svg>
+          </details>
         </li>
         <li>Press Piko's toolbar icon. The journal docks on the right, and the page becomes
           clippable.</li>
-        <li>Read until you find the one sentence that says what the article is <em>about</em>.
-          Click it. That sentence is now the article, in your journal.</li>
+        <li>
+          Read until you find the one sentence that says what the article is <em>about</em>.
+          Click it. That sentence is now the article, in your journal.
+          <details>
+            <summary>What steps 2 and 3 look like</summary>
+            <img class="shot" src="shots/armed.webp" width="1040" height="660"
+                 alt="The Commonplace book article with its opening sentence highlighted, and
+                      Piko's journal docked to the right of the page holding that sentence." />
+          </details>
+        </li>
         <li>Keep going. When a link matters to what you just kept, drag it a short distance and
           let go — that article opens in place, in reader mode, journal still beside it.</li>
-        <li>Find its one sentence too, and click that. Escape brings you back.</li>
+        <li>
+          Find its one sentence too, and click that. Escape brings you back.
+          <details>
+            <summary>What steps 4 and 5 look like</summary>
+            <img class="shot" src="shots/preview.webp" width="1040" height="660"
+                 alt="The dragged article open in reader mode over the page it was dragged from,
+                      its opening sentence highlighted, and the journal beside it now holding two
+                      sentences from two sources." />
+          </details>
+        </li>
       </ol>
       <p>
         What you are left with is the article in the sentences you chose, and its neighbours in

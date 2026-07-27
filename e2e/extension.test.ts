@@ -5,6 +5,7 @@ import type { BrowserContext, Page } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
   buildTestExtension,
+  dragElement,
   launchWithExtension,
   serveFixtures,
   SHADOW,
@@ -48,30 +49,9 @@ beforeEach(async () => {
   await worker?.evaluate(() => chrome.storage.local.clear())
 })
 
-/**
- * Drives the real gesture, with real input.
- *
- * Dispatching a DragEvent pair is far easier and no longer works: `startDragTracking` refuses
- * an untrusted event, because a page that can synthesise one can choose what the background
- * worker fetches. That guard is only worth having if the shipped bundle is what gets tested, so
- * this suite pays the cost of driving the mouse — which also makes it the only place the
- * trusted path is exercised at all (`dragTracking.test.ts` explains the split).
- *
- * The move happens in steps because Chrome starts a native drag on movement *while* the button
- * is down; a single jump can be delivered as one event and never crosses the threshold.
- */
-async function dragLink(page: Page, linkId: string): Promise<void> {
-  const box = await page.locator(`#${linkId}`).boundingBox()
-  if (!box) throw new Error(`no link #${linkId}`)
-
-  const fromX = box.x + box.width / 2
-  const fromY = box.y + box.height / 2
-  await page.mouse.move(fromX, fromY)
-  await page.mouse.down()
-  await page.mouse.move(fromX + 30, fromY + 30, { steps: 12 })
-  await page.mouse.move(fromX + 90, fromY + 70, { steps: 12 })
-  await page.mouse.up()
-}
+/** The fixtures address their links by id; `dragElement` in the harness does the gesture. */
+const dragLink = (page: Page, linkId: string): Promise<void> =>
+  dragElement(page, page.locator(`#${linkId}`))
 
 async function waitForReader(page: Page): Promise<void> {
   await page.waitForFunction(
@@ -873,13 +853,27 @@ describe('the page the install opens', () => {
     await page.evaluate(() => delete document.documentElement.dataset.access)
     expect(await heading()).toBe('Piko needs to be allowed on the pages you read')
 
-    // The logo is the only asset the page loads. A build that stopped copying icons/ would leave
-    // it broken here and nowhere else, because every other reader of those files is Chrome.
-    const logoLoaded = await page.evaluate(() => {
-      const mark = document.querySelector('.mark')
-      return mark instanceof HTMLImageElement && mark.complete && mark.naturalWidth > 0
+    // Every picture the page carries — the logo, and the screenshots behind the folds, which are
+    // opened first because a lazy image inside a closed `details` is never fetched. The build
+    // copies these out of `public/` by hand, so a directory it stops copying breaks them here and
+    // nowhere else: every other reader of those files is Chrome.
+    await page.evaluate(() => {
+      for (const fold of document.querySelectorAll('details')) fold.open = true
     })
-    expect(logoLoaded).toBe(true)
+    const broken = await page.evaluate(async () => {
+      const images = [...document.images]
+      await Promise.all(
+        images.map(
+          (image) =>
+            new Promise((settled) => {
+              if (image.complete) settled(null)
+              image.onload = image.onerror = settled
+            }),
+        ),
+      )
+      return images.filter((image) => image.naturalWidth === 0).map((image) => image.currentSrc)
+    })
+    expect(broken).toEqual([])
 
     await page.close()
   })

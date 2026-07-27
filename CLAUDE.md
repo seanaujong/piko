@@ -25,6 +25,7 @@ npm test            # Vitest alone. The authority — assert against a real run,
 npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
 npm run icons:sheet # the contact sheet an icon edit is judged on — see below
+npm run shots       # only after the panel's look changes — see below
 npm run bench       # measurements, NOT in the gate — see below
 npm run package     # piko-<version>.zip — what "Load unpacked" and the store both want
 npm run release-bump <major|minor|patch|X.Y.Z>   # both version fields at once
@@ -47,6 +48,14 @@ is the entire point. Like the benches it prints and asserts nothing: "does this 
 gull" is not a predicate, so it stays out of the gate. `scripts/icon-sheet.mjs` lists the
 four failures that were invisible at 128 and obvious at 16, and `scripts/rasterize.mjs` says
 why the sheet and the shipping icons must rasterize through the same code.
+
+**`npm run shots` rewrites the onboarding page's two screenshots** — the armed page and an open
+preview — by driving the real extension against the real Wikipedia article the page tells the
+reader to open. Committed to `public/shots/`, so an ordinary build never runs it; regenerate when
+the panel's look changes, and judge the result with your eyes, which is why it prints and asserts
+nothing. What it *cannot* be wrong about is guarded: the e2e suite opens every fold on the page
+and fails if any image is missing. `shots/capture.shots.ts` says why the captures are generated
+rather than drawn and why the pin illustration beside them is the opposite call.
 
 **`npm run bench` prints, it doesn't assert** — add `--reporter=verbose` for the tables. Three
 benches over a generated 220-paragraph article, each isolating a different cost: `reading` what
@@ -116,6 +125,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | what the toolbar icon does | `background/index.ts` sends, `content/index.ts` receives |
 | how host access is asked for, or what the install and the icon's *Options* item open | `public/onboarding.html` + `src/onboarding/index.ts` |
 | how the options page shows and undoes what Piko stays off | `src/onboarding/siteList.ts` |
+| the screenshots on the onboarding page, or how they are taken | `shots/capture.shots.ts` |
 | when the content script is registered | `background/contentScriptRegistration.ts` |
 | which sites Piko stays off | `background/excludedSites.ts` — the reader's list; `shared/sensitiveHosts.ts` is the shipped one; `onboarding/siteList.ts` shows both |
 | what the icon's right-click menu offers | `background/siteMenu.ts`, then the plumbing in `background/index.ts` |
@@ -178,6 +188,7 @@ font-size contrast made it real.
 | A menu item carries its own host and verb, because the worker is dead by the time it is clicked | ✅ | `background/siteMenu.ts` (`SiteMenuItem.id`) | `siteMenu.test.ts` |
 | Whatever the menu can do, it can undo — a guessed parent is repaired without leaving the page | ✅ | `background/siteMenu.ts` (`siteMenuItems`) | `siteMenu.test.ts` |
 | The page the install opens is reachable again, and reads correctly in both access states | ✅ | `public/onboarding.html` | `e2e/extension.test.ts` (`the page the install opens`) |
+| Every picture that page carries is in the build — folds opened, nothing broken | ✅ | `esbuild.config.mjs` | `e2e/extension.test.ts` (`the page the install opens`) |
 | The options page is the standing-start repair surface: the whole list, undoable from anywhere | ✅ | `src/onboarding/siteList.ts` | `siteList.test.ts`, `e2e/extension.test.ts` |
 | A row carries the undo only when pressing it would change something — shipped entries never do | ✅ | `src/onboarding/siteList.ts` (`siteRows`) | `siteList.test.ts` |
 | Standing down is one-way; only the worker decides that Piko may run, and a tab never re-arms itself | 👁 | `content/index.ts` (`standDown`) | — |
