@@ -24,17 +24,34 @@ refresh this page" means exactly this and nothing more sinister.
 
 ## Driving Chrome from an agent
 
-**Dispatch the drag events; don't use `left_click_drag`.** Mouse-drag automation is unreliable
-at firing `dragend` — three consecutive failures on one run. `startDragTracking` never checks
-`isTrusted`, so a synthetic pair drives the real flow every time, and does so deterministically:
+**Dispatching the drag events no longer works, and that is deliberate.** `startDragTracking`
+refuses any event whose `isTrusted` is false, because a page able to synthesise one could choose
+what the background worker fetches from inside the reader's network. A synthesised pair is now
+silently ignored — it will look like the extension is broken.
+
+Drive the mouse instead, in steps, with the button held. Chrome begins a native drag on movement
+while the button is down, and a single jump can arrive as one event that never crosses the
+threshold:
 
 ```js
-a.dispatchEvent(new DragEvent('dragstart', { bubbles: true }))
-a.dispatchEvent(new DragEvent('dragend', { bubbles: true }))
+// Playwright; `extension.test.ts`'s dragLink is the worked version.
+await page.mouse.move(x, y)
+await page.mouse.down()
+await page.mouse.move(x + 30, y + 30, { steps: 12 })
+await page.mouse.move(x + 90, y + 70, { steps: 12 })
+await page.mouse.up()
 ```
 
-This is the harness to reach for first, not a fallback. (`extension.test.ts`'s `dragLink` does
-the same thing for the same reason.)
+Measured, not assumed: this fires `dragstart` → `drag` → `dragover` → `drop` → `dragend`, all
+trusted, in both headless and headed Chromium. `page.dragAndDrop()` does **not** work — it times
+out at 30s in both modes. The older note here said mouse dragging was unreliable at firing
+`dragend`; that was `left_click_drag` through agent tooling, and it does not generalise to
+Playwright's input.
+
+**Fixtures must be served from localhost, and that is load-bearing.** `fetchPolicy.ts` refuses a
+*public* page reaching a *private* address. Fixture pages are served from `127.0.0.1`, so both
+ends sit on the same tier and the drag preview is allowed. Serving fixtures from a public origin
+while dragging to a local one would fail every preview test, correctly.
 
 **Never call `navigator.clipboard.readText()` to check a copy landed.** It raises a permission
 prompt that freezes the renderer — one CDP call timed out at 45 seconds this way. `copyText` is

@@ -1,4 +1,6 @@
 import { readFileSync } from 'node:fs'
+import { createServer } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import type { BrowserContext, Page } from 'playwright'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import {
@@ -47,17 +49,28 @@ beforeEach(async () => {
 })
 
 /**
- * Drives the real gesture. `startDragTracking` never checks `isTrusted`, so dispatching the
- * pair fires exactly the flow a mouse drag does — and unlike a synthesised mouse drag, it
- * fires every time.
+ * Drives the real gesture, with real input.
+ *
+ * Dispatching a DragEvent pair is far easier and no longer works: `startDragTracking` refuses
+ * an untrusted event, because a page that can synthesise one can choose what the background
+ * worker fetches. That guard is only worth having if the shipped bundle is what gets tested, so
+ * this suite pays the cost of driving the mouse — which also makes it the only place the
+ * trusted path is exercised at all (`dragTracking.test.ts` explains the split).
+ *
+ * The move happens in steps because Chrome starts a native drag on movement *while* the button
+ * is down; a single jump can be delivered as one event and never crosses the threshold.
  */
 async function dragLink(page: Page, linkId: string): Promise<void> {
-  await page.evaluate((id) => {
-    const anchor = document.getElementById(id)
-    if (!anchor) throw new Error(`no link #${id}`)
-    anchor.dispatchEvent(new DragEvent('dragstart', { bubbles: true }))
-    anchor.dispatchEvent(new DragEvent('dragend', { bubbles: true }))
-  }, linkId)
+  const box = await page.locator(`#${linkId}`).boundingBox()
+  if (!box) throw new Error(`no link #${linkId}`)
+
+  const fromX = box.x + box.width / 2
+  const fromY = box.y + box.height / 2
+  await page.mouse.move(fromX, fromY)
+  await page.mouse.down()
+  await page.mouse.move(fromX + 30, fromY + 30, { steps: 12 })
+  await page.mouse.move(fromX + 90, fromY + 70, { steps: 12 })
+  await page.mouse.up()
 }
 
 async function waitForReader(page: Page): Promise<void> {
@@ -609,5 +622,63 @@ describe('the loaded extension', () => {
       .toBeGreaterThanOrEqual(2)
 
     await page.close()
+  })
+})
+
+/**
+ * The promise the store listing makes about the fetch, checked against a server that says what
+ * actually arrived.
+ *
+ * `docs/chrome-web-store-listing.md` tells a reviewer the background fetch "carries no cookies or
+ * credentials for that site". That was true by default before it was true on purpose, and a
+ * promise resting on a default is one nothing defends. This is the defence: set a cookie for the
+ * origin the link points at, drag the link, and read the request the worker actually sent.
+ */
+describe('what the background fetch carries', () => {
+  it('sends no cookie for the target site, even when the browser holds one', async () => {
+    const received: { cookie: string | null; referer: string | null }[] = []
+    const recorder = createServer((request, response) => {
+      received.push({
+        cookie: request.headers.cookie ?? null,
+        referer: request.headers.referer ?? null,
+      })
+      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      response.end('<html><body><article><p>Recorded.</p></article></body></html>')
+    })
+    await new Promise<void>((resolve) => recorder.listen(0, '127.0.0.1', resolve))
+    const port = (recorder.address() as AddressInfo).port
+    const recorderUrl = `http://127.0.0.1:${port}/recorded.html`
+
+    // Cookies ignore port, so this is a cookie the browser genuinely holds for the target host.
+    await context.addCookies([
+      { name: 'piko_e2e_session', value: 'must-not-travel', url: recorderUrl },
+    ])
+
+    try {
+      const page = await context.newPage()
+      await page.goto(`${base}/`)
+
+      await page.evaluate((href) => {
+        const anchor = document.createElement('a')
+        anchor.id = 'credential-link'
+        anchor.href = href
+        anchor.textContent = 'a link to the recorder'
+        anchor.setAttribute('style', 'position:fixed;left:40px;top:200px;padding:8px;z-index:1')
+        document.body.appendChild(anchor)
+      }, recorderUrl)
+
+      await dragLink(page, 'credential-link')
+      await expect.poll(() => received.length, POLL).toBeGreaterThan(0)
+
+      // Revert `credentials: 'omit'` in frameability.ts and this is the assertion that goes red.
+      expect(received[0]?.cookie).toBeNull()
+      // referrerPolicy: 'no-referrer' — the page being read from is not the target's business.
+      expect(received[0]?.referer).toBeNull()
+
+      await page.close()
+    } finally {
+      await context.clearCookies()
+      recorder.close()
+    }
   })
 })

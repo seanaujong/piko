@@ -13,7 +13,8 @@
  * page twice.
  */
 import type { CheckFrameabilityResponse } from '../shared/messages'
-import { FRAMEABILITY_FETCH_TIMEOUT_MS } from '../shared/constants'
+import { FRAMEABILITY_FETCH_TIMEOUT_MS, MAX_FETCHED_HTML_BYTES } from '../shared/constants'
+import { fetchRefusal } from './fetchPolicy'
 
 /**
  * frame-ancestors (CSP) wins over X-Frame-Options when both are present (CSP2 precedence).
@@ -54,12 +55,29 @@ export async function checkFrameability(
   targetUrl: string,
   pageOrigin: string,
 ): Promise<CheckFrameabilityResponse> {
+  const refused = fetchRefusal(targetUrl, pageOrigin)
+  if (refused) return { type: 'FETCH_ERROR', reason: refused }
+
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FRAMEABILITY_FETCH_TIMEOUT_MS)
 
   let response: Response
   try {
-    response = await fetch(targetUrl, { redirect: 'follow', signal: controller.signal })
+    response = await fetch(targetUrl, {
+      redirect: 'follow',
+      signal: controller.signal,
+      // Not tidying: without this the cookie travels. The default is `same-origin`, and it is
+      // tempting to reason that a request from a chrome-extension:// origin to a web origin is
+      // cross-origin and therefore bare — but Chrome treats a fetch the extension holds host
+      // permission for as first-party, and sends the site's cookies. Measured, not reasoned
+      // about: `what the background fetch carries` in e2e/extension.test.ts sets a cookie and
+      // reads the request that arrives, and it goes red when this line is deleted.
+      //
+      // What that would mean is worse than a broken promise in the listing. Dragging a link to
+      // a site you are signed in to would fetch the *signed-in* page and render it in the panel.
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+    })
   } catch (err) {
     return { type: 'FETCH_ERROR', reason: err instanceof Error ? err.message : 'Network request failed' }
   } finally {
@@ -67,6 +85,11 @@ export async function checkFrameability(
   }
 
   const finalUrl = response.url || targetUrl
+  // Judged again after the redirect chain: the policy applied to `targetUrl` says nothing about
+  // where a 302 landed, and landing somewhere private is exactly the interesting case.
+  const refusedAfterRedirect = fetchRefusal(finalUrl, pageOrigin)
+  if (refusedAfterRedirect) return { type: 'FETCH_ERROR', reason: refusedAfterRedirect }
+
   const contentType = response.headers.get('content-type') ?? ''
   const isHtml = contentType.includes('text/html')
   const blocked = isBlockedByHeaders(response.headers, pageOrigin, finalUrl)
@@ -76,7 +99,20 @@ export async function checkFrameability(
     return { type: 'FRAME_OK', finalUrl, html: null }
   }
 
+  // Declared size first, actual size second. A chunked response without content-length is still
+  // read in full before it can be refused, bounded only by the fetch timeout above — the cheap
+  // check catches the honest case and the second catches the rest before a multi-megabyte string
+  // is handed to the message channel, which would fail less legibly.
+  const declared = Number(response.headers.get('content-length'))
+  if (Number.isFinite(declared) && declared > MAX_FETCHED_HTML_BYTES) {
+    return { type: 'FETCH_ERROR', reason: 'That page is too large to open in a preview.' }
+  }
+
   const html = await response.text()
+  if (html.length > MAX_FETCHED_HTML_BYTES) {
+    return { type: 'FETCH_ERROR', reason: 'That page is too large to open in a preview.' }
+  }
+
   if (blocked) return { type: 'FRAME_BLOCKED', html, finalUrl }
   return { type: 'FRAME_OK', finalUrl, html }
 }

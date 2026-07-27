@@ -1,6 +1,10 @@
 export const FRAMEABILITY_FETCH_TIMEOUT_MS = 6_000
 export const IFRAME_LOAD_TIMEOUT_MS = 2_500
 
+// An article's markup, generously. Well above anything Readability is meant to run on and well
+// below what would make the response awkward to pass over the message channel.
+export const MAX_FETCHED_HTML_BYTES = 8_000_000
+
 // Above anything a host page could plausibly stack (max signed 32-bit int).
 export const PANEL_Z_INDEX = 2_147_483_647
 

@@ -104,13 +104,31 @@ Two capabilities need the access:
 
 • The background service worker fetches the URL of a dragged link, so the article can be shown
   in place. This is the same page the browser would load if the link were clicked, requested
-  from the extension rather than the page, and it carries no cookies or credentials for that
-  site. Its response headers are also the only way to learn whether the page permits being
-  framed, which a page-context fetch cannot read at all.
+  from the extension rather than the page. It is sent with credentials omitted and no referrer,
+  so it carries no cookies for that site. Its response headers are also the only way to learn
+  whether the page permits being framed, which a page-context fetch cannot read at all.
+
+The access is broad, so it is narrowed everywhere it can be:
+
+• Piko does not run on webmail, password managers, chat or single-sign-on pages. The list is in
+  the source at src/shared/sensitiveHosts.ts, the manifest's exclude_matches is generated from
+  it and asserted against it by a test, and the background worker refuses to fetch those hosts
+  as well. Banking is deliberately not on the list: it cannot be enumerated honestly, and a
+  partial list would claim more than it delivers.
+
+• A preview begins only from a genuine drag. Events synthesised by page script are ignored, so a
+  page cannot decide what the extension fetches.
+
+• The worker will not fetch a private address on behalf of a public page — no localhost, no
+  192.168.x.x, no link-local metadata. This is the browser's own Private Network Access rule,
+  applied to a fetch that happens outside the page and would not otherwise be subject to it.
 
 No other host is contacted, there is no server belonging to this extension, and nothing about
 the pages a reader visits is stored unless they clip a sentence from one.
 ```
+
+Each of the four claims above is enforced by a test rather than by intention; `CLAUDE.md`'s
+invariants table names the file for each. If one is ever relaxed, this text has to change with it.
 
 ### Remote code
 
