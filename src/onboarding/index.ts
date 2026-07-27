@@ -59,7 +59,7 @@ button?.addEventListener('click', async () => {
       say('Done. Try it below.', 'granted')
       return
     }
-    say('Not allowed, so Piko will stay inert. You can press the button again whenever.', 'declined')
+    say('Not allowed, so Piko will not run anywhere. Press the button again whenever you change your mind.', 'declined')
   } catch (error) {
     // Requesting outside a gesture is the usual cause, and it cannot happen from here — but a
     // silent failure on the one control this page has would be the worst outcome, so say it.

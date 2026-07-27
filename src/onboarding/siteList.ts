@@ -89,7 +89,7 @@ export function renderSiteList(rows: readonly SiteRow[], letBackOn: (host: strin
     note.append(
       'Add one by right-clicking ',
       toolbarIcon(),
-      ' in your toolbar while you are on the site. A tab already open on a site you let Piko back on needs a reload first: Piko can only get into a page while that page is loading.',
+      ' in your toolbar while you are on the site. If you let Piko back on a site, reload any tab you already have open there. Piko can only get into a page while that page is loading.',
     )
     fragment.append(note)
   }

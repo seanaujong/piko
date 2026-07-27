@@ -130,17 +130,17 @@
     </h1>
 
     <p class="lede">
-      Piko waits for you to drag a hyperlink. To notice that, it has to already be running on
-      whatever page you are reading when you do it — which is why this is one permission covering
-      every site rather than a prompt each time.
+      Piko waits for you to drag a hyperlink. To notice that, it has to already be running on the
+      page you are reading. That is why it asks once, for every site, instead of asking each time
+      you open one.
     </p>
 
     <p class="before-grant">
-      Chrome will ask you to confirm. Nothing happens until you do, and you can withdraw it at any
-      time from <code>chrome://extensions</code>.
+      Chrome will ask you to confirm. Nothing happens until you do. You can take the permission
+      back at any time from <code>chrome://extensions</code>.
     </p>
     <p class="after-grant">
-      You can withdraw that at any time from <code>chrome://extensions</code>.
+      You can take that back at any time from <code>chrome://extensions</code>.
     </p>
 
     <button id="grant">Allow Piko on all sites</button>
@@ -169,9 +169,9 @@
       </p>
       <ol>
         <li>
-          Pin Piko to your toolbar: the puzzle piece at the right of the address bar, then the
-          pin beside Piko. Chrome hides a new extension behind that menu, and every step from
-          here begins with pressing Piko's icon.
+          Pin Piko to your toolbar. Click the puzzle piece at the right of the address bar, then
+          the pin beside Piko. Chrome hides new extensions behind that menu, and every step from
+          here starts by pressing Piko's icon.
           <!-- Folded, so a step reads as one instruction and the picture is there for whoever
                wants it. Open by default would make the list a gallery to scroll past rather than
                a sequence to follow.
@@ -234,7 +234,8 @@
           </details>
         </li>
         <li>Keep going. When a link matters to what you just kept, drag it a short distance and
-          let go — that article opens in place, in reader mode, journal still beside it.</li>
+          let go. That article opens in place, in reader mode, with your journal still beside
+          it.</li>
         <li>
           Find its one sentence too, and click that. Escape brings you back.
           <details>
@@ -247,8 +248,8 @@
         </li>
       </ol>
       <p>
-        What you are left with is the article in the sentences you chose, and its neighbours in
-        one line each. Piko will not choose them for you: choosing is the reading.
+        You end up with the article in the sentences you chose, and a line from each link that
+        mattered. Piko will not choose them for you. Choosing is the reading.
       </p>
       <p class="fineprint">A few things that might surprise you along the way:</p>
       <ol class="fineprint">
@@ -263,29 +264,32 @@
 
     <h2>What Piko does with it</h2>
     <ul>
-      <li>Notices a dragged link, and fetches that page so it can be shown in reader mode.</li>
-      <li>Reads the text of a page only once you have dragged a link or pressed the toolbar icon.
-        Until then it adds nothing to the page at all.</li>
+      <li>Notices a dragged link and fetches that page, so it can show you the article in reader
+        mode.</li>
+      <li>Reads the text of a page only after you drag a link or press the icon. Until then it
+        adds nothing to the page at all.</li>
       <li>Saves a sentence to your journal when you click it. That journal stays on this device.</li>
     </ul>
 
     <h2>What it will not do</h2>
     <ul>
-      <li>Run on webmail, password managers, chat, or sign-in pages. That exclusion is enforced by
-        Chrome, not by Piko's own code.</li>
-      <li>Send cookies with the pages it fetches, so it never sees a signed-in version of anything.</li>
-      <li>Reach addresses on your own network — your router, your intranet, localhost.</li>
+      <li>Run on webmail, password managers, chat, or sign-in pages. Chrome blocks Piko there. It
+        is not Piko policing itself.</li>
+      <li>Send cookies when it fetches a page. It never sees a signed-in version of anything.</li>
+      <li>Reach addresses on your own network: your router, your office intranet, anything running
+        on your own machine.</li>
       <li>Send anything anywhere. There is no account, no analytics, and no server.</li>
     </ul>
 
     <p class="fineprint">
-      Piko is free and open source. If you would rather grant access to particular sites only, you
-      can do that from <code>chrome://extensions</code> instead — Piko will work on the sites you
-      choose and stay inert elsewhere.
+      Piko is free and open source. If you would rather allow it on a few sites instead of all of
+      them, you can do that from <code>chrome://extensions</code>. Piko will work on the sites you
+      choose and do nothing anywhere else.
     </p>
 
     <p class="fineprint">
-      This page is also Piko's options page. Right-click the toolbar icon and choose
+      This page is also Piko's options page. Right-click
+      <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> and choose
       <em>Options</em> to read it again.
     </p>
 
