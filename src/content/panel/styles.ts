@@ -426,6 +426,61 @@ export const PANEL_STYLES = `
   height: auto;
 }
 
+/*
+ * Tables survive extraction as content and arrive with no styling whatever. Readability strips
+ * every class and every style attribute — a Wikipedia infobox reaches this sheet as bare rows
+ * carrying real content and nothing to read it by — so the borders and padding below are the
+ * whole of what makes one legible again. Nothing here restores what the source site looked
+ * like, and it deliberately does not try; the site's own stylesheet is not available and its
+ * layout was measured against a page far wider than this column.
+ *
+ * The width rules are the load-bearing half. A table is the one thing extraction produces that
+ * will not wrap: given more content than fits it lays out at its natural width and pushes the
+ * article past the column every other rule here is measured against, which puts a horizontal
+ * scrollbar on the whole preview and drags the prose sideways along with it. Making the table
+ * its own scroll container keeps the overflow where it belongs — the column stays put and the
+ * table alone moves. That is why it is a block box rather than a table box: a table box sizes
+ * to its content and cannot scroll its own overflow, so there is no way to bound it from the
+ * outside without also flattening the columns inside it.
+ *
+ * Sizing to max-content before the cap is what keeps a narrow table narrow. A plain width of
+ * 100 percent would stretch a two-column infobox across the whole column, which reads worse
+ * than the problem being fixed.
+ */
+.piko-article table {
+  display: block;
+  width: max-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border-collapse: collapse;
+  margin: 20px 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.piko-article th,
+.piko-article td {
+  padding: 6px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  text-align: left;
+  vertical-align: top;
+}
+
+.piko-article th {
+  background: #f6f6f4;
+  font-weight: 600;
+}
+
+/* Blocked out rather than left as a table caption: the table above is a block box, so a
+   caption box inside it would generate an anonymous table of its own to sit in. */
+.piko-article caption {
+  display: block;
+  padding-bottom: 8px;
+  color: #666;
+  font-size: 13px;
+  text-align: left;
+}
+
 /* ---- clippings journal: .piko-body's second flex child ---- */
 
 .piko-clips {
