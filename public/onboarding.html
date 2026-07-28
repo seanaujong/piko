@@ -24,7 +24,13 @@
         font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
       }
       h1 { font-size: 1.6rem; line-height: 1.25; margin: 0 0 0.5em; }
-      h2 { font-size: 1.05rem; margin: 2.5em 0 0.5em; }
+      /* Roughly 3:1 above to below, and about twice the 16px gap between paragraphs. A heading
+         this close to body size — 16.8px against 16px — is a quiet one, and quiet headings can
+         carry less air than the space they were originally given: past about two paragraph gaps
+         the band above stops reading as "a new section starts here" and starts reading as a hole
+         in the page. Both halves matter. The space below has to stay clearly smaller than the
+         space above, or the heading detaches from the section it names. */
+      h2 { font-size: 1.05rem; margin: 1.75em 0 0.6em; }
       p { margin: 0 0 1em; }
       ul { margin: 0 0 1em; padding-left: 1.2em; }
       ol { margin: 0 0 1em; padding-left: 1.4em; }
@@ -51,8 +57,21 @@
         cursor: pointer;
       }
       button:disabled { opacity: 0.5; cursor: default; }
-      .status { margin-top: 1em; min-height: 1.6em; font-weight: 600; }
-      .status[data-state="granted"] { color: #1b7f3b; }
+
+      /* Granted is a *settled* control, not an unavailable one. It keeps `disabled`, because
+         there is nothing left to press — but not the dimming that normally comes with it, which
+         would make the page's one piece of good news the faintest thing on it. Equal specificity
+         to the rule above, so source order is what wins here.
+
+         The check is U+2713 and not an emoji. ✅ is itself a bright green rounded square and
+         fights the button it sits on; ✔️ renders as a near-black glyph on most platforms. A text
+         check inherits the button's own white and matches the weight of the word beside it. */
+      button[data-state="granted"] { background: #1b7f3b; opacity: 1; }
+
+      /* No reserved line. This used to hold a green confirmation as well, and 1.6em was the room
+         that message needed; the button carries that now. What is left is the refusal, which runs
+         to two lines at this width and so was never the thing the reservation could absorb. */
+      .status { margin-top: 1em; font-weight: 600; }
       .status[data-state="declined"] { color: #9a5b00; }
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
@@ -144,7 +163,9 @@
     </p>
 
     <button id="grant">Allow Piko on all sites</button>
-    <p class="status" id="status" data-state="idle"></p>
+    <!-- Only ever holds a refusal now, which is the case where a reader who cannot see the button
+         change colour most needs telling; `role="status"` is what announces it. -->
+    <p class="status" id="status" role="status" data-state="idle"></p>
 
     <h2>Sites Piko stays off</h2>
     <!-- Filled by `siteList.ts`, and empty in the markup on purpose: a shell with placeholder
