@@ -118,6 +118,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | what the preview decides to show, or any fallback | `content/state/previewState.ts` — the whole state machine |
 | the drag gesture itself | `content/dragTracking.ts` |
 | whether a page can be framed | `background/frameability.ts` (**not** the content script — its header says why) |
+| what a drag does when the link is a file rather than a page | `background/previewableContent.ts` — the whole decision, as two lists |
 | the message contract between the two | `shared/messages.ts`, then the `switch` in `background/index.ts` |
 | what the panel looks like | `content/panel/views/*` + `content/panel/styles.ts` |
 | the clippings pane's markup or behaviour | `content/panel/views/clippingsPane.tsx` — the one Preact component |
@@ -172,6 +173,10 @@ font-size contrast made it real.
 | Rules live in the reducer; events stay mechanical, and the content script decides nothing | ✅ | `content/state/previewState.ts`, `content/index.ts` | `previewState.test.ts` |
 | `PreviewState`/`PreviewEvent` are discriminated unions and `transition`'s `switch` is exhaustive — never add a `default:` | ✅ | `content/state/previewState.ts` | `npm run typecheck` |
 | Frameability is answered in the background worker; a page-context `fetch()` cannot see response headers | 👁 | `background/frameability.ts` | — |
+| A link that is not a page is named, never navigated to — a navigation Chrome cannot render is a download | ✅ | `background/previewableContent.ts` | `previewableContent.test.ts`, `e2e/extension.test.ts` (`a link that is not a page`) |
+| What may be framed is an allow-list, and an unnamed type refuses rather than guesses — the two ways of being wrong don't cost the same | ✅ | `background/previewableContent.ts` (`FRAMEABLE`) | `previewableContent.test.ts` |
+| A server calling its own response an attachment bars framing and nothing else; extraction never navigates | ✅ | `background/previewableContent.ts` (`isAttachment`) | `previewableContent.test.ts`, `e2e/extension.test.ts` |
+| A body no answer is going to read stops arriving, rather than travelling to be discarded | ✅ | `background/frameability.ts` (`answerFrom`) | `e2e/extension.test.ts` (`a body the worker will not read`) |
 | Relative URLs are resolved explicitly, never by a `<base>` element the host page's CSP can veto | ✅ | `content/extraction/extract.ts` (`absolutiseUrls`) | `extract.test.ts`, `e2e/extension.test.ts` (`hostile base-uri`) |
 | Host access is optional and requested at runtime — neither `host_permissions` nor `content_scripts` is declared | ✅ | `manifest.json`, `background/contentScriptRegistration.ts` | `e2e/manifest.test.ts` |
 | The e2e manifest differs from the shipped one in injection keys only, never in a permission | ✅ | `e2e/testManifest.ts` | `e2e/manifest.test.ts` |

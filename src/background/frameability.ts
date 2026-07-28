@@ -16,6 +16,7 @@ import type { CheckFrameabilityResponse } from '../shared/messages'
 import { FRAMEABILITY_FETCH_TIMEOUT_MS, MAX_FETCHED_HTML_BYTES } from '../shared/constants'
 import { fetchRefusal } from './fetchPolicy'
 import { readExcludedSites } from './excludedSites'
+import { handlingFor, isAttachment } from './previewableContent'
 
 /**
  * frame-ancestors (CSP) wins over X-Frame-Options when both are present (CSP2 precedence).
@@ -90,35 +91,94 @@ export async function checkFrameability(
     clearTimeout(timeout)
   }
 
-  const finalUrl = response.url || targetUrl
-  // Judged again after the redirect chain: the policy applied to `targetUrl` says nothing about
-  // where a 302 landed, and landing somewhere private is exactly the interesting case.
-  const refusedAfterRedirect = fetchRefusal(finalUrl, pageOrigin, excludedSites)
-  if (refusedAfterRedirect) return { type: 'FETCH_ERROR', reason: refusedAfterRedirect }
+  return answerFrom(response, response.url || targetUrl, pageOrigin, excludedSites)
+}
 
-  const contentType = response.headers.get('content-type') ?? ''
-  const isHtml = contentType.includes('text/html')
-  const blocked = isBlockedByHeaders(response.headers, pageOrigin, finalUrl)
+/**
+ * Everything between the network and the reply: what this response is, and what may be done
+ * with it. Separated from the fetch above so that this file reads as the three questions it
+ * asks — may we fetch, what came back, what does the panel get — rather than one long descent,
+ * and so that the body is disposed of in one place whichever answer wins.
+ */
+async function answerFrom(
+  response: Response,
+  finalUrl: string,
+  pageOrigin: string,
+  excludedSites: readonly string[],
+): Promise<CheckFrameabilityResponse> {
+  try {
+    // Judged again after the redirect chain: the policy applied to `targetUrl` says nothing about
+    // where a 302 landed, and landing somewhere private is exactly the interesting case.
+    const refusedAfterRedirect = fetchRefusal(finalUrl, pageOrigin, excludedSites)
+    if (refusedAfterRedirect) return { type: 'FETCH_ERROR', reason: refusedAfterRedirect }
 
-  if (!isHtml) {
-    if (blocked) return { type: 'UNSUPPORTED_CONTENT', finalUrl, contentType }
-    return { type: 'FRAME_OK', finalUrl, html: null }
+    const contentType = response.headers.get('content-type') ?? ''
+
+    /**
+     * Three reasons a response may not be put in an iframe, asked as one question because the
+     * panel only ever has one: may this be navigated to? Two of them are the page's own policy.
+     * The third is the server saying "this is a file", and it is the one whose cost is not a
+     * blank frame — a navigation Chrome cannot render is a download, so missing it saves a file
+     * to the reader's disk. `previewableContent.ts` argues both halves.
+     */
+    const framingBlocked =
+      isBlockedByHeaders(response.headers, pageOrigin, finalUrl) ||
+      isAttachment(response.headers.get('content-disposition') ?? '')
+
+    // Held in a const rather than switched on directly: TypeScript reads a `switch` as
+    // exhaustive only when its subject is a reference, so inlining the call here costs the very
+    // guarantee this shape exists for — a fourth handling would compile, and fall through.
+    const handling = handlingFor(contentType)
+
+    switch (handling) {
+      // Nothing to read and nothing safe to navigate to. Named to the reader rather than
+      // attempted, because the attempt is what writes the file.
+      case 'refuse':
+        return { type: 'UNSUPPORTED_CONTENT', finalUrl, contentType }
+
+      // A PDF or an image: the frame renders it from the URL alone, so no body is fetched and
+      // reader mode is not on offer for it. Blocked from framing, there is no second thing to
+      // try — that is what separates this from the extractable case below.
+      case 'frame':
+        if (framingBlocked) return { type: 'UNSUPPORTED_CONTENT', finalUrl, contentType }
+        return { type: 'FRAME_OK', finalUrl, html: null }
+
+      case 'extract': {
+        // Declared size first, actual size second. A chunked response without content-length is
+        // still read in full before it can be refused, bounded only by the fetch timeout above —
+        // the cheap check catches the honest case and the second catches the rest before a
+        // multi-megabyte string is handed to the message channel, which would fail less legibly.
+        const declared = Number(response.headers.get('content-length'))
+        if (Number.isFinite(declared) && declared > MAX_FETCHED_HTML_BYTES) {
+          return { type: 'FETCH_ERROR', reason: 'That page is too large to open in a preview.' }
+        }
+
+        const html = await response.text()
+        if (html.length > MAX_FETCHED_HTML_BYTES) {
+          return { type: 'FETCH_ERROR', reason: 'That page is too large to open in a preview.' }
+        }
+
+        if (framingBlocked) return { type: 'FRAME_BLOCKED', html, finalUrl }
+        return { type: 'FRAME_OK', finalUrl, html }
+      }
+    }
+
+    // Unreachable, asserted rather than inferred. The compiler stops proving a switch exhaustive
+    // once the enclosing `try` has a `finally` that branches, so leaving it implicit here would
+    // quietly hand a fourth `ContentHandling` a silent fall-through — the exact thing the ban on
+    // `default:` exists to prevent. Assigning to `never` puts the question back to the compiler,
+    // which now refuses the new handling at this line until it is given a case above.
+    const unhandled: never = handling
+    throw new Error(`unhandled content handling: ${String(unhandled)}`)
+  } finally {
+    // A body nobody is going to read is still arriving until it is cancelled. Only the extract
+    // branch reads one; every other path here answers from the headers and drops the response,
+    // and without this the rest of a 40MB PDF keeps travelling to a worker that has already
+    // thrown it away — while the iframe fetches the same file again to display it.
+    //
+    // Written once around every exit rather than at each `return`, which is what `bodyUsed`
+    // buys: cancelling a stream `text()` has taken is itself an error, so the guard is what
+    // makes one placement correct for all of them.
+    if (!response.bodyUsed) void response.body?.cancel().catch(() => {})
   }
-
-  // Declared size first, actual size second. A chunked response without content-length is still
-  // read in full before it can be refused, bounded only by the fetch timeout above — the cheap
-  // check catches the honest case and the second catches the rest before a multi-megabyte string
-  // is handed to the message channel, which would fail less legibly.
-  const declared = Number(response.headers.get('content-length'))
-  if (Number.isFinite(declared) && declared > MAX_FETCHED_HTML_BYTES) {
-    return { type: 'FETCH_ERROR', reason: 'That page is too large to open in a preview.' }
-  }
-
-  const html = await response.text()
-  if (html.length > MAX_FETCHED_HTML_BYTES) {
-    return { type: 'FETCH_ERROR', reason: 'That page is too large to open in a preview.' }
-  }
-
-  if (blocked) return { type: 'FRAME_BLOCKED', html, finalUrl }
-  return { type: 'FRAME_OK', finalUrl, html }
 }

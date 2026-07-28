@@ -43,7 +43,9 @@ segmentation, the line geometry, the clippings projections.
 │ frame-ancestors — a page-context fetch() cannot see                 │
 │ response headers at all, whatever its CORS mode.                    │
 │ Returns the html either way, so a later fallback to                 │
-│ reader mode costs no second round-trip.                             │
+│ reader mode costs no second round-trip. Also the one                │
+│ place that can tell a page from a file — a type Chrome              │
+│ would save is named to the reader, never navigated to.              │
 └─────────────────────────────────────────────────────────────────────┘
                                    │ FRAME_OK | FRAME_BLOCKED | UNSUPPORTED_CONTENT | FETCH_ERROR
                                    ▼

@@ -27,9 +27,47 @@ let server: FixtureServer
 let context: BrowserContext
 let base: string
 
+/**
+ * A minimal, genuinely valid single-page PDF, xref table and all.
+ *
+ * Generated rather than committed for the reason the bench's article is: its bytes carry nothing
+ * the suite reads, and a repository is a poor place to keep a binary a dozen lines can produce.
+ * Valid rather than approximate because Chrome has to actually render it — a PDF that failed to
+ * open would still produce an iframe, and the framing assertion would pass while proving nothing.
+ */
+function minimalPdf(): string {
+  const stream = 'BT /F1 18 Tf 30 120 Td (Tidal Constituents) Tj ET'
+  const objects = [
+    '<< /Type /Catalog /Pages 2 0 R >>',
+    '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>',
+    `<< /Length ${stream.length} >>\nstream\n${stream}\nendstream`,
+    '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>',
+  ]
+
+  let pdf = '%PDF-1.4\n'
+  const offsets: number[] = []
+  for (const [index, object] of objects.entries()) {
+    offsets.push(pdf.length)
+    pdf += `${index + 1} 0 obj\n${object}\nendobj\n`
+  }
+
+  const startxref = pdf.length
+  pdf += `xref\n0 ${objects.length + 1}\n0000000000 65535 f \n`
+  for (const offset of offsets) pdf += `${String(offset).padStart(10, '0')} 00000 n \n`
+  return `${pdf}trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\nstartxref\n${startxref}\n%%EOF\n`
+}
+
+/** The targets that are files rather than pages. `harness.ts` serves each as its extension says. */
+const FILES = {
+  '/paper.pdf': minimalPdf(),
+  '/attached-paper.pdf': minimalPdf(),
+  '/handout.docx': 'PK not really a docx, and it never needs to be',
+}
+
 beforeAll(async () => {
   buildTestExtension()
-  server = await serveFixtures()
+  server = await serveFixtures(FILES)
   base = server.base
   context = await launchWithExtension()
 }, 120_000)
@@ -635,6 +673,77 @@ describe('the loaded extension', () => {
  * promise resting on a default is one nothing defends. This is the defence: set a cookie for the
  * origin the link points at, drag the link, and read the request the worker actually sent.
  */
+/**
+ * A body the worker has decided not to read.
+ *
+ * The frameability check answers from the headers alone unless it is going to extract, and a
+ * response whose body nobody reads keeps arriving regardless — the worker holds the connection
+ * open and the bytes travel, to be thrown away on the far end. On a large file that is the whole
+ * file, over the reader's connection, for nothing. Framed types pay it twice over, since the
+ * iframe then fetches the same bytes again to display them.
+ *
+ * Measured from the server's side because that is where it becomes a value: either the client
+ * hung up early or it did not. A `.docx` is the target because it is refused outright, which
+ * means the worker's fetch is the *only* request for it — with a PDF the iframe would fetch it
+ * too, and the second request would drown out the answer.
+ */
+describe('a body the worker will not read', () => {
+  it('stops arriving instead of being downloaded and discarded', async () => {
+    const CHUNK = 'x'.repeat(64 * 1024)
+    const CHUNKS = 40
+    let verdict = 'never requested'
+
+    const trickler = createServer(async (request, response) => {
+      if (!(request.url ?? '').startsWith('/big.docx')) {
+        response.writeHead(404)
+        response.end('not found')
+        return
+      }
+      response.writeHead(200, {
+        'Content-Type': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'Content-Length': String(CHUNK.length * CHUNKS),
+      })
+
+      let open = true
+      response.on('close', () => (open = false))
+      let written = 0
+      for (let i = 0; i < CHUNKS && open; i++) {
+        response.write(CHUNK)
+        written += CHUNK.length
+        await new Promise((resolve) => setTimeout(resolve, 50))
+      }
+      verdict = open
+        ? `the whole ${written}-byte body arrived`
+        : `hung up after ${written} of ${CHUNK.length * CHUNKS} bytes`
+      if (open) response.end()
+    })
+    await new Promise<void>((resolve) => trickler.listen(0, '127.0.0.1', resolve))
+    const fileUrl = `http://127.0.0.1:${(trickler.address() as AddressInfo).port}/big.docx`
+
+    try {
+      const page = await context.newPage()
+      await page.goto(`${base}/`)
+      await page.evaluate((href) => {
+        const anchor = document.createElement('a')
+        anchor.id = 'large-file-link'
+        anchor.href = href
+        anchor.textContent = 'a large handout'
+        anchor.setAttribute('style', 'position:fixed;left:40px;top:200px;padding:8px;z-index:1')
+        document.body.appendChild(anchor)
+      }, fileUrl)
+
+      await dragLink(page, 'large-file-link')
+
+      // Delete the body-cancelling `finally` in `frameability.ts` and this reddens with
+      // "the whole 2621440-byte body arrived".
+      await expect.poll(() => verdict, POLL).toContain('hung up')
+      await page.close()
+    } finally {
+      trickler.close()
+    }
+  })
+})
+
 describe('what the background fetch carries', () => {
   it('sends no cookie for the target site, even when the browser holds one', async () => {
     const received: { cookie: string | null; referer: string | null }[] = []
@@ -746,6 +855,110 @@ describe('extraction under a hostile base-uri policy', () => {
       elsewhere.close()
       await page.close()
     }
+  })
+})
+
+/**
+ * What a drag does when the link is not an article.
+ *
+ * The suite the rest of this file describes could not have caught the bug this one exists for,
+ * and the reason is worth stating: every assertion elsewhere reads the panel, and the failure
+ * here left the panel looking merely unhelpful while writing a file to the reader's Downloads
+ * folder. The effect landed outside the page entirely. What makes it testable anyway is the
+ * same thing that makes the journal's export testable — it ends in a *file*, and Playwright
+ * hands the file back. An effect is guardable when it ends in a value something can read,
+ * whatever the distance it travelled.
+ *
+ * `previewableContent.test.ts` holds the decision as a table. These four are the round trip:
+ * a real drag, the real worker, real headers, and Chrome's own idea of what it will display.
+ */
+describe('a link that is not a page', () => {
+  /** The panel's error text, once it has one. */
+  const errorText = (page: Page): Promise<string> =>
+    page.evaluate(`${SHADOW}.querySelector('.piko-error')?.textContent ?? ''`) as Promise<string>
+
+  /** A drag, watched for the one effect that leaves the browser. */
+  async function dragWatchingDisk(linkId: string): Promise<{ page: Page; saved: string[] }> {
+    const page = await context.newPage()
+    const saved: string[] = []
+    page.on('download', (download) => saved.push(download.suggestedFilename()))
+    await page.goto(`${base}/files.html`)
+    await dragLink(page, linkId)
+    return { page, saved }
+  }
+
+  /**
+   * Long enough for the pre-fix path to have played out in full: the file was written about a
+   * second after the drag, and the panel said nothing at all until the iframe's 2.5s timeout.
+   * A fixed wait rather than a poll on the panel, because the disk has to be checked whatever
+   * the panel ends up showing — polling for the right words first would report the wrong
+   * failure, and this test is worth more than the words.
+   */
+  const SETTLED_MS = 3_500
+
+  it('refuses a file Chrome would save, and saves nothing', async () => {
+    const { page, saved } = await dragWatchingDisk('docx-link')
+    await page.waitForTimeout(SETTLED_MS)
+
+    // The assertion the block exists for, and first for that reason. Revert `handlingFor` to
+    // the old `text/html` test and this is what reddens, with `handout.docx` in the array.
+    expect(saved).toEqual([])
+
+    expect(await errorText(page)).toContain('wordprocessingml')
+    expect(await errorText(page)).toContain('new tab')
+    await page.close()
+  })
+
+  /**
+   * A frameable type carrying the one header that overrides it. Chrome saves a PDF served this
+   * way exactly as it saves a zip, so the type alone is not enough to decide by.
+   */
+  it('refuses a pdf the server marked for saving', async () => {
+    const { page, saved } = await dragWatchingDisk('attached-pdf-link')
+    await page.waitForTimeout(SETTLED_MS)
+
+    expect(saved).toEqual([])
+    expect(await errorText(page)).toContain('application/pdf')
+    await page.close()
+  })
+
+  it('frames a pdf, and offers no reader mode for it', async () => {
+    const { page, saved } = await dragWatchingDisk('pdf-link')
+
+    const framed = (): Promise<string | null> =>
+      page.evaluate(
+        `${SHADOW}.querySelector('iframe')?.getAttribute('src') ?? null`,
+      ) as Promise<string | null>
+
+    await expect.poll(framed, POLL).toBe(`${base}/paper.pdf`)
+    // There is no body to extract from, so the toggle would be a control with one setting.
+    const toggleShown = await page.evaluate(
+      `(() => { const b = ${SHADOW}.querySelector('.piko-mode-toggle'); return !!b && b.style.display !== 'none' })()`,
+    )
+    expect(toggleShown).toBe(false)
+    expect(saved).toEqual([])
+    await page.close()
+  })
+
+  /**
+   * The quiet half of the same bug. This page is prose by any measure, and asking whether its
+   * type *contained* `text/html` answered no — so it was framed, and framing is where reader
+   * mode, highlighting, clipping and the toggle that would have let the reader ask for them
+   * again all went. Clipping a sentence from it is the assertion that all four came back.
+   */
+  it('reads an xhtml page like any other article', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/files.html`)
+    await dragLink(page, 'xhtml-link')
+    await waitForReader(page)
+
+    expect(await page.evaluate(`${SHADOW}.querySelector('.piko-article').textContent`)).toContain(
+      'standing agreement',
+    )
+
+    await clipFirstSentence(page)
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+    await page.close()
   })
 })
 
