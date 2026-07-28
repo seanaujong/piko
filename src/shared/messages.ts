@@ -11,7 +11,14 @@ export type CheckFrameabilityResponse =
   // a second network round-trip. Non-HTML targets (e.g. a PDF) carry `html: null` — there's
   // nothing for Readability to parse, so those can only ever stay framed or show an error.
   | { type: 'FRAME_OK'; finalUrl: string; html: string | null }
+  // Blocked for any reason the worker can see, which is deliberately wider than the frame
+  // headers it started as: `Content-Security-Policy`, `X-Frame-Options`, and a server declaring
+  // its own response an attachment all reduce to the same instruction — here is the body, do
+  // not navigate to it. Widening the existing answer rather than adding a state is what keeps
+  // the reducer free of the question, since what it does about it is identical either way.
   | { type: 'FRAME_BLOCKED'; html: string; finalUrl: string }
+  // Nothing to read and nothing safe to show: a type Chrome would save rather than render.
+  // `previewableContent.ts` holds the list and the reason it is an allow-list.
   | { type: 'UNSUPPORTED_CONTENT'; finalUrl: string; contentType: string }
   | { type: 'FETCH_ERROR'; reason: string }
 

@@ -106,37 +106,63 @@ export async function dragElement(page: Page, link: Locator): Promise<void> {
 export type FixtureServer = { base: string; close: () => void }
 
 /**
+ * What a fixture is served as, by extension.
+ *
+ * The suite needs to serve things that are not pages, because what Piko does with a response
+ * turns entirely on this header — a `.docx` and an article are the same drag and the same
+ * fetch, and differ only here. Anything unlisted is served as HTML, which is what nearly every
+ * fixture is.
+ */
+const CONTENT_TYPES: Readonly<Record<string, string>> = {
+  '.xhtml': 'application/xhtml+xml; charset=utf-8',
+  '.pdf': 'application/pdf',
+  '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+}
+
+const contentTypeFor = (name: string): string =>
+  CONTENT_TYPES[path.extname(name).toLowerCase()] ?? 'text/html; charset=utf-8'
+
+/**
  * Serves `e2e/fixtures`, plus any pages generated for one run — a bench needs an article far
- * larger than anything worth committing, and generating it keeps the repo small.
+ * larger than anything worth committing, and generating it keeps the repo small. The same
+ * escape hatch carries the binary-ish fixtures, for the same reason.
+ *
+ * **Two names carry a header the rest do not**, both because the header is the thing under
+ * test and cannot be expressed inside the file. `csp-host.html` is served with the directive
+ * that broke extraction in the wild: a `<base>` element is governed by the *host page's*
+ * base-uri policy even inside a DOMParser document, so this page is the only place the suite
+ * can tell a mechanism the page can veto from one it cannot — Wikipedia serves exactly this.
+ * Anything named `attached-*` is served as `Content-Disposition: attachment`, which is a
+ * server saying "save this, don't show it" and is the one header that turns a type Chrome
+ * renders into a file on the reader's disk.
  */
 export async function serveFixtures(
   generated: Readonly<Record<string, string>> = {},
 ): Promise<FixtureServer> {
   const server: Server = createServer((request, response) => {
     const requested = (request.url === '/' ? '/index.html' : (request.url ?? '/')).split('?')[0]!
+    const name = path.basename(requested)
+
+    const headers: Record<string, string> = { 'Content-Type': contentTypeFor(name) }
+    if (name === 'csp-host.html') headers['Content-Security-Policy'] = "base-uri 'self'"
+    if (name.startsWith('attached-')) {
+      headers['Content-Disposition'] = `attachment; filename="${name.slice('attached-'.length)}"`
+    }
 
     const made = generated[requested]
     if (made !== undefined) {
-      response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+      response.writeHead(200, headers)
       response.end(made)
       return
     }
 
-    const file = path.join(FIXTURES, path.basename(requested))
+    const file = path.join(FIXTURES, name)
     if (!existsSync(file)) {
       response.writeHead(404)
       response.end('not found')
       return
     }
 
-    // One fixture is served with the directive that broke extraction in the wild. A <base>
-    // element is governed by the *host page's* base-uri policy even inside a DOMParser
-    // document, so this page is the only place the suite can tell a mechanism the page can
-    // veto from one it cannot. Wikipedia serves exactly this.
-    const headers: Record<string, string> = { 'Content-Type': 'text/html; charset=utf-8' }
-    if (path.basename(requested) === 'csp-host.html') {
-      headers['Content-Security-Policy'] = "base-uri 'self'"
-    }
     response.writeHead(200, headers)
     response.end(readFileSync(file))
   })

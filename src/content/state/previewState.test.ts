@@ -115,6 +115,16 @@ describe('transition', () => {
 
       expect(state.kind === 'error' && state.reason).toContain('application/zip')
     })
+
+    /** A refusal is only half an answer while the reader is holding a link that still works. */
+    it('points at the link the reader still has', () => {
+      const state = transition(loading(), {
+        type: 'UnsupportedContent',
+        contentType: 'application/zip',
+      })
+
+      expect(state.kind === 'error' && state.reason).toContain('new tab')
+    })
   })
 
   describe('iframe timeout', () => {
@@ -128,6 +138,18 @@ describe('transition', () => {
       const state = transition(framedWithoutHtml(), { type: 'IframeTimedOut' })
 
       expect(state.kind).toBe('error')
+    })
+
+    /**
+     * A PDF has no reader mode by nature, so offering its absence as the explanation described
+     * the design rather than the failure. What went wrong is that the frame never loaded.
+     */
+    it('says what failed, not which mode is unavailable', () => {
+      const state = transition(framedWithoutHtml(), { type: 'IframeTimedOut' })
+      const reason = state.kind === 'error' ? state.reason : ''
+
+      expect(reason).toContain('new tab')
+      expect(reason).not.toContain('reader mode')
     })
 
     it('is ignored once the reader is already showing', () => {

@@ -95,18 +95,37 @@ export function transition(state: PreviewState, event: PreviewEvent): PreviewSta
       if (state.kind !== 'loading') return state
       return { kind: 'error', target: state.target, reason: event.reason }
 
+    /**
+     * Said as a fact about the file and an offer, because the reader is holding a link that
+     * still works. The type is named — "a .zip" is a different thing to be told than "no" — and
+     * the way out is the header's own new-tab button, which is on screen as this is read.
+     */
     case 'UnsupportedContent':
       if (state.kind !== 'loading') return state
       return {
         kind: 'error',
         target: state.target,
-        reason: `This page can't be previewed (${event.contentType || 'unknown content type'}).`,
+        reason: `Piko can't preview this (${event.contentType || 'unknown content type'}). Open it in a new tab instead.`,
       }
 
+    /**
+     * With a body, the timeout is a fall back to reader mode. Without one there is nowhere to
+     * fall back to, and what is left to say is what actually happened.
+     *
+     * The old wording here offered reader mode's absence as the explanation, which was the one
+     * thing the reader had not asked for: a dragged PDF has no reader mode by nature, so being
+     * told it can't be shown in one describes the frame's own design rather than the failure.
+     * What remains at this point is a frame that never loaded — a host page's `frame-src` policy
+     * refusing it, or a load that stalled — and in both the link itself still opens.
+     */
     case 'IframeTimedOut': {
       if (state.kind !== 'ready' || state.content.mode !== 'framed') return state
       if (state.html === null) {
-        return { kind: 'error', target: state.target, reason: "This page didn't load and can't be shown in reader mode." }
+        return {
+          kind: 'error',
+          target: state.target,
+          reason: "This didn't finish loading in the preview. Open it in a new tab to see it.",
+        }
       }
       return readyFromExtraction(state.target, state.finalUrl, state.html)
     }
