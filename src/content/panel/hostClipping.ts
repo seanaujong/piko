@@ -1,4 +1,4 @@
-import { findSentences, type SentenceHit } from '../extraction/sentences'
+import { findPassages, type Passage } from '../extraction/sentences'
 import type { Clipping, ClippingsStore } from '../state/clippings'
 import { attachSentenceHighlight } from './highlight'
 
@@ -20,7 +20,7 @@ export function attachHostClipping(surface: HTMLElement, store: ClippingsStore):
   const locale = document.documentElement.lang || 'en'
   const article = document.body
 
-  let clippedHits: SentenceHit[] = []
+  let clippedHits: Passage[] = []
 
   function refreshClipped(): void {
     const here = new Set(
@@ -29,10 +29,20 @@ export function attachHostClipping(surface: HTMLElement, store: ClippingsStore):
         .filter((clipping) => clipping.sourceUrl === window.location.href)
         .map((clipping) => clipping.text),
     )
-    clippedHits = findSentences(article, locale, here)
+    clippedHits = findPassages(article, locale, here)
   }
 
   refreshClipped()
+
+  /** Whatever a passage taken here is a clipping of. */
+  const clippingOf = (text: string): Clipping => ({
+    text,
+    sourceUrl: window.location.href,
+    sourceTitle: document.title || window.location.hostname,
+    // Nothing was dragged to get here — the reader was already on this page.
+    originUrl: null,
+    at: Date.now(),
+  })
 
   const highlight = attachSentenceHighlight({
     surface,
@@ -43,15 +53,10 @@ export function attachHostClipping(surface: HTMLElement, store: ClippingsStore):
     suppressActivation: true,
     clipped: () => clippedHits,
     onToggle(hit) {
-      const clipping: Clipping = {
-        text: hit.text,
-        sourceUrl: window.location.href,
-        sourceTitle: document.title || window.location.hostname,
-        // Nothing was dragged to get here — the reader was already on this page.
-        originUrl: null,
-        at: Date.now(),
-      }
-      store.toggle(clipping)
+      store.toggle(clippingOf(hit.text))
+    },
+    onExtend({ grown, supersedes }) {
+      store.extend(clippingOf(grown.text), new Set(supersedes.map((p) => p.text)))
     },
   })
 

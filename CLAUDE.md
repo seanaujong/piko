@@ -4,7 +4,8 @@
 A Chrome MV3 extension with two clipping surfaces over one hit-tester. **Drag a hyperlink**
 and the article opens in place, in reader mode. **Click the toolbar icon** and the page you
 are already on becomes clippable, with the journal docked beside it. On either surface,
-hovering a sentence highlights it and clicking clips it to a persistent journal.
+hovering a sentence highlights it and clicking clips it to a persistent journal;
+shift-clicking a sentence beside a kept one grows that note to cover both, as one clipping.
 
 **The filter for any new feature** is engagement, not summarisation: *does this increase
 the reader's engagement, or perform it on their behalf?* This is the rule that keeps
@@ -131,6 +132,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | which sites Piko stays off | `background/excludedSites.ts` — the reader's list; `shared/sensitiveHosts.ts` is the shipped one; `onboarding/siteList.ts` shows both |
 | what the icon's right-click menu offers | `background/siteMenu.ts`, then the plumbing in `background/index.ts` |
 | sentence boundaries or highlight geometry | `content/extraction/sentences.ts` |
+| how far one clipping may reach, or what a shift-click grows | `content/extraction/sentences.ts` (`Passage`, `passageExtendedTo`) |
 | the clippings journal or its projections | `content/state/clippings.ts` |
 | what an exported file says, or how it leaves | `content/panel/exportMarkdown.ts`, then `download.ts` |
 | how a clipping reads once shown — footnote markers and the like | `content/extraction/sentences.ts` (`withoutCitations`) |
@@ -199,9 +201,15 @@ font-size contrast made it real.
 | Standing down is one-way; only the worker decides that Piko may run, and a tab never re-arms itself | 👁 | `content/index.ts` (`standDown`) | — |
 | Article text is never mutated to highlight it — paint an overlay, don't wrap in `<span>`s | 👁 | `content/extraction/sentences.ts`, `content/panel/highlight.ts` | — |
 | Bands come from the block's measured lines, never a line-height grid and never the drawn sentence's own rects | ✅ | `content/extraction/sentences.ts` (`lineBandsFor`) | `sentences.browser.test.ts` |
-| Client rects are merged by visual line before painting, never used raw | ✅ | `content/extraction/sentences.ts` (`lineRectsForSentence`) | `sentences.browser.test.ts` |
+| Client rects are merged by visual line before painting, never used raw | ✅ | `content/extraction/sentences.ts` (`lineRectsForSpan`) | `sentences.browser.test.ts` |
 | Hit-testing goes through the shadow root's `elementFromPoint`, then rect containment — never a caret lookup | 👁 | `content/extraction/sentences.ts` (`sentenceAtPoint`) | — |
 | Segmentation is `Intl.Segmenter` plus two corrections, never a regex split on `.` | ✅ | `content/extraction/sentences.ts` (`sentencesIn`, `pastCitation`, `endsSentence`) | `sentences.test.ts` |
+| A clipping is a contiguous run of sentences in ONE block, and one sentence is the run of one — so a run needs no second code path, only a longer span | ✅ | `content/extraction/sentences.ts` (`Passage`) | `sentences.test.ts`, `sentences.browser.test.ts` |
+| Which note a reach grows and how far is one rule both surfaces ask, never a copy per surface; two notes can never end up overlapping | ✅ | `content/extraction/sentences.ts` (`passageExtendedTo`) | `sentences.test.ts` |
+| The run written down and the run looked for again join their sentences on the same separator — a passage that could be taken but never painted again is the failure | ✅ | `content/extraction/sentences.ts` (`BETWEEN_SENTENCES`) | `sentences.test.ts` |
+| A reach that would change nothing is not a write — the click is left to the page | ✅ | `content/extraction/sentences.ts` (`passageExtendedTo`), `content/panel/highlight.ts` | `sentences.test.ts` |
+| A shift-click's own text selection is dropped, because the browser made it on mousedown, past `preventDefault`'s reach, over the passage that just lit up | ✅ | `content/panel/highlight.ts` (`clearIncidentalSelection`) | `e2e/extension.test.ts` (`grows a clipping`) |
+| Hover yields to a clipped passage by containment, never by equality — a run's later sentences are clipped too | ✅ | `content/panel/highlight.ts` (`covers`) | `highlight.browser.test.ts` |
 | Footnote markers are stripped where a clipping is *shown*, never where it is stored or matched | ✅ | `content/extraction/sentences.ts` (`withoutCitations`) | `sentences.test.ts`, `exportMarkdown.test.ts`, `e2e/extension.test.ts` |
 | The site's tag is dropped where a source is *shown*, on the same terms — search and export still see the whole title | ✅ | `content/panel/formatUrl.ts` (`withoutSiteTag`) | `formatUrl.test.ts` |
 | A block's text is its prose nodes, never `textContent` — and one filter feeds both the text and the Range | ✅ | `content/extraction/sentences.ts` (`textNodesIn`, `NOT_PROSE`) | `sentences.test.ts` |

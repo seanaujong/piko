@@ -115,6 +115,36 @@ async function clipFirstSentence(page: Page): Promise<void> {
   await page.mouse.click(x, y)
 }
 
+/**
+ * Clicks the middle of some words, found by what they say.
+ *
+ * Sentence offsets never leave the extension, so the point comes from a Range over the words
+ * themselves — which also makes this independent of how the fixture happens to wrap, where
+ * clicking a paragraph's corner is a guess about line breaks.
+ */
+async function clickWords(page: Page, words: string): Promise<void> {
+  const point = await page.evaluate(`(() => {
+    const want = ${JSON.stringify(words)}
+    const p = [...${SHADOW}.querySelectorAll('.piko-article p')]
+      .find(el => el.textContent.includes(want))
+    p.scrollIntoView({ block: 'center' })
+    const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = node.data.indexOf(want)
+      if (at < 0) continue
+      const range = document.createRange()
+      range.setStart(node, at)
+      range.setEnd(node, at + want.length)
+      const r = range.getBoundingClientRect()
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2 }
+    }
+    return null
+  })()`)
+
+  const { x, y } = point as { x: number; y: number }
+  await page.mouse.click(x, y)
+}
+
 const clippingCount = (page: Page): Promise<number> =>
   page.evaluate(`${SHADOW}.querySelectorAll('.piko-clip').length`) as Promise<number>
 
@@ -425,6 +455,43 @@ describe('the loaded extension', () => {
     // the journal looks tidier while every link in it quietly stops resolving.
     const href = await page.evaluate(`${SHADOW}.querySelector('.piko-clip-source').href`)
     expect(href).toContain('%5B1%5D')
+
+    await page.close()
+  })
+
+  /**
+   * Two sentences that are one thought, kept as one note. The whole feature end to end: the
+   * gesture, the run the rule builds from it, the single row it becomes, and the mark that
+   * now covers both — driven through the real extension rather than the rule in isolation.
+   */
+  it('grows a clipping to the sentence a shift-click reaches', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    await clickWords(page, 'A tide is the rise')
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+
+    await page.keyboard.down('Shift')
+    await clickWords(page, 'Tides originate')
+    await page.keyboard.up('Shift')
+
+    await expect.poll(() => firstClippingText(page), POLL).toContain('Tides originate')
+
+    // One note, not two. The second sentence joined the first rather than starting its own row.
+    expect(await clippingCount(page)).toBe(1)
+    expect(await firstClippingText(page)).toBe(
+      'A tide is the rise and fall of a sea level caused by the combined effects of ' +
+        'gravitational forces exerted by the Moon and the Sun. Tides originate in the oceans ' +
+        'and progress towards the coastlines, where they appear as the regular rise and fall ' +
+        'of the sea surface.',
+    )
+
+    // Shift-click is the browser's own extend-the-selection gesture and runs on mousedown,
+    // out of `preventDefault`'s reach. Left alone it lays a blue smear over exactly the
+    // passage that just lit up, so the reader gets two highlights disagreeing about the note.
+    expect(await page.evaluate('window.getSelection().toString()')).toBe('')
 
     await page.close()
   })
