@@ -8,6 +8,7 @@ opens over the page you're already on.
 - Or click the toolbar icon → the page you're already on becomes clippable
 - Hover a sentence → it lights up
 - Click it → it's clipped to a journal that persists across reloads
+- Shift-click a sentence beside it → the note grows to cover both, as one clipping
 - Export the journal → one Markdown file, ready to drop into an Obsidian vault, where each
   quote links back to the exact sentence on the page it came from
 
@@ -78,10 +79,11 @@ segmentation, the line geometry, the clippings projections.
 │ panel/highlight.ts + extraction/sentences.ts                   pure │
 │ attachSentenceHighlight paints bands into an overlay;               │
 │ sentencesIn · lineBandsFor · sentenceAtPoint decide where           │
-│ a sentence is. The surfaces differ by three options, not            │
-│ by a second definition of what a sentence is.                       │
+│ a sentence is; a Passage is a run of them, and one sentence         │
+│ is the run of one. The surfaces differ by three options,            │
+│ not by a second definition of what a sentence is.                   │
 └─────────────────────────────────────────────────────────────────────┘
-                                   │ a click clips the sentence under it
+                                   │ a click clips one sentence, shift a run
                                    ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ state/clippings.ts                              pure core + storage │

@@ -143,6 +143,115 @@ describe('the store', () => {
       expect(store.storageError()).toContain('Refresh')
     })
   })
+
+  /**
+   * A note that grew. The page decides what it grew into; the journal decides what that costs
+   * the notes it swallowed and what time the survivor carries.
+   */
+  describe('extending a note', () => {
+    it('puts the grown note in and takes the swallowed ones out', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+      store.toggle(clip('Elsewhere.', CHEMISTRY, T0 + 1_000))
+
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 2_000), new Set(['First.']))
+
+      expect(store.all().map((c) => c.text)).toEqual(['Elsewhere.', 'First. Second.'])
+    })
+
+    /**
+     * Extending is an edit to a note already taken, so the journal keeps saying when it was
+     * taken. A note that jumped to the top of the list on every added sentence would be a
+     * record of fiddling rather than of reading — and would leave the sitting it belongs to.
+     */
+    it('keeps the earliest time it has ever had', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 90_000), new Set(['First.']))
+
+      expect(store.all()[0]!.at).toBe(T0)
+    })
+
+    it('starts a fresh note at the time it was taken when it swallowed nothing', () => {
+      const store = createClippingsStore()
+
+      store.extend(clip('First.', ENCYCLOPEDIA, T0), new Set())
+
+      expect(store.all()[0]!.at).toBe(T0)
+    })
+
+    /** The same sentence on two pages is two notes; only this page's are swallowed. */
+    it('leaves an identical sentence on another page alone', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+      store.toggle(clip('First.', CHEMISTRY, T0 + 1_000))
+
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 2_000), new Set(['First.']))
+
+      expect(store.all().map((c) => `${c.text} @ ${c.sourceUrl}`)).toEqual([
+        `First. @ ${CHEMISTRY}`,
+        `First. Second. @ ${ENCYCLOPEDIA}`,
+      ])
+    })
+
+    /**
+     * One page can say the same thing in two paragraphs, so a note grown in one can arrive
+     * spelling a text the journal already holds from the other. Two clippings that are `isSame`
+     * as each other would make removing either one remove the wrong one.
+     */
+    it('does not leave a duplicate of the grown note behind', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First. Second.', ENCYCLOPEDIA, T0))
+
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 5_000), new Set(['Second.']))
+
+      expect(store.all().map((c) => c.text)).toEqual(['First. Second.'])
+      expect(store.all()[0]!.at).toBe(T0)
+    })
+
+    /**
+     * One write, not an add and a remove. Two would be two notifications, so the pane would
+     * redraw once against a journal holding neither the old note nor the new one.
+     */
+    it('notifies once', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+
+      let notifications = 0
+      store.subscribe(() => (notifications += 1))
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 1_000), new Set(['First.']))
+
+      expect(notifications).toBe(1)
+    })
+
+    it('leaves an earlier snapshot alone', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0))
+      const snapshot = store.all()
+
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 1_000), new Set(['First.']))
+
+      expect(store.all()).not.toBe(snapshot)
+      expect(snapshot.map((c) => c.text)).toEqual(['First.'])
+    })
+
+    /**
+     * The reference-stability contract `ClipEntry` leans on: a row whose clipping did not
+     * change must come through by identity, or every row in the journal re-renders whenever
+     * one note grows.
+     */
+    it('hands untouched clippings back by reference', () => {
+      const store = createClippingsStore()
+      store.toggle(clip('Elsewhere.', CHEMISTRY, T0))
+      store.toggle(clip('First.', ENCYCLOPEDIA, T0 + 1_000))
+      const untouched = store.all()[0]!
+
+      store.extend(clip('First. Second.', ENCYCLOPEDIA, T0 + 2_000), new Set(['First.']))
+
+      expect(store.all()[0]).toBe(untouched)
+    })
+  })
 })
 
 /**

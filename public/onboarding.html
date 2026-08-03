@@ -46,6 +46,19 @@
          baseline so it sits *in* the line rather than on top of it. */
       .inline-icon { width: 1.15em; height: 1.15em; vertical-align: -0.25em; }
 
+      /* The one key this page asks for. Left to the browser it renders as monospace at a
+         smaller size, which reads as code rather than as something to press; this keeps the
+         page's own face and borrows only the outline of a keycap. */
+      kbd {
+        font: inherit;
+        font-size: 0.9em;
+        padding: 1px 5px;
+        border: 1px solid rgba(0, 0, 0, 0.2);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        background: #f4f4f6;
+      }
+
       button {
         font: inherit;
         font-weight: 600;
@@ -246,7 +259,9 @@
           toolbar. The journal docks on the right, and the page becomes clippable.</li>
         <li>
           Read until you find the one sentence that says what the article is <em>about</em>.
-          Click it. That sentence is now the article, in your journal.
+          Click it. That sentence is now the article, in your journal. If the thought carries
+          on into the sentence beside it, <kbd>Shift</kbd>-click that one and the note grows to
+          hold both, as one clipping.
           <details>
             <summary>What the docked journal and a kept sentence look like</summary>
             <img class="shot" src="shots/armed.webp" width="1040" height="660"

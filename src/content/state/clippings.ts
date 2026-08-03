@@ -40,6 +40,25 @@ export type ClippingsStore = {
    */
   storageError: () => string | null
   toggle: (clipping: Clipping) => void
+  /**
+   * Record a note that grew, dropping the notes it swallowed — one write, one notification.
+   *
+   * `supersedes` names them by text, which is the currency between the page and the journal
+   * everywhere else here too: the highlighter finds passages by text and the journal stores
+   * them by text, so neither side has to hold a reference into the other. Only this source's
+   * clippings are considered, because the same sentence on two pages is two notes.
+   *
+   * **The grown note keeps the earliest time it has ever had.** Extending is an edit to
+   * something already taken, not a fresh taking, and `at` is what the journal answers "when
+   * did I read this" with — a note that jumped to the top of the list every time the reader
+   * added a sentence to it would be a record of fiddling rather than of reading. It also
+   * keeps the sitting it was taken in, which is what the chip row is ordered by.
+   *
+   * An add and a remove would have done the same thing in two writes, and that is exactly
+   * what this exists to avoid: two writes are two notifications, so the pane would redraw
+   * once against a journal holding neither the old note nor the new one.
+   */
+  extend: (clipping: Clipping, supersedes: ReadonlySet<string>) => void
   clear: () => void
   subscribe: (listener: () => void) => () => void
 }
@@ -122,6 +141,22 @@ export function createClippingsStore(): ClippingsStore {
         index >= 0
           ? [...clippings.slice(0, index), ...clippings.slice(index + 1)]
           : [...clippings, clipping]
+      persist()
+      notify()
+    },
+
+    extend(clipping, supersedes) {
+      // The grown note's own identity counts as absorbed too. The same sentence can appear in
+      // two blocks of one page, so a note grown in the first can arrive spelling a text the
+      // journal already holds from the second — and two clippings `isSame` as each other
+      // would make removing either of them remove the wrong one.
+      const absorbed = (c: Clipping): boolean =>
+        isSame(c, clipping) || (c.sourceUrl === clipping.sourceUrl && supersedes.has(c.text))
+
+      let at = clipping.at
+      for (const c of clippings) if (absorbed(c)) at = Math.min(at, c.at)
+
+      clippings = [...clippings.filter((c) => !absorbed(c)), { ...clipping, at }]
       persist()
       notify()
     },

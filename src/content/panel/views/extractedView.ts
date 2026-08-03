@@ -1,6 +1,6 @@
 import type { ExtractedArticle } from '../../extraction/extract'
-import type { SentenceHit } from '../../extraction/sentences'
-import { findSentences } from '../../extraction/sentences'
+import type { Passage } from '../../extraction/sentences'
+import { findPassages } from '../../extraction/sentences'
 import type { Clipping, ClippingsStore } from '../../state/clippings'
 import { attachSentenceHighlight } from '../highlight'
 
@@ -42,7 +42,7 @@ export function renderExtracted(
   const locale = document.documentElement.lang || 'en'
   const { store, sourceUrl, originUrl, root: shadowRoot } = context
 
-  let clippedHits: SentenceHit[] = []
+  let clippedHits: Passage[] = []
 
   function refreshClipped(): void {
     const mine = new Set(
@@ -51,10 +51,19 @@ export function renderExtracted(
         .filter((clipping) => clipping.sourceUrl === sourceUrl)
         .map((clipping) => clipping.text),
     )
-    clippedHits = findSentences(wrapper, locale, mine)
+    clippedHits = findPassages(wrapper, locale, mine)
   }
 
   refreshClipped()
+
+  /** Whatever a passage taken here is a clipping of. */
+  const clippingOf = (text: string): Clipping => ({
+    text,
+    sourceUrl,
+    sourceTitle: article.title,
+    originUrl,
+    at: Date.now(),
+  })
 
   const highlight = attachSentenceHighlight({
     surface: wrapper,
@@ -62,14 +71,10 @@ export function renderExtracted(
     root: shadowRoot,
     clipped: () => clippedHits,
     onToggle(hit) {
-      const clipping: Clipping = {
-        text: hit.text,
-        sourceUrl,
-        sourceTitle: article.title,
-        originUrl,
-        at: Date.now(),
-      }
-      store.toggle(clipping)
+      store.toggle(clippingOf(hit.text))
+    },
+    onExtend({ grown, supersedes }) {
+      store.extend(clippingOf(grown.text), new Set(supersedes.map((p) => p.text)))
     },
   })
 

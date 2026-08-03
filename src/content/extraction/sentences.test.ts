@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest'
-import { rangeForSentence, sentencesIn, withoutCitations } from './sentences'
+import type { Passage } from './sentences'
+import {
+  findPassages,
+  passageExtendedTo,
+  rangeForSpan,
+  sentencesIn,
+  withoutCitations,
+} from './sentences'
 
 /** Sentences are read off a real element, since that is what the hit-tester passes. */
 function block(html: string): HTMLElement {
@@ -97,11 +104,11 @@ describe('sentencesIn', () => {
   })
 })
 
-describe('rangeForSentence', () => {
+describe('rangeForSpan', () => {
   it('spans the text nodes an offset range crosses', () => {
     const el = block('An <a href="#">encyclopedia</a> is a <b>reference</b> work. Next.')
     const [first] = sentencesIn(el, 'en')
-    const range = rangeForSentence(el, first!.start, first!.end)
+    const range = rangeForSpan(el, first!.start, first!.end)
 
     expect(range).not.toBeNull()
     expect(range!.toString()).toBe('An encyclopedia is a reference work.')
@@ -110,7 +117,7 @@ describe('rangeForSentence', () => {
   it('locates a sentence that starts partway through a text node', () => {
     const el = block('First one. Second one.')
     const [, second] = sentencesIn(el, 'en')
-    const range = rangeForSentence(el, second!.start, second!.end)
+    const range = rangeForSpan(el, second!.start, second!.end)
 
     expect(range!.toString()).toBe('Second one.')
   })
@@ -127,7 +134,7 @@ describe('rangeForSentence', () => {
       '<span aria-hidden="true">decorative junk</span>First one. Second one.',
     )
     const [, second] = sentencesIn(el, 'en')
-    const range = rangeForSentence(el, second!.start, second!.end)
+    const range = rangeForSpan(el, second!.start, second!.end)
 
     expect(range!.toString()).toBe('Second one.')
   })
@@ -194,5 +201,229 @@ describe('withoutCitations', () => {
   it('leaves bracketed prose alone', () => {
     expect(withoutCitations('The array [1, 2, 3] is sorted.')).toBe('The array [1, 2, 3] is sorted.')
     expect(withoutCitations('He said [the author] disagreed.')).toBe('He said [the author] disagreed.')
+  })
+})
+
+/**
+ * A clipping is a contiguous run of sentences in one block, and one sentence is the run of
+ * length one. The fixture is the passage that prompted the feature: two sentences that are one
+ * thought, where keeping only the first keeps a fact without the reason it mattered.
+ */
+describe('passages', () => {
+  const FIRST =
+    'JavaScript (also known as ECMAScript) started its life as a simple scripting language for browsers.'
+  const SECOND =
+    'At the time it was invented, it was expected to be used for short snippets of code embedded in a web page — writing more than a few dozen lines of code would have been somewhat unusual.'
+  const THIRD = 'For this reason, web browsers were slow to adopt it.'
+
+  /** A container of `<p>` blocks, since that is what the hit-tester is pointed at. */
+  function article(...paragraphs: string[]): HTMLElement {
+    const el = document.createElement('div')
+    el.innerHTML = paragraphs.map((text) => `<p>${text}</p>`).join('')
+    return el
+  }
+
+  const sentenceIn = (container: HTMLElement, index: number): Passage => {
+    const block = container.querySelector('p')!
+    const sentence = sentencesIn(block, 'en')[index]!
+    return { block, ...sentence }
+  }
+
+  describe('findPassages', () => {
+    it('finds a run of two sentences stored as one text', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const [found, ...rest] = findPassages(container, 'en', new Set([`${FIRST} ${SECOND}`]))
+
+      expect(rest).toEqual([])
+      expect(found!.text).toBe(`${FIRST} ${SECOND}`)
+      // The span reaches from the first sentence's start to the second's end, which is what
+      // lets one Range and one set of line bands paint the whole passage.
+      expect(found!.start).toBe(sentenceIn(container, 0).start)
+      expect(found!.end).toBe(sentenceIn(container, 1).end)
+    })
+
+    it('still finds a lone sentence, which is the run of one', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const found = findPassages(container, 'en', new Set([SECOND]))
+
+      expect(found.map((p) => p.text)).toEqual([SECOND])
+    })
+
+    it('finds a run that starts partway into the block', () => {
+      const container = article([FIRST, SECOND, THIRD].join(' '))
+      const found = findPassages(container, 'en', new Set([`${SECOND} ${THIRD}`]))
+
+      expect(found.map((p) => p.text)).toEqual([`${SECOND} ${THIRD}`])
+      expect(found[0]!.start).toBe(sentenceIn(container, 1).start)
+    })
+
+    /**
+     * The block is the limit. Two sentences that read consecutively but sit in different
+     * paragraphs are not one passage, because there is no single element to measure a run
+     * against — see `Passage`.
+     */
+    it('never joins across a block boundary', () => {
+      const container = article(FIRST, SECOND)
+
+      expect(findPassages(container, 'en', new Set([`${FIRST} ${SECOND}`]))).toEqual([])
+    })
+
+    it('finds nothing when asked for nothing', () => {
+      expect(findPassages(article(FIRST), 'en', new Set())).toEqual([])
+    })
+  })
+
+  describe('passageExtendedTo', () => {
+    /** Clip the first sentence, then reach forward to the second — the whole point of this. */
+    it('grows the note in the block to reach the clicked sentence', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const kept = sentenceIn(container, 0)
+
+      const extension = passageExtendedTo(sentenceIn(container, 1), [kept], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND}`)
+      expect(extension!.grown.start).toBe(kept.start)
+      expect(extension!.grown.end).toBe(sentenceIn(container, 1).end)
+      // The note it grew from leaves the journal; the grown one stands in its place.
+      expect(extension!.supersedes.map((p) => p.text)).toEqual([FIRST])
+    })
+
+    it('grows backwards just as readily', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const kept = sentenceIn(container, 1)
+
+      const extension = passageExtendedTo(sentenceIn(container, 0), [kept], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND}`)
+      expect(extension!.supersedes.map((p) => p.text)).toEqual([SECOND])
+    })
+
+    /**
+     * Reaching past a sentence takes it too. Leaving it out would make the stored text differ
+     * from the stretch that lights up, and the highlight is the only account of what a note
+     * holds.
+     */
+    it('takes in whatever it reached over', () => {
+      const container = article([FIRST, SECOND, THIRD].join(' '))
+      const kept = sentenceIn(container, 0)
+
+      const extension = passageExtendedTo(sentenceIn(container, 2), [kept], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND} ${THIRD}`)
+    })
+
+    /**
+     * A note between the anchor and the click cannot arise from the rule itself — anything
+     * lying between them would be nearer the click than the anchor is, and would have been
+     * the anchor. So this feeds it the overlap it cannot produce: a journal already holding
+     * both a sentence and a passage containing it, which is what an older journal or a
+     * hand-edited store can look like. The span covers both, so both are superseded and the
+     * journal comes out clean rather than carrying a sentence that belongs to two notes.
+     */
+    it('supersedes every note the new span covers, repairing overlap it finds', () => {
+      const container = article([FIRST, SECOND, THIRD].join(' '))
+      const block = container.querySelector('p')!
+      const sentences = sentencesIn(block, 'en')
+      const alone = sentenceIn(container, 0)
+      const overlapping: Passage = {
+        block,
+        start: sentences[0]!.start,
+        end: sentences[1]!.end,
+        text: `${FIRST} ${SECOND}`,
+      }
+
+      const extension = passageExtendedTo(sentenceIn(container, 2), [alone, overlapping], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND} ${THIRD}`)
+      expect(extension!.supersedes.map((p) => p.text).sort()).toEqual(
+        [FIRST, `${FIRST} ${SECOND}`].sort(),
+      )
+    })
+
+    /**
+     * Equidistant notes either side, which is the one case where "nearest" does not decide.
+     * The tie goes to the note that reads first, so the gesture stays predictable; joining
+     * both is still available, as a second reach.
+     */
+    it('grows the earlier note when two are equally near', () => {
+      const container = article([FIRST, SECOND, THIRD].join(' '))
+      const before = sentenceIn(container, 0)
+      const after = sentenceIn(container, 2)
+
+      const extension = passageExtendedTo(sentenceIn(container, 1), [before, after], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND}`)
+      expect(extension!.supersedes.map((p) => p.text)).toEqual([FIRST])
+    })
+
+    it('grows the nearest note rather than the first one', () => {
+      const container = article([FIRST, SECOND, THIRD].join(' '))
+      const far = sentenceIn(container, 0)
+      const near = sentenceIn(container, 1)
+
+      const extension = passageExtendedTo(sentenceIn(container, 2), [far, near], 'en')
+
+      expect(extension!.grown.text).toBe(`${SECOND} ${THIRD}`)
+      expect(extension!.supersedes.map((p) => p.text)).toEqual([SECOND])
+    })
+
+    it('keeps the clicked sentence alone when the block holds no note yet', () => {
+      const container = article([FIRST, SECOND].join(' '))
+
+      const extension = passageExtendedTo(sentenceIn(container, 1), [], 'en')
+
+      expect(extension!.grown.text).toBe(SECOND)
+      expect(extension!.supersedes).toEqual([])
+    })
+
+    /** A note in another paragraph is not the note being reached from. */
+    it('ignores notes in other blocks', () => {
+      const container = article(FIRST, SECOND)
+      const elsewhere = container.querySelectorAll('p')[0]!
+      const kept: Passage = { block: elsewhere, ...sentencesIn(elsewhere, 'en')[0]! }
+
+      const here = container.querySelectorAll('p')[1]!
+      const hit: Passage = { block: here, ...sentencesIn(here, 'en')[0]! }
+
+      const extension = passageExtendedTo(hit, [kept], 'en')
+
+      expect(extension!.grown.text).toBe(SECOND)
+      expect(extension!.supersedes).toEqual([])
+    })
+
+    /**
+     * Nothing to do, said as nothing rather than as a write that changes nothing — the click
+     * is left to the page instead of being swallowed. Shrinking is deliberately not a gesture;
+     * a plain click removes the whole note, which is the way back.
+     */
+    it('refuses when the note already reaches here', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const block = container.querySelector('p')!
+      const both = sentencesIn(block, 'en')
+      const whole: Passage = {
+        block,
+        start: both[0]!.start,
+        end: both[1]!.end,
+        text: `${FIRST} ${SECOND}`,
+      }
+
+      expect(passageExtendedTo(sentenceIn(container, 0), [whole], 'en')).toBeNull()
+      expect(passageExtendedTo(sentenceIn(container, 1), [whole], 'en')).toBeNull()
+    })
+  })
+
+  /**
+   * The two halves have to agree on how a run reads, or a passage could be taken and never
+   * painted again: one builds the text that gets stored, the other looks for it in the page.
+   */
+  it('stores a grown passage as the text that finds it again', () => {
+    const container = article([FIRST, SECOND].join(' '))
+    const extension = passageExtendedTo(sentenceIn(container, 1), [sentenceIn(container, 0)], 'en')
+
+    const found = findPassages(container, 'en', new Set([extension!.grown.text]))
+
+    expect(found.map((p) => p.text)).toEqual([extension!.grown.text])
+    expect(found[0]!.start).toBe(extension!.grown.start)
+    expect(found[0]!.end).toBe(extension!.grown.end)
   })
 })

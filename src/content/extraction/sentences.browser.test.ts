@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest'
-import { lineBandsFor, lineRectsForSentence, sentencesIn } from './sentences'
+import { lineBandsFor, lineRectsForSpan, sentencesIn } from './sentences'
 
 /**
  * Real layout, in real Chrome. Every assertion here is about geometry that jsdom cannot
@@ -82,7 +82,7 @@ describe('lineBandsFor', () => {
   })
 })
 
-describe('lineRectsForSentence', () => {
+describe('lineRectsForSpan', () => {
   const withMarkup =
     '<p>An <a href="#">encyclopedia</a> is a <b>reference work</b> or <sub>compendium</sub> ' +
     'providing summaries of knowledge, either general or special, in a particular field. Next sentence.</p>'
@@ -93,7 +93,7 @@ describe('lineRectsForSentence', () => {
     // link and bold run.
     const block = mount(withMarkup)
     const [first] = sentencesIn(block, 'en')
-    const rects = lineRectsForSentence(block, first!.start, first!.end)
+    const rects = lineRectsForSpan(block, first!.start, first!.end)
 
     const raw = [...document.createRange().getClientRects()]
     expect(rects.length).toBeLessThan(8)
@@ -104,7 +104,7 @@ describe('lineRectsForSentence', () => {
   it('produces no overlapping rects, which is what caused the doubling', () => {
     const block = mount(withMarkup)
     const [first] = sentencesIn(block, 'en')
-    const rects = lineRectsForSentence(block, first!.start, first!.end)
+    const rects = lineRectsForSpan(block, first!.start, first!.end)
 
     for (let i = 1; i < rects.length; i += 1) {
       const overlap = Math.min(rects[i - 1]!.bottom, rects[i]!.bottom) - rects[i]!.top
@@ -126,7 +126,7 @@ describe('lineRectsForSentence', () => {
     )
     const sentences = sentencesIn(block, 'en')
     const bands = lineBandsFor(block)
-    const firstRects = sentences.map((s) => lineRectsForSentence(block, s.start, s.end, bands)[0]!)
+    const firstRects = sentences.map((s) => lineRectsForSpan(block, s.start, s.end, bands)[0]!)
 
     expect(bands).toHaveLength(1)
     expect(sentences.length).toBeGreaterThan(1)
@@ -138,7 +138,7 @@ describe('lineRectsForSentence', () => {
     const block = mount(`<p>${LONG_PROSE}</p>`)
     const [only] = sentencesIn(block, 'en')
     const bands = lineBandsFor(block)
-    const rects = lineRectsForSentence(block, only!.start, only!.end, bands)
+    const rects = lineRectsForSpan(block, only!.start, only!.end, bands)
 
     expect(rects).toHaveLength(bands.length)
   })
@@ -146,6 +146,45 @@ describe('lineRectsForSentence', () => {
   it('returns nothing for a range that does not resolve', () => {
     const block = mount('<p>Short.</p>')
 
-    expect(lineRectsForSentence(block, 9_999, 10_000)).toEqual([])
+    expect(lineRectsForSpan(block, 9_999, 10_000)).toEqual([])
+  })
+})
+
+/**
+ * A passage is painted as one stretch of prose rather than as the sentences it is made of.
+ * That is the whole visible difference between keeping two sentences and keeping one note of
+ * two sentences, and it is geometry — jsdom would report every rect here as zero.
+ */
+describe('a passage of several sentences', () => {
+  it('paints one box across the line two sentences share, not one each', () => {
+    const block = mount('<p>Plain opening. Second sentence here.</p>', 'width:900px')
+    const sentences = sentencesIn(block, 'en')
+    const bands = lineBandsFor(block)
+
+    expect(bands).toHaveLength(1)
+    expect(sentences).toHaveLength(2)
+
+    const asOne = lineRectsForSpan(block, sentences[0]!.start, sentences[1]!.end, bands)
+    const separately = sentences.map((s) => lineRectsForSpan(block, s.start, s.end, bands)[0]!)
+
+    // One box, where two sentences kept apart make two — with the gap between them left
+    // unpainted, which is what a note broken into its sentences looks like on the page.
+    expect(asOne).toHaveLength(1)
+    expect(separately[0]!.right).toBeLessThan(separately[1]!.left)
+    expect(asOne[0]!.left).toBe(separately[0]!.left)
+    expect(asOne[0]!.right).toBe(separately[1]!.right)
+  })
+
+  it('covers every band the run spans, however many lines that takes', () => {
+    const block = mount(`<p>${LONG_PROSE} ${LONG_PROSE}</p>`)
+    const sentences = sentencesIn(block, 'en')
+    const bands = lineBandsFor(block)
+
+    expect(sentences).toHaveLength(2)
+
+    const rects = lineRectsForSpan(block, sentences[0]!.start, sentences[1]!.end, bands)
+
+    expect(rects).toHaveLength(bands.length)
+    expect(bands.length).toBeGreaterThan(2)
   })
 })

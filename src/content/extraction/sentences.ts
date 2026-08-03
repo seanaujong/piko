@@ -9,7 +9,36 @@
  */
 
 export type Sentence = { start: number; end: number; text: string }
-export type SentenceHit = Sentence & { block: HTMLElement }
+
+/**
+ * What a reader keeps: a contiguous run of sentences inside one block.
+ *
+ * One sentence is the run of length one, and that is the whole reason this generalises for
+ * free. A run is still a single `[start, end)` over the block's text, so the Range, the line
+ * bands and the painted rects never learn that anything changed — a two-sentence passage
+ * wrapping four lines paints the same four boxes a two-line sentence would.
+ *
+ * **The block is the limit, and deliberately so.** A run that crossed a `<p>` boundary would
+ * have no single element to measure against and no single Range to cover it, so the type
+ * itself would have to grow a list of blocks and every consumer would have to loop. A thought
+ * that spills across paragraphs is two passages, taken twice; that costs a click and keeps
+ * the shape.
+ */
+export type Passage = Sentence & { block: HTMLElement }
+
+/**
+ * What separates two sentences read as one passage.
+ *
+ * A single space, because that is what the browser renders between them however the source
+ * spelled the gap. `sentencesIn` already collapses each sentence's own whitespace, and the
+ * only thing that can sit between two consecutive sentences is whitespace — every other
+ * character lands inside one sentence or the other, since the slices tile the block's text.
+ *
+ * Both readers of this go through it: the run built when a reader extends a passage, and the
+ * run matched when a stored passage is found again. Joining on different characters in those
+ * two places would mean a passage that could be taken but never painted again.
+ */
+const BETWEEN_SENTENCES = ' '
 
 /** Blocks whose text is prose worth hit-testing. Excludes `pre`, whose "sentences" are code. */
 export const BLOCK_SELECTOR = 'p, li, blockquote, h1, h2, h3, h4'
@@ -142,7 +171,7 @@ export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
   if (cached) return cached
 
   // Not `block.textContent`: that reads every descendant, UI affordances and hidden nodes
-  // included, and `rangeForSentence` has to be able to point back at whatever this counted.
+  // included, and `rangeForSpan` has to be able to point back at whatever this counted.
   const text = textNodesIn(block)
     .map((node) => node.data)
     .join('')
@@ -199,28 +228,115 @@ export function sentencesIn(block: HTMLElement, locale: string): Sentence[] {
 }
 
 /**
- * Every sentence in `container` whose text is one of `texts`.
+ * Every passage in `container` whose text is one of `texts`.
  *
  * Stored clippings are plain text, so painting them again means finding them again in
  * whatever DOM is currently rendered. Matching on text rather than on a stored node path is
  * what lets a clipping survive re-extraction, a reader/framed toggle, a reload, and — since
  * the same lookup runs against the live page — being taken on one surface and shown on the
- * other.
+ * other. A multi-sentence passage keeps that property: it is looked up by the same string it
+ * was stored as, so nothing has to remember which sentences it was made of.
+ *
+ * Every run in a block is a candidate, not only every sentence, which is quadratic in a
+ * block's sentence count before the prune below. It stays cheap because the count is *per
+ * block* — a paragraph holds a handful — and because a run stops growing the moment it is
+ * longer than the longest thing anyone stored. When every clipping is one sentence, which is
+ * the ordinary case, that ends each inner loop after a step or two.
  */
-export function findSentences(
+export function findPassages(
   container: HTMLElement,
   locale: string,
   texts: ReadonlySet<string>,
-): SentenceHit[] {
+): Passage[] {
   if (texts.size === 0) return []
 
-  const hits: SentenceHit[] = []
+  let longest = 0
+  for (const text of texts) longest = Math.max(longest, text.length)
+
+  const passages: Passage[] = []
   for (const block of container.querySelectorAll<HTMLElement>(BLOCK_SELECTOR)) {
-    for (const sentence of sentencesIn(block, locale)) {
-      if (texts.has(sentence.text)) hits.push({ block, ...sentence })
+    const sentences = sentencesIn(block, locale)
+    for (let first = 0; first < sentences.length; first += 1) {
+      let text = ''
+      for (let last = first; last < sentences.length; last += 1) {
+        const sentence = sentences[last]!
+        text = last === first ? sentence.text : text + BETWEEN_SENTENCES + sentence.text
+        // Nothing stored is this long, and extending only makes it longer.
+        if (text.length > longest) break
+        if (texts.has(text)) {
+          passages.push({ block, start: sentences[first]!.start, end: sentence.end, text })
+        }
+      }
     }
   }
-  return hits
+  return passages
+}
+
+/** How far a point outside a passage sits from it, in characters; 0 when it is inside. */
+function distanceTo(passage: Passage, span: { start: number; end: number }): number {
+  if (span.start >= passage.end) return span.start - passage.end
+  if (span.end <= passage.start) return passage.start - span.end
+  return 0
+}
+
+/** A passage grown to reach somewhere new, and the passages it swallowed getting there. */
+export type ExtendedPassage = { grown: Passage; supersedes: readonly Passage[] }
+
+/**
+ * The passage that reaching `hit` produces, or null when it would change nothing.
+ *
+ * This is the whole rule behind extending a note, kept as one pure function so that neither
+ * surface — the preview or the live page — carries a copy of it. The reader's gesture says
+ * "the thought runs to here"; the rule turns that into a span:
+ *
+ *  - The note being extended is the **nearest already-clipped passage in the same block**.
+ *    Nearest rather than newest, because the reader is pointing at the page, not at the
+ *    journal; the note their cursor is beside is the one they mean. A tie goes to the
+ *    passage that reads first, which is the common case written down — clip a sentence, then
+ *    reach forward to the one after it.
+ *  - The new passage covers everything from that note to the click, **including whatever lies
+ *    between**. Reaching past a sentence and leaving it out would make the stored text differ
+ *    from the highlighted text, and the highlight is the only record of what a note contains.
+ *  - Every passage the new span covers is superseded by it, so two notes cannot end up
+ *    overlapping. Overlap has no honest reading: the same sentence would belong to two notes,
+ *    and the overlapping stretch would paint itself twice.
+ *
+ * That last rule looks more general than it is, and the generality is the point rather than an
+ * accident. Given notes that do not already overlap, the span can only ever cover the anchor:
+ * anything lying between the anchor and the click would be nearer the click, and would have
+ * been the anchor instead. What the filter is really for is a journal that arrives already
+ * overlapping — an older one, a hand-edited store — which it quietly repairs rather than
+ * building on. Written as `[anchor]` it would depend on a theorem about its input holding.
+ *
+ * With nothing clipped in the block there is nothing to extend, so the click keeps its own
+ * sentence and supersedes nothing — the same thing an ordinary click does. Landing inside a
+ * passage that already covers the sentence returns null: the note already reaches here.
+ * Shrinking one is deliberately not a gesture; a plain click removes the whole passage, which
+ * is the way back.
+ */
+export function passageExtendedTo(
+  hit: Passage,
+  clipped: readonly Passage[],
+  locale: string,
+): ExtendedPassage | null {
+  const here = clipped.filter((passage) => passage.block === hit.block)
+  if (here.length === 0) return { grown: hit, supersedes: [] }
+
+  const anchor = here.reduce((nearest, passage) =>
+    distanceTo(passage, hit) < distanceTo(nearest, hit) ? passage : nearest,
+  )
+
+  const start = Math.min(anchor.start, hit.start)
+  const end = Math.max(anchor.end, hit.end)
+  if (anchor.start === start && anchor.end === end) return null
+
+  const supersedes = here.filter((passage) => passage.start < end && passage.end > start)
+  const text = sentencesIn(hit.block, locale)
+    .filter((sentence) => sentence.start >= start && sentence.end <= end)
+    .map((sentence) => sentence.text)
+    .join(BETWEEN_SENTENCES)
+
+  return { grown: { block: hit.block, start, end, text }, supersedes }
 }
 
 /**
@@ -252,7 +368,7 @@ function insideNonProse(node: Text, block: HTMLElement): boolean {
  * The text nodes a reader would say the block is made of.
  *
  * The single source for both halves of the offset contract, and that is the point of it being
- * one function. `sentencesIn` joins these into the string it segments, and `rangeForSentence`
+ * one function. `sentencesIn` joins these into the string it segments, and `rangeForSpan`
  * walks the same list counting the same lengths — so an offset means the same thing on both
  * sides by construction. Filtering in one and not the other would slide every sentence after
  * the first excluded node, painting a highlight over the wrong words.
@@ -268,7 +384,7 @@ function textNodesIn(block: HTMLElement): Text[] {
 }
 
 /** A Range covering [start, end) across however many text nodes that takes. */
-export function rangeForSentence(block: HTMLElement, start: number, end: number): Range | null {
+export function rangeForSpan(block: HTMLElement, start: number, end: number): Range | null {
   const range = document.createRange()
   let consumed = 0
   let started = false
@@ -362,13 +478,13 @@ export function lineBandsFor(block: HTMLElement): LineBand[] {
  *
  * Pass `bands` when highlighting several sentences in the same block to measure it once.
  */
-export function lineRectsForSentence(
+export function lineRectsForSpan(
   block: HTMLElement,
   start: number,
   end: number,
   bands: readonly LineBand[] = lineBandsFor(block),
 ): LineRect[] {
-  const range = rangeForSentence(block, start, end)
+  const range = rangeForSpan(block, start, end)
   if (!range || bands.length === 0) return []
 
   const rects = [...range.getClientRects()].filter((rect) => rect.width > 0 && rect.height > 0)
@@ -439,7 +555,7 @@ export function sentenceAtPoint(
   locale: string,
   x: number,
   y: number,
-): SentenceHit | null {
+): Passage | null {
   const element = root.elementFromPoint(x, y)
   if (!element || !article.contains(element)) return null
 
@@ -454,7 +570,7 @@ export function sentenceAtPoint(
   // the cursor is exactly the region that lights up.
   const bands = lineBandsFor(block)
   for (const sentence of sentencesIn(block, locale)) {
-    for (const rect of lineRectsForSentence(block, sentence.start, sentence.end, bands)) {
+    for (const rect of lineRectsForSpan(block, sentence.start, sentence.end, bands)) {
       if (containsPoint(rect, x, y)) return { block, ...sentence }
     }
   }

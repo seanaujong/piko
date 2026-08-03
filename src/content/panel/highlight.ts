@@ -1,5 +1,10 @@
-import type { LineBand, LineRect, SentenceHit } from '../extraction/sentences'
-import { lineBandsFor, lineRectsForSentence, sentenceAtPoint } from '../extraction/sentences'
+import type { ExtendedPassage, LineBand, LineRect, Passage } from '../extraction/sentences'
+import {
+  lineBandsFor,
+  lineRectsForSpan,
+  passageExtendedTo,
+  sentenceAtPoint,
+} from '../extraction/sentences'
 
 export type HighlightHandle = {
   /** Re-derive every rect. Call after anything that reflows the article. */
@@ -24,9 +29,18 @@ type Options = {
   article: HTMLElement
   /** The shadow root the article is rendered into — see `sentenceAtPoint`. */
   root: DocumentOrShadowRoot
-  /** Sentences already clipped, painted persistently. Re-read on every repaint. */
-  clipped: () => readonly SentenceHit[]
-  onToggle: (hit: SentenceHit) => void
+  /** Passages already clipped, painted persistently. Re-read on every repaint. */
+  clipped: () => readonly Passage[]
+  /** A plain click: keep this sentence, or drop the passage it belongs to. */
+  onToggle: (hit: Passage) => void
+  /**
+   * A shift-click: the note nearest the cursor now runs this far.
+   *
+   * Handed the resolved passage rather than the raw click, because which note grows and how
+   * far is a rule about reading and not about painting — it lives in `passageExtendedTo`,
+   * where both surfaces ask it the same question and a test can put it under oath.
+   */
+  onExtend: (extension: ExtendedPassage) => void
   /**
    * Repaint on scroll as well as resize. The panel's overlay lives inside the scrolling
    * container and travels with it for free; a fixed overlay over the host page does not, so
@@ -40,8 +54,19 @@ type Options = {
   suppressActivation?: boolean
 }
 
-const sameSentence = (a: SentenceHit, b: SentenceHit): boolean =>
+const samePassage = (a: Passage, b: Passage): boolean =>
   a.block === b.block && a.start === b.start && a.end === b.end
+
+/**
+ * Whether `passage` already accounts for `hit`.
+ *
+ * Containment rather than equality, because a passage is a run: hovering the second sentence
+ * of a two-sentence note is a hit the note covers without being equal to. Compared for
+ * equality, the hover mark would paint over the clip mark of a sentence already kept, and the
+ * note would appear to lose its stronger colour wherever the cursor rested on it.
+ */
+const covers = (passage: Passage, hit: Passage): boolean =>
+  passage.block === hit.block && passage.start <= hit.start && passage.end >= hit.end
 
 /**
  * Paints the sentence under the cursor, plus every already-clipped sentence, into an overlay
@@ -60,14 +85,14 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
   overlay.className = 'piko-marks'
   surface.prepend(overlay)
 
-  let hovered: SentenceHit | null = null
+  let hovered: Passage | null = null
   let framePending = false
   let lastPoint: { x: number; y: number } | null = null
 
   type Mark = { rect: LineRect; className: string }
 
   function measureRange(
-    hit: SentenceHit,
+    hit: Passage,
     className: string,
     bands: Map<HTMLElement, LineBand[]>,
     into: Mark[],
@@ -80,8 +105,8 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
 
     // One box per visual line — a sentence wrapping across three lines paints three, which is
     // what makes the highlight follow the text rather than bounding-box it. Merging happens in
-    // `lineRectsForSentence`, so a translucent mark never stacks on itself over inline markup.
-    for (const rect of lineRectsForSentence(hit.block, hit.start, hit.end, blockBands)) {
+    // `lineRectsForSpan`, so a translucent mark never stacks on itself over inline markup.
+    for (const rect of lineRectsForSpan(hit.block, hit.start, hit.end, blockBands)) {
       into.push({ rect, className })
     }
   }
@@ -110,7 +135,7 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     for (const hit of clippedHits) measureRange(hit, 'piko-mark piko-mark-clip', bands, marks)
 
     // A clipped sentence keeps its own stronger colour rather than being overdrawn on hover.
-    if (hovered && !clippedHits.some((c) => sameSentence(c, hovered!))) {
+    if (hovered && !clippedHits.some((c) => covers(c, hovered!))) {
       measureRange(hovered, 'piko-mark piko-mark-hover', bands, marks)
     }
 
@@ -132,7 +157,7 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     if (!lastPoint) return
 
     const hit = sentenceAtPoint(article, root, locale, lastPoint.x, lastPoint.y)
-    const unchanged = hit && hovered ? sameSentence(hit, hovered) : hit === hovered
+    const unchanged = hit && hovered ? samePassage(hit, hovered) : hit === hovered
     if (unchanged) return
 
     hovered = hit
@@ -157,19 +182,47 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
 
   function onClick(event: MouseEvent): void {
     // Let a deliberate text selection win — dragging across a sentence to copy it the normal
-    // way shouldn't also clip it.
+    // way shouldn't also clip it. Not asked of a shift-click, whose selection the browser
+    // just made in response to this very click; see `clearIncidentalSelection`.
     const selection = surface.getRootNode() instanceof ShadowRoot ? null : window.getSelection()
-    if (selection && !selection.isCollapsed) return
+    if (!event.shiftKey && selection && !selection.isCollapsed) return
 
     const hit = sentenceAtPoint(article, root, locale, event.clientX, event.clientY)
     if (!hit) return
+
+    // Resolved before the event is swallowed, so a shift-click that would change nothing
+    // leaves the page's own handling of it alone.
+    const extension = event.shiftKey ? passageExtendedTo(hit, clipped(), locale) : null
+    if (event.shiftKey && !extension) return
+
     if (options.suppressActivation) {
       // Captured before the page sees it, so a sentence inside a link clips instead of
       // navigating. Without this the page would be gone before the mark could paint.
       event.preventDefault()
       event.stopPropagation()
     }
-    onToggle(hit)
+
+    if (extension) {
+      clearIncidentalSelection()
+      options.onExtend(extension)
+    } else {
+      onToggle(hit)
+    }
+  }
+
+  /**
+   * Drops the text selection a shift-click made on its way here.
+   *
+   * Shift-click is the browser's own extend-the-selection gesture, and it runs on mousedown —
+   * long before this handler sees a click, and past the reach of `preventDefault`. Left alone
+   * it lays a blue smear over exactly the passage that just lit up, so the reader's answer to
+   * "did that work" would be two overlapping highlights disagreeing about where the note ends.
+   *
+   * Only ever reached from a shift-click that actually grew a note, so the selection being
+   * dropped is one Piko caused rather than one the reader was building.
+   */
+  function clearIncidentalSelection(): void {
+    window.getSelection()?.removeAllRanges()
   }
 
   // Scroll fires far faster than the screen updates and every repaint reads layout, so it is

@@ -2,7 +2,7 @@
  * What a store change costs on the page, in real Chrome.
  *
  * Two paths run on every single change to the journal, and neither is scoped to what changed:
- * `findSentences` re-walks and re-segments the container to find where the clipped sentences
+ * `findPassages` re-walks and re-segments the container to find where the clipped sentences
  * are, and `repaint()` rebuilds every mark. This measures both against an article the size of
  * a long encyclopedia entry, at journal sizes from one clipping to five hundred.
  *
@@ -18,8 +18,8 @@
  */
 
 import { describe, expect, it } from 'vitest'
-import { BLOCK_SELECTOR, findSentences, sentencesIn } from '../src/content/extraction/sentences'
-import type { SentenceHit } from '../src/content/extraction/sentences'
+import { BLOCK_SELECTOR, findPassages, sentencesIn } from '../src/content/extraction/sentences'
+import type { Passage } from '../src/content/extraction/sentences'
 import { attachSentenceHighlight } from '../src/content/panel/highlight'
 import { PANEL_STYLES } from '../src/content/panel/styles'
 import { syntheticArticle } from './article'
@@ -105,16 +105,16 @@ describe('relocating clippings after a store change', () => {
       // The first call segments every block in the article; later ones hit the WeakMap. Both
       // are real: the cold one happens once per render, the warm one on every store change
       // after it — which is the one that runs per clip.
-      const cold = measure(1, () => void findSentences(wrapper, LOCALE, texts))
-      const warm = measure(15, () => void findSentences(wrapper, LOCALE, texts))
+      const cold = measure(1, () => void findPassages(wrapper, LOCALE, texts))
+      const warm = measure(15, () => void findPassages(wrapper, LOCALE, texts))
 
-      const found = findSentences(wrapper, LOCALE, texts).length
+      const found = findPassages(wrapper, LOCALE, texts).length
       rows.push([`${count} clipped`, String(found), spread(cold), spread(warm)])
     }
 
     console.log(
       table(
-        'findSentences over the whole article, per store change',
+        'findPassages over the whole article, per store change',
         ['journal', 'found', 'cold (first walk)', 'warm (cached segmentation)'],
         rows,
       ),
@@ -128,7 +128,7 @@ describe('repainting marks', () => {
 
     for (const count of [1, 10, 50, 200]) {
       const wrapper = mount()
-      const hits: SentenceHit[] = findSentences(wrapper, LOCALE, scattered(count))
+      const hits: Passage[] = findPassages(wrapper, LOCALE, scattered(count))
 
       const highlight = attachSentenceHighlight({
         surface: wrapper,
@@ -136,6 +136,7 @@ describe('repainting marks', () => {
         root: document,
         clipped: () => hits,
         onToggle: () => {},
+        onExtend: () => {},
       })
 
       // Warm the layout once so the first sample isn't paying for the initial reflow.
