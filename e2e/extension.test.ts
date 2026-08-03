@@ -496,6 +496,64 @@ describe('the loaded extension', () => {
     await page.close()
   })
 
+  /**
+   * Two notes side by side, joined by reaching one from the other. The arrangement the reach
+   * rule used to refuse: the note nearest a reach that lands *on* a note was that note itself,
+   * so the gesture returned "nothing to do" over the one pair a reader most wants joined.
+   */
+  it('joins two notes when a shift-click reaches one from the other', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    await clickWords(page, 'A tide is the rise')
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+    await clickWords(page, 'Tides originate')
+    await expect.poll(() => clippingCount(page), POLL).toBe(2)
+
+    await page.keyboard.down('Shift')
+    await clickWords(page, 'Tides originate')
+    await page.keyboard.up('Shift')
+
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+    expect(await firstClippingText(page)).toBe(
+      'A tide is the rise and fall of a sea level caused by the combined effects of ' +
+        'gravitational forces exerted by the Moon and the Sun. Tides originate in the oceans ' +
+        'and progress towards the coastlines, where they appear as the regular rise and fall ' +
+        'of the sea surface.',
+    )
+
+    await page.close()
+  })
+
+  /**
+   * A note is one thing to remove however many sentences it grew to hold. Clicking the sentence
+   * the cursor landed on rather than the note holding it would name text the journal has never
+   * stored, so the click would *add* that sentence as a second note overlapping the first —
+   * the one shape the reach rule exists to keep out of the journal.
+   */
+  it('drops a whole grown note when any of its sentences is clicked', async () => {
+    const page = await context.newPage()
+    await page.goto(`${base}/`)
+    await dragLink(page, 'article-link')
+    await waitForReader(page)
+
+    await clickWords(page, 'A tide is the rise')
+    await expect.poll(() => clippingCount(page), POLL).toBe(1)
+    await page.keyboard.down('Shift')
+    await clickWords(page, 'Tides originate')
+    await page.keyboard.up('Shift')
+    await expect.poll(() => firstClippingText(page), POLL).toContain('Tides originate')
+
+    // The second sentence of the note — the one a click used to file separately.
+    await clickWords(page, 'Tides originate')
+
+    await expect.poll(() => clippingCount(page), POLL).toBe(0)
+
+    await page.close()
+  })
+
   it('links a clipping back to its source at the sentence', async () => {
     const page = await context.newPage()
     await page.goto(`${base}/`)
