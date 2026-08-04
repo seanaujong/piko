@@ -41,22 +41,36 @@
          leaves out of dist/ — 64 CSS pixels of a 128px source is exact at 2x. */
       .mark { display: block; width: 64px; height: 64px; margin: 0 0 20px; }
 
-      /* The same icon at text size, so a sentence can point at the thing to click instead of
+      /* A shape at text size, so a sentence can point at the thing to press instead of only
          describing it. Sized in em so it tracks whatever text it sits in, and dropped onto the
-         baseline so it sits *in* the line rather than on top of it. */
+         baseline so it sits *in* the line rather than on top of it. Carries both the shipping
+         raster of Piko's own icon and the drawn glyphs below, which is the point: a step that
+         names something on screen shows it at the size the sentence runs at. */
       .inline-icon { width: 1.15em; height: 1.15em; vertical-align: -0.25em; }
+
+      /* The glyph definitions themselves, present in the document but never drawn. Not
+         `display: none`, which has historically stopped `<use>` resolving; a zero box with its
+         overflow hidden takes no space and leaves the references working. */
+      .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
       /* The one key this page asks for. Left to the browser it renders as monospace at a
          smaller size, which reads as code rather than as something to press; this keeps the
-         page's own face and borrows only the outline of a keycap. */
+         page's own face and borrows only the outline of a keycap.
+
+         Both the cap and its edge are mixed out of `currentColor`, which is the only way a
+         surface behind inherited text can be right in both themes at once: a fixed light grey
+         under text that turns white in dark mode leaves the key unreadable, and that is exactly
+         what it did. Deriving the surface from the text means the contrast between them is
+         fixed by construction rather than by a value chosen against one background. Same
+         mechanism as `.site-undo` and `.tryit`. */
       kbd {
         font: inherit;
         font-size: 0.9em;
         padding: 1px 5px;
-        border: 1px solid rgba(0, 0, 0, 0.2);
+        border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
         border-bottom-width: 2px;
         border-radius: 4px;
-        background: #f4f4f6;
+        background: color-mix(in srgb, currentColor 12%, transparent);
       }
 
       button {
@@ -85,7 +99,13 @@
          that message needed; the button carries that now. What is left is the refusal, which runs
          to two lines at this width and so was never the thing the reservation could absorb. */
       .status { margin-top: 1em; font-weight: 600; }
-      .status[data-state="declined"] { color: #9a5b00; }
+      /* The refusal is the one colour on this page that cannot be mixed out of `currentColor` —
+         it has to stay amber to mean anything, so it needs a value per theme rather than a
+         tint of the text. `light-dark()` is the partner of the `color-scheme` declared at the
+         top of this sheet, and reads the same setting. The dark half is not the light one
+         lightened by eye: an amber dark enough to carry on white drops to about 3.5:1 on
+         Chrome's dark canvas, which is under the 4.5:1 that text this size needs. */
+      .status[data-state="declined"] { color: light-dark(#9a5b00, #ffb84d); }
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
 
@@ -154,6 +174,39 @@
     </style>
   </head>
   <body>
+    <!--
+      The shapes the instructions point at, each drawn once and referenced wherever it appears.
+      The illustration in the first step rings the same puzzle piece and pin that the step's own
+      sentence names, because they are literally the same `<symbol>` — so the shape a reader
+      learns from the sentence cannot drift from the shape the picture tells them to hunt for.
+      That is the same argument the row beside it already makes by using the shipping raster of
+      Piko's icon rather than a redrawing of it.
+
+      Drawn in `currentColor` alone, so each takes the colour of the text it lands in and needs
+      no light and dark variant. Marked `aria-hidden` at every use: each one sits beside the very
+      noun it depicts, so a screen reader announcing it would read the word twice.
+
+      Judged at 18px — what 1.15em of this page's body text rasterizes to — and not at the size
+      they are drawn. That is the whole reason the drag is a cursor and a trail: at 18px an open
+      hand loses its fingers and a dragged "link chip" becomes a featureless blob, while a cursor
+      stays unmistakably a cursor and three dashes stay three dashes.
+    -->
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="glyph-puzzle" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+      </symbol>
+      <symbol id="glyph-pin" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+      </symbol>
+      <symbol id="glyph-drag" viewBox="0 0 24 24">
+        <path d="M1.5 13h8" fill="none" stroke="currentColor" stroke-width="2.4"
+              stroke-linecap="round" stroke-dasharray="0.1 3.8" />
+        <path fill="currentColor" d="M11 4l10 7.6-4.5.8 2.7 4.9-2.5 1.4-2.7-5-3 3.1z" />
+      </symbol>
+    </svg>
+
     <img class="mark" src="icons/icon128.png" alt="" width="64" height="64" />
 
     <h1>
@@ -203,9 +256,12 @@
       </p>
       <ol>
         <li>
-          Pin Piko to your toolbar. Click the puzzle piece at the right of the address bar, then
-          the pin beside Piko. Chrome hides new extensions behind that menu, and every step from
-          here starts by pressing Piko's icon.
+          Pin Piko to your toolbar. Click the
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-puzzle" /></svg> puzzle
+          piece at the right of the address bar, then the
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-pin" /></svg> pin beside
+          Piko. Chrome hides new extensions behind that menu, and every step from here starts by
+          pressing Piko's icon.
           <!-- Folded, so a step reads as one instruction and the picture is there for whoever
                wants it. Open by default would make the list a gallery to scroll past rather than
                a sequence to follow.
@@ -234,8 +290,7 @@
             <!-- the puzzle piece, which is the button to press -->
             <circle cx="288" cy="28" r="17" fill="#3d5afe" fill-opacity="0.14"
                     stroke="#3d5afe" stroke-width="2" />
-            <path transform="translate(276 16)" fill="currentColor" fill-opacity="0.85"
-                  d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+            <use href="#glyph-puzzle" x="276" y="16" width="24" height="24" fill-opacity="0.85" />
 
             <path d="M288 50v14" stroke="#3d5afe" stroke-width="2" stroke-dasharray="3 3" />
             <path d="M288 70l-5-8h10z" fill="#3d5afe" />
@@ -250,8 +305,7 @@
             <!-- the pin, which is the thing to click -->
             <rect x="322" y="108" width="28" height="28" rx="9" fill="#3d5afe" fill-opacity="0.14"
                   stroke="#3d5afe" stroke-width="2" />
-            <path transform="translate(327 113) scale(0.75)" fill="currentColor" fill-opacity="0.85"
-                  d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+            <use href="#glyph-pin" x="327" y="113" width="18" height="18" fill-opacity="0.85" />
           </svg>
           </details>
         </li>
@@ -269,9 +323,10 @@
                       Piko's journal docked to the right of the page holding that sentence." />
           </details>
         </li>
-        <li>Keep going. When a link matters to what you just kept, drag it a short distance and
-          let go. That article opens in place, in reader mode, with your journal still beside
-          it.</li>
+        <li>Keep going. When a link matters to what you just kept,
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-drag" /></svg> drag it a
+          short distance and let go. That article opens in place, in reader mode, with your
+          journal still beside it.</li>
         <li>
           Find its one sentence too, and click that. Escape brings you back.
           <details>
