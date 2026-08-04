@@ -100,12 +100,18 @@
          to two lines at this width and so was never the thing the reservation could absorb. */
       .status { margin-top: 1em; font-weight: 600; }
       /* The refusal is the one colour on this page that cannot be mixed out of `currentColor` —
-         it has to stay amber to mean anything, so it needs a value per theme rather than a
-         tint of the text. `light-dark()` is the partner of the `color-scheme` declared at the
-         top of this sheet, and reads the same setting. The dark half is not the light one
-         lightened by eye: an amber dark enough to carry on white drops to about 3.5:1 on
-         Chrome's dark canvas, which is under the 4.5:1 that text this size needs. */
-      .status[data-state="declined"] { color: light-dark(#9a5b00, #ffb84d); }
+         it has to stay amber to mean anything, so it needs a value per theme rather than a tint
+         of the text. The dark half is not the light one lightened by eye: an amber dark enough
+         to carry on white drops to about 3.5:1 on Chrome's dark canvas, under the 4.5:1 that
+         text at this size and weight needs.
+
+         A media query and not `light-dark()`, which says the same thing in one line and needs
+         Chrome 123. The build targets chrome115, and a stylesheet that quietly requires more
+         than the bundle does is a floor raised where nobody would think to look for it. */
+      .status[data-state="declined"] { color: #9a5b00; }
+      @media (prefers-color-scheme: dark) {
+        .status[data-state="declined"] { color: #ffb84d; }
+      }
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
 
