@@ -155,19 +155,6 @@
         background: color-mix(in srgb, currentColor 8%, transparent);
       }
       .tryit > :last-child { margin-bottom: 0; }
-
-      /* The answer a real drag reveals. Hidden in the markup rather than absent from it, so the
-         live region is in the document before it has anything to announce — a region inserted at
-         the moment it gains its text is often announced by nothing at all.
-
-         Deliberately sets no `display`. `hidden` works by setting `display: none`, and any rule
-         here that set one would outrank it and leave the confirmation on screen before the
-         reader had done anything — which is the one state this paragraph must never be in. */
-      .practice-said { font-size: 0.95rem; }
-      .practice-tick { font-weight: 700; color: #1b7f3b; }
-      @media (prefers-color-scheme: dark) {
-        .practice-tick { color: #5fd08a; }
-      }
       /* Tightened against the line introducing it, so the closing list reads as belonging to
          that sentence rather than as a second set of steps. */
       .tryit .fineprint { margin-bottom: 0.4em; }
@@ -259,45 +246,55 @@
     <div id="sites"></div>
 
     <!-- A reading, not a feature tour. Both surfaces appear here because the sequence needs
-         them, in the order the reading needs them — and the instruction to find the sentence that
-         says what the article is about is the whole product argument in one line: the reader
-         summarises by choosing, which is the thing a generated summary does instead of them.
-         A tour of the same two gestures would teach what Piko does and not what it is for. -->
+         them — and the instruction to find the sentence that says what the article is about is
+         the whole product argument in one line: the reader summarises by choosing, which is the
+         thing a generated summary does instead of them. A tour of the same two gestures would
+         teach what Piko does and not what it is for.
+
+         The drag leads because it is the one gesture that needs nothing set up. Clipping the page
+         you are on needs the toolbar icon, and the icon needs pinning, so opening with the pin
+         puts two steps of housekeeping between the reader and anything worth seeing. A dragged
+         link works the moment access is granted. Leading with it makes the shortest path from
+         this page to Piko doing something, and leaves pinning to be asked for at the point it is
+         actually needed — which is also the point where the reader has a reason to want it. -->
     <h2>Try it</h2>
     <div class="tryit">
       <p>
         Reading is easy with Piko! Piko is a type of commonplace book (a personal notebook) in
-        your browser. Let's use Wikipedia's page on commonplace books as an example of how to
-        engage yourself while reading.
-      </p>
-
-      <!-- The gesture goes first because it is the one the reader is most likely to try
-           unprompted, on the link in the sentence above, and get nothing for. Answering it here
-           turns the tutorial's most confusing moment into its first instruction. The confirmation
-           below is revealed by a real drag and describes only what actually happened; what it
-           refuses to do is show a preview, which would teach the motion by lying about the page
-           it was performed on. -->
-      <p class="practice">
-        <strong>The motion, first.</strong> Everything Piko does starts with a dragged hyperlink,
-        and the gesture is smaller than it sounds:
+        your browser. Let's use its
         <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
-          >take hold of this link</a
-        >, move it a short distance, and let go. You do not have to drop it on anything.
+          >Wikipedia page</a
+        >
+        as an example of how to engage yourself while reading:
       </p>
-      <p class="practice-said" id="practice-said" role="status" hidden>
-        <span class="practice-tick">✓</span> That is the whole gesture, and nothing opened — Piko
-        does not run on its own pages, and this is one of them. On the article itself, that same
-        drag opens whatever you dragged, in reader mode, without taking you off the page.
-      </p>
-
       <ol>
+        <li>Open that page and switch to its tab. Everything from here happens there — Piko does
+          not run on its own pages, so a link dragged on this one does nothing.</li>
         <li>
-          Pin Piko to your toolbar. Click the
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-drag" /></svg> Take hold
+          of a link in the article, move it a short distance, and let go. You do not have to drop
+          it on anything. That article opens in place, in reader mode, with your journal beside
+          it.
+        </li>
+        <li>
+          Read until you find the one sentence that says what <em>that</em> article is about.
+          Click it. That sentence is now the article, in your journal. If the thought carries on
+          into the sentence beside it, <kbd>Shift</kbd>-click that one and the note grows to hold
+          both, as one clipping. Escape brings you back.
+          <details>
+            <summary>What a dragged article looks like</summary>
+            <img class="shot" src="shots/preview.webp" width="1040" height="660"
+                 alt="The dragged article open in reader mode over the page it was dragged from,
+                      its opening sentence highlighted, and Piko's journal beside it holding that
+                      sentence." />
+          </details>
+        </li>
+        <li>
+          Pin Piko to your toolbar, so the rest is one press away. Click the
           <svg class="inline-icon" aria-hidden="true"><use href="#glyph-puzzle" /></svg> puzzle
           piece at the right of the address bar, then the
           <svg class="inline-icon" aria-hidden="true"><use href="#glyph-pin" /></svg> pin beside
-          Piko. Chrome hides new extensions behind that menu, and every step from here starts by
-          pressing Piko's icon.
+          Piko.
           <!-- Folded, so a step reads as one instruction and the picture is there for whoever
                wants it. Open by default would make the list a gallery to scroll past rather than
                a sequence to follow.
@@ -345,34 +342,18 @@
           </svg>
           </details>
         </li>
-        <li>Open the link above and switch to that tab. Every step from here happens on that
-          page rather than on this one.</li>
         <li>Press <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> in your
-          toolbar. The journal docks on the right, and the page becomes clippable.</li>
+          toolbar. The journal docks on the right, and the page you are on becomes clippable
+          too.</li>
         <li>
-          Read until you find the one sentence that says what the article is <em>about</em>.
-          Click it. That sentence is now the article, in your journal. If the thought carries
-          on into the sentence beside it, <kbd>Shift</kbd>-click that one and the note grows to
-          hold both, as one clipping.
+          Now find the one sentence that says what the article you started from is
+          <em>about</em>, and click that.
           <details>
             <summary>What the docked journal and a kept sentence look like</summary>
             <img class="shot" src="shots/armed.webp" width="1040" height="660"
                  alt="The Commonplace book article with its opening sentence highlighted, and
-                      Piko's journal docked to the right of the page holding that sentence." />
-          </details>
-        </li>
-        <li>Keep going. When a link matters to what you just kept,
-          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-drag" /></svg> drag it a
-          short distance and let go. That article opens in place, in reader mode, with your
-          journal still beside it.</li>
-        <li>
-          Find its one sentence too, and click that. Escape brings you back.
-          <details>
-            <summary>What a dragged article looks like</summary>
-            <img class="shot" src="shots/preview.webp" width="1040" height="660"
-                 alt="The dragged article open in reader mode over the page it was dragged from,
-                      its opening sentence highlighted, and the journal beside it now holding two
-                      sentences from two sources." />
+                      Piko's journal docked to the right of the page, now holding that sentence
+                      and the one kept from the dragged article." />
           </details>
         </li>
       </ol>

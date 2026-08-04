@@ -1217,41 +1217,6 @@ describe('the page the install opens', () => {
   })
 
   /**
-   * The gesture the tutorial leads with, on the one page that cannot carry it out.
-   *
-   * `<all_urls>` does not cover `chrome-extension:`, so no preview can ever open here — which is
-   * exactly why the confirmation has to. Both halves are asserted, and the first is the one worth
-   * having: a paragraph that was visible all along would pass any check that only looked after
-   * the drag, and would be telling every reader they had done something before they had done
-   * anything.
-   *
-   * Driven through `dragElement`, so what reveals it is a real mouse crossing a real drag
-   * threshold. A dispatched DragEvent would be refused here for the same reason the content
-   * script refuses one, and this suite is the only place that path runs at all.
-   */
-  it('answers a dragged link on the one page Piko cannot run on', async () => {
-    const page = await openOptions()
-    const said = page.locator('#practice-said')
-
-    expect(await said.isVisible()).toBe(false)
-
-    // Scrolled to first because `dragElement` drives the mouse at viewport coordinates and this
-    // link sits below the fold of a default window — an unscrolled drag aims the pointer past
-    // the bottom of the screen and lands nothing, which looks exactly like a broken listener.
-    const link = page.locator('.practice a')
-    await link.scrollIntoViewIfNeeded()
-    await dragElement(page, link)
-    await expect.poll(() => said.isVisible(), POLL).toBe(true)
-
-    // The drop is swallowed rather than followed. Chrome navigates a page to a link dropped onto
-    // it unless something prevents that, and a reader thrown off the tutorial by following it
-    // correctly is a worse outcome than the silence this whole paragraph exists to break.
-    expect(page.url().endsWith('/onboarding.html')).toBe(true)
-
-    await page.close()
-  })
-
-  /**
    * The half `siteList.test.ts` cannot reach. That suite proves the rule about which rows carry a
    * control against a list handed to it; this proves the page reads the reader's actual list out
    * of `chrome.storage.local`, and that pressing the control puts it back — the round trip the
