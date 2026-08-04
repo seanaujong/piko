@@ -53,19 +53,35 @@ it('captures the two pictures the onboarding page shows of Piko working', async 
   try {
     const page = await context.newPage()
     await page.setViewportSize(VIEWPORT)
+
+    /*
+     * Wikipedia's fundraising banner, kept out of the picture.
+     *
+     * CentralNotice arrives asynchronously and, while a campaign is running, covers the article
+     * with a donation form — which turns a picture of Piko reading an article into a picture of
+     * a donation form with Piko beside it. It is seasonal, so whether these shots carry it
+     * depends on nothing but the day they were last regenerated, and a reader who is signed in
+     * or has dismissed it once sees an article where the capture would have shipped an appeal.
+     *
+     * Blocked at the request, so the banner never exists, rather than hidden afterwards by a
+     * style this page would not otherwise have: what is photographed is a state Wikipedia really
+     * renders. Its modules are batched into one ResourceLoader request of their own, so aborting
+     * that request takes nothing else with it.
+     */
+    await page.route(/ext\.centralNotice/, (route) => route.abort())
+
     await page.goto(ARTICLE)
 
-    // A journal with something in it, because an empty one is a picture of an empty box. The
-    // sentence is clipped through the same click a reader makes, so the mark in the shot is a
-    // real mark rather than a state set from script.
-    await armClipping(page)
-    await clipSentenceIn(page, '#mw-content-text p')
-    await settle(page)
-    await write(page, 'armed.webp')
-
-    // A drag wins over host clipping, so this arrives in the preview with the rail already put
-    // away — exactly the sequence the onboarding steps walk through. `href*=` and not `^=`:
-    // Wikipedia serves protocol-relative links, so every one of them starts `//en.wikipedia.org`.
+    // The drag first, because that is the order the steps walk through and the order decides
+    // what is in the journal. This shot is taken before the page itself has been clipped, so the
+    // journal beside the preview holds exactly the one sentence just kept from the dragged
+    // article — which is what the step this picture sits under has asked the reader to do, and
+    // no more. A journal with something in it either way, because an empty one is a picture of
+    // an empty box, and the sentence is clipped through the same click a reader makes, so the
+    // mark in the shot is a real mark rather than a state set from script.
+    //
+    // `href*=` and not `^=`: Wikipedia serves protocol-relative links, so every one of them
+    // starts `//en.wikipedia.org`.
     const link = page.locator('#mw-content-text p a[href*="/wiki/"]').first()
     await link.scrollIntoViewIfNeeded()
     await dragElement(page, link)
@@ -80,6 +96,15 @@ it('captures the two pictures the onboarding page shows of Piko working', async 
     await clipSentenceIn(page, `${SHADOW}.querySelector('.piko-article p')`, true)
     await settle(page)
     await write(page, 'preview.webp')
+
+    // Escape puts the preview away and leaves the page it was dragged from, which is where the
+    // rest of the sequence happens. The journal holds two sentences from two sources by the time
+    // this one is taken, and the step it sits under is the one that just added the second.
+    await page.keyboard.press('Escape')
+    await armClipping(page)
+    await clipSentenceIn(page, '#mw-content-text p')
+    await settle(page)
+    await write(page, 'armed.webp')
   } finally {
     await context.close()
   }

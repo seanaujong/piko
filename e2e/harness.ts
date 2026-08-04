@@ -91,8 +91,19 @@ export function buildTestExtension(): string {
  * picture of something no reader can reproduce.
  */
 export async function dragElement(page: Page, link: Locator): Promise<void> {
-  const box = await link.boundingBox()
-  if (!box) throw new Error(`nothing to drag at ${link}`)
+  /*
+   * The first client rect, and not the bounding box. They are the same rectangle for a link that
+   * fits on one line, and for a link that wraps they are very different: the bounding box is the
+   * union of both line fragments, so its centre can fall in the gap between the lines or onto the
+   * prose beside them. The mouse then presses something that is not the link, no `dragstart` ever
+   * fires, and the failure is indistinguishable from a listener that was never attached — which
+   * is a long way to travel for a link that grew one word too long.
+   */
+  const box = await link.evaluate((element) => {
+    const rect = element.getClientRects()[0]
+    return rect ? { x: rect.x, y: rect.y, width: rect.width, height: rect.height } : null
+  })
+  if (!box || box.width === 0 || box.height === 0) throw new Error(`nothing to drag at ${link}`)
 
   const fromX = box.x + box.width / 2
   const fromY = box.y + box.height / 2

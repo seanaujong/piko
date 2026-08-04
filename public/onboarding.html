@@ -41,22 +41,36 @@
          leaves out of dist/ — 64 CSS pixels of a 128px source is exact at 2x. */
       .mark { display: block; width: 64px; height: 64px; margin: 0 0 20px; }
 
-      /* The same icon at text size, so a sentence can point at the thing to click instead of
+      /* A shape at text size, so a sentence can point at the thing to press instead of only
          describing it. Sized in em so it tracks whatever text it sits in, and dropped onto the
-         baseline so it sits *in* the line rather than on top of it. */
+         baseline so it sits *in* the line rather than on top of it. Carries both the shipping
+         raster of Piko's own icon and the drawn glyphs below, which is the point: a step that
+         names something on screen shows it at the size the sentence runs at. */
       .inline-icon { width: 1.15em; height: 1.15em; vertical-align: -0.25em; }
+
+      /* The glyph definitions themselves, present in the document but never drawn. Not
+         `display: none`, which has historically stopped `<use>` resolving; a zero box with its
+         overflow hidden takes no space and leaves the references working. */
+      .sprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
       /* The one key this page asks for. Left to the browser it renders as monospace at a
          smaller size, which reads as code rather than as something to press; this keeps the
-         page's own face and borrows only the outline of a keycap. */
+         page's own face and borrows only the outline of a keycap.
+
+         Both the cap and its edge are mixed out of `currentColor`, which is the only way a
+         surface behind inherited text can be right in both themes at once: a fixed light grey
+         under text that turns white in dark mode leaves the key unreadable, and that is exactly
+         what it did. Deriving the surface from the text means the contrast between them is
+         fixed by construction rather than by a value chosen against one background. Same
+         mechanism as `.site-undo` and `.tryit`. */
       kbd {
         font: inherit;
         font-size: 0.9em;
         padding: 1px 5px;
-        border: 1px solid rgba(0, 0, 0, 0.2);
+        border: 1px solid color-mix(in srgb, currentColor 30%, transparent);
         border-bottom-width: 2px;
         border-radius: 4px;
-        background: #f4f4f6;
+        background: color-mix(in srgb, currentColor 12%, transparent);
       }
 
       button {
@@ -85,7 +99,19 @@
          that message needed; the button carries that now. What is left is the refusal, which runs
          to two lines at this width and so was never the thing the reservation could absorb. */
       .status { margin-top: 1em; font-weight: 600; }
+      /* The refusal is the one colour on this page that cannot be mixed out of `currentColor` —
+         it has to stay amber to mean anything, so it needs a value per theme rather than a tint
+         of the text. The dark half is not the light one lightened by eye: an amber dark enough
+         to carry on white drops to about 3.5:1 on Chrome's dark canvas, under the 4.5:1 that
+         text at this size and weight needs.
+
+         A media query and not `light-dark()`, which says the same thing in one line and needs
+         Chrome 123. The build targets chrome115, and a stylesheet that quietly requires more
+         than the bundle does is a floor raised where nobody would think to look for it. */
       .status[data-state="declined"] { color: #9a5b00; }
+      @media (prefers-color-scheme: dark) {
+        .status[data-state="declined"] { color: #ffb84d; }
+      }
       .fineprint { font-size: 0.9rem; opacity: 0.75; }
       code { font-size: 0.9em; }
 
@@ -154,6 +180,39 @@
     </style>
   </head>
   <body>
+    <!--
+      The shapes the instructions point at, each drawn once and referenced wherever it appears.
+      The illustration in the first step rings the same puzzle piece and pin that the step's own
+      sentence names, because they are literally the same `<symbol>` — so the shape a reader
+      learns from the sentence cannot drift from the shape the picture tells them to hunt for.
+      That is the same argument the row beside it already makes by using the shipping raster of
+      Piko's icon rather than a redrawing of it.
+
+      Drawn in `currentColor` alone, so each takes the colour of the text it lands in and needs
+      no light and dark variant. Marked `aria-hidden` at every use: each one sits beside the very
+      noun it depicts, so a screen reader announcing it would read the word twice.
+
+      Judged at 18px — what 1.15em of this page's body text rasterizes to — and not at the size
+      they are drawn. That is the whole reason the drag is a cursor and a trail: at 18px an open
+      hand loses its fingers and a dragged "link chip" becomes a featureless blob, while a cursor
+      stays unmistakably a cursor and three dashes stay three dashes.
+    -->
+    <svg class="sprite" aria-hidden="true">
+      <symbol id="glyph-puzzle" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+      </symbol>
+      <symbol id="glyph-pin" viewBox="0 0 24 24">
+        <path fill="currentColor"
+              d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+      </symbol>
+      <symbol id="glyph-drag" viewBox="0 0 24 24">
+        <path d="M1.5 13h8" fill="none" stroke="currentColor" stroke-width="2.4"
+              stroke-linecap="round" stroke-dasharray="0.1 3.8" />
+        <path fill="currentColor" d="M11 4l10 7.6-4.5.8 2.7 4.9-2.5 1.4-2.7-5-3 3.1z" />
+      </symbol>
+    </svg>
+
     <img class="mark" src="icons/icon128.png" alt="" width="64" height="64" />
 
     <h1>
@@ -167,12 +226,15 @@
       you open one.
     </p>
 
+    <!-- One sentence in two states, so it says the same thing in the same words whichever half
+         of the pair is showing. "this permission" reads correctly in both: before the grant it
+         names what the button is about to ask for, and after it names what was given. -->
     <p class="before-grant">
-      Chrome will ask you to confirm. Nothing happens until you do. You can take the permission
-      back at any time from <code>chrome://extensions</code>.
+      Chrome will ask you to confirm. Nothing happens until you do. You can revoke this
+      permission any time from <code>chrome://extensions</code>.
     </p>
     <p class="after-grant">
-      You can take that back at any time from <code>chrome://extensions</code>.
+      You can revoke this permission any time from <code>chrome://extensions</code>.
     </p>
 
     <button id="grant">Allow Piko on all sites</button>
@@ -187,25 +249,56 @@
     <div id="sites"></div>
 
     <!-- A reading, not a feature tour. Both surfaces appear here because the sequence needs
-         them, in the order the reading needs them — and the instruction to find the sentence that
-         says what the article is about is the whole product argument in one line: the reader
-         summarises by choosing, which is the thing a generated summary does instead of them.
-         A tour of the same two gestures would teach what Piko does and not what it is for. -->
+         them — and the instruction to find the sentence that says what the article is about is
+         the whole product argument in one line: the reader summarises by choosing, which is the
+         thing a generated summary does instead of them. A tour of the same two gestures would
+         teach what Piko does and not what it is for.
+
+         The drag leads because it is the one gesture that needs nothing set up. Clipping the page
+         you are on needs the toolbar icon, and the icon needs pinning, so opening with the pin
+         puts two steps of housekeeping between the reader and anything worth seeing. A dragged
+         link works the moment access is granted. Leading with it makes the shortest path from
+         this page to Piko doing something, and leaves pinning to be asked for at the point it is
+         actually needed — which is also the point where the reader has a reason to want it. -->
     <h2>Try it</h2>
     <div class="tryit">
       <p>
-        Reading is easy with Piko! Piko is a type of commonplace book (a personal notebook) in
-        your browser. Let's use its
+        Reading is easy with Piko! Piko is a scrapbook that works in your browser. Click on
         <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
-          >Wikipedia page</a
+          >this Wikipedia page</a
         >
-        as an example of how to engage yourself while reading:
+        and let me teach you how to use Piko!
       </p>
       <ol>
         <li>
-          Pin Piko to your toolbar. Click the puzzle piece at the right of the address bar, then
-          the pin beside Piko. Chrome hides new extensions behind that menu, and every step from
-          here starts by pressing Piko's icon.
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-drag" /></svg> On the
+          Wikipedia page, try dragging a link to activate Piko's preview mode!
+        </li>
+        <li>
+          In the preview, try hovering your mouse over each sentence as you read. When you find
+          the sentence that summarizes the article, click on that sentence to clip it!
+          <details>
+            <summary>What a dragged article looks like</summary>
+            <img class="shot" src="shots/preview.webp" width="1040" height="660"
+                 alt="The dragged article open in reader mode over the page it was dragged from,
+                      its opening sentence highlighted, and Piko's journal beside it holding that
+                      sentence." />
+          </details>
+        </li>
+        <li>If you want to group multiple sentences, try <kbd>Shift</kbd> click!</li>
+        <!-- All three are named because all three are wired to the same dismissal, and a reader
+             who reaches for the one they already expect should not find it missing. `mountPanel`
+             is where that is true: the close button, the backdrop and the Escape key all send
+             `Dismissed`. -->
+        <li>Press <kbd>Esc</kbd>, the red ✕, or the background of the preview to go back to the
+          main page.</li>
+        <li>
+          You can clip sentences on the main page too! Click the
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-puzzle" /></svg> puzzle
+          piece icon on your browser, then
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-pin" /></svg> pin the
+          Piko extension. Try clicking on
+          <img class="inline-icon" src="icons/icon128.png" alt="" /> Piko!
           <!-- Folded, so a step reads as one instruction and the picture is there for whoever
                wants it. Open by default would make the list a gallery to scroll past rather than
                a sequence to follow.
@@ -234,8 +327,7 @@
             <!-- the puzzle piece, which is the button to press -->
             <circle cx="288" cy="28" r="17" fill="#3d5afe" fill-opacity="0.14"
                     stroke="#3d5afe" stroke-width="2" />
-            <path transform="translate(276 16)" fill="currentColor" fill-opacity="0.85"
-                  d="M20.5 11H19V7c0-1.1-.9-2-2-2h-4V3.5C13 2.12 11.88 1 10.5 1S8 2.12 8 3.5V5H4c-1.1 0-1.99.9-1.99 2v3.8H3.5c1.49 0 2.7 1.21 2.7 2.7s-1.21 2.7-2.7 2.7H2V20c0 1.1.9 2 2 2h3.8v-1.5c0-1.49 1.21-2.7 2.7-2.7 1.49 0 2.7 1.21 2.7 2.7V22H17c1.1 0 2-.9 2-2v-4h1.5c1.38 0 2.5-1.12 2.5-2.5S21.88 11 20.5 11z" />
+            <use href="#glyph-puzzle" x="276" y="16" width="24" height="24" fill-opacity="0.85" />
 
             <path d="M288 50v14" stroke="#3d5afe" stroke-width="2" stroke-dasharray="3 3" />
             <path d="M288 70l-5-8h10z" fill="#3d5afe" />
@@ -250,55 +342,28 @@
             <!-- the pin, which is the thing to click -->
             <rect x="322" y="108" width="28" height="28" rx="9" fill="#3d5afe" fill-opacity="0.14"
                   stroke="#3d5afe" stroke-width="2" />
-            <path transform="translate(327 113) scale(0.75)" fill="currentColor" fill-opacity="0.85"
-                  d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
+            <use href="#glyph-pin" x="327" y="113" width="18" height="18" fill-opacity="0.85" />
           </svg>
           </details>
         </li>
-        <li>Press <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> in your
-          toolbar. The journal docks on the right, and the page becomes clippable.</li>
         <li>
-          Read until you find the one sentence that says what the article is <em>about</em>.
-          Click it. That sentence is now the article, in your journal. If the thought carries
-          on into the sentence beside it, <kbd>Shift</kbd>-click that one and the note grows to
-          hold both, as one clipping.
+          Finally, try clipping a sentence on the main page!
           <details>
             <summary>What the docked journal and a kept sentence look like</summary>
             <img class="shot" src="shots/armed.webp" width="1040" height="660"
                  alt="The Commonplace book article with its opening sentence highlighted, and
-                      Piko's journal docked to the right of the page holding that sentence." />
+                      Piko's journal docked to the right of the page, now holding that sentence
+                      and the one kept from the dragged article." />
           </details>
         </li>
-        <li>Keep going. When a link matters to what you just kept, drag it a short distance and
-          let go. That article opens in place, in reader mode, with your journal still beside
-          it.</li>
-        <li>
-          Find its one sentence too, and click that. Escape brings you back.
-          <details>
-            <summary>What a dragged article looks like</summary>
-            <img class="shot" src="shots/preview.webp" width="1040" height="660"
-                 alt="The dragged article open in reader mode over the page it was dragged from,
-                      its opening sentence highlighted, and the journal beside it now holding two
-                      sentences from two sources." />
-          </details>
-        </li>
-      </ol>
-      <p>
-        You end up with the article in the sentences you chose, and a line from each link that
-        mattered. Piko will not choose them for you. Choosing is the reading.
-      </p>
-      <p class="fineprint">A few things that might surprise you along the way:</p>
-      <ol class="fineprint">
-        <li>Dragging a link puts the page's own clipping away. Press Piko's icon again whenever
-          you want it back.</li>
-        <li>The drag has to happen on the Wikipedia page, not on this one. Piko does not run on
-          its own pages.</li>
-        <li>A tab you already had open before allowing Piko needs a reload first. Piko can only
-          get into a page while that page is loading.</li>
       </ol>
     </div>
 
-    <h2>What Piko does with it</h2>
+    <!-- Names the permission in the same words the heading at the top of the page uses, rather
+         than as `<all_urls>`. "it" was the button, and by this far down the page the button is
+         well out of sight — a heading that depends on a pronoun reaching that far is a heading
+         about nothing for anyone who arrived here by scrolling. -->
+    <h2>What Piko does with access to the pages you read</h2>
     <ul>
       <li>Notices a dragged link and fetches that page, so it can show you the article in reader
         mode.</li>
@@ -307,7 +372,7 @@
       <li>Saves a sentence to your journal when you click it. That journal stays on this device.</li>
     </ul>
 
-    <h2>What it will not do</h2>
+    <h2>What Piko will not do</h2>
     <ul>
       <li>Run on webmail, password managers, chat, or sign-in pages. Chrome blocks Piko there. It
         is not Piko policing itself.</li>

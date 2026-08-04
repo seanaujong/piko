@@ -61,10 +61,13 @@ export function renderSiteList(rows: readonly SiteRow[], letBackOn: (host: strin
   if (reader.length === 0) {
     const empty = document.createElement('p')
     empty.className = 'sites-empty'
+    // The menu item is quoted the way `siteMenu.ts` writes it, host and all, so what the reader
+    // is told to look for is what the menu will say. `siteMenu.test.ts` is what holds that
+    // wording still; a rename there is a rename here.
     empty.append(
       'You have not turned Piko off anywhere yet. To do that, right-click ',
       toolbarIcon(),
-      ' in your toolbar while you are on the site.',
+      ' in your toolbar while you are on the site. Then, select "Never run Piko on …".',
     )
     fragment.append(empty)
   } else {
