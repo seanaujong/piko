@@ -79,71 +79,130 @@ async function hover(surface: HTMLElement, point: { x: number; y: number }): Pro
   await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
 }
 
+/** A click at a point, the way the highlighter hears one. */
+function click(surface: HTMLElement, point: { x: number; y: number }): void {
+  surface.dispatchEvent(
+    new MouseEvent('click', { clientX: point.x, clientY: point.y, bubbles: true }),
+  )
+}
+
 const FIRST = 'Plain opening.'
 const SECOND = 'Second sentence here.'
+const THIRD = 'A third one, longer than the others, so the run has to wrap the column.'
 
 /**
- * Whether each kind of mark is on the page at all. Counts are line counts — one box per
- * visual line the run occupies — so they say how the column happened to wrap, which is not
- * what any rule here is about.
+ * Where a kind of mark was actually painted, box by box.
+ *
+ * Boxes rather than a count, because the rule under test is about *extent* — how far a hover
+ * reaches — and a count only says how the column happened to wrap. Two runs painted over the
+ * same span produce identical boxes whatever the wrapping does, so comparing one kind of mark
+ * against the other asserts they cover the same text without asserting where the lines break.
  */
-type Marks = { hovered: boolean; clipped: boolean }
+type Box = { left: string; top: string; width: string; height: string }
 
-const marksIn = (surface: HTMLElement): Marks => ({
-  hovered: surface.querySelector('.piko-mark-hover') !== null,
-  clipped: surface.querySelector('.piko-mark-clip') !== null,
-})
+const boxesOf = (surface: HTMLElement, kind: string): Box[] =>
+  [...surface.querySelectorAll<HTMLElement>(`.piko-mark-${kind}`)].map(({ style }) => ({
+    left: style.left,
+    top: style.top,
+    width: style.width,
+    height: style.height,
+  }))
 
-function attach(surface: HTMLElement, root: ShadowRoot, clipped: readonly Passage[]): void {
+function attach(
+  surface: HTMLElement,
+  root: ShadowRoot,
+  clipped: readonly Passage[],
+  onToggle: (hit: Passage) => void = () => {},
+): void {
   const handle = attachSentenceHighlight({
     surface,
     article: surface,
     root,
     clipped: () => clipped,
-    onToggle: () => {},
+    onToggle,
     onExtend: () => {},
   })
   detach = handle.destroy
 }
 
+/** A note over a run of sentences, spelled the way the journal spells one. */
+function noteOver(block: HTMLElement, from: number, to: number): Passage {
+  const sentences = sentencesIn(block, 'en')
+  return {
+    block,
+    start: sentences[from]!.start,
+    end: sentences[to]!.end,
+    text: sentences
+      .slice(from, to + 1)
+      .map((s) => s.text)
+      .join(' '),
+  }
+}
+
 /**
- * A clipped passage keeps its own stronger colour under the cursor, and a passage is a run —
- * so the question the repaint asks has to be "does a clipped passage COVER this sentence",
- * not "does one equal it". Asked as equality, hovering the second sentence of a two-sentence
- * note paints a hover mark over text that is already kept, and the note appears to lose its
- * colour wherever the cursor rests on it.
+ * What the cursor is on is the note, not the sentence the hit-test landed on.
+ *
+ * A note is a run, so pointing anywhere in it is pointing at all of it — and the reader's next
+ * click acts on all of it. The mark has to say so: a hover that lit only the sentence under the
+ * cursor would promise to drop a third of a note and then drop the whole thing.
  */
 describe('hovering a sentence a note already holds', () => {
-  it('paints no hover mark over the later sentence of a passage', async () => {
-    const { surface, root } = mount(`<p>${FIRST} ${SECOND}</p>`)
+  it('lights the whole note, not the sentence under the cursor', async () => {
+    const { surface, root } = mount(`<p>${FIRST} ${SECOND} ${THIRD}</p>`)
     const block = surface.querySelector('p')!
-    const sentences = sentencesIn(block, 'en')
-    const whole: Passage = {
-      block,
-      start: sentences[0]!.start,
-      end: sentences[1]!.end,
-      text: `${FIRST} ${SECOND}`,
-    }
 
-    attach(surface, root, [whole])
+    attach(surface, root, [noteOver(block, 0, 2)])
     await hover(surface, pointAt(block, 'Second sentence'))
 
-    expect(marksIn(surface)).toEqual({ hovered: false, clipped: true })
+    // Same boxes as the note itself paints — so the hover covers exactly the note's extent,
+    // however the three sentences happened to wrap.
+    expect(boxesOf(surface, 'hover')).toEqual(boxesOf(surface, 'clip'))
+    expect(boxesOf(surface, 'hover').length).toBeGreaterThan(0)
   })
 
   /**
-   * The contrast that makes the test above mean something: the same point, the same gesture,
-   * with only the first sentence kept. A hover mark here is exactly what should appear.
+   * The contrast that makes the test above mean something: the same point, with only the first
+   * sentence kept. Now the cursor is on plain text, so the hover is the sentence alone and
+   * stops well short of the note beside it.
    */
-  it('still paints one over a sentence no note holds', async () => {
-    const { surface, root } = mount(`<p>${FIRST} ${SECOND}</p>`)
+  it('lights only the sentence when no note holds it', async () => {
+    const { surface, root } = mount(`<p>${FIRST} ${SECOND} ${THIRD}</p>`)
     const block = surface.querySelector('p')!
-    const sentences = sentencesIn(block, 'en')
-    const justTheFirst: Passage = { block, ...sentences[0]! }
 
-    attach(surface, root, [justTheFirst])
+    attach(surface, root, [noteOver(block, 0, 0)])
     await hover(surface, pointAt(block, 'Second sentence'))
 
-    expect(marksIn(surface)).toEqual({ hovered: true, clipped: true })
+    expect(boxesOf(surface, 'hover')).not.toEqual(boxesOf(surface, 'clip'))
+    expect(boxesOf(surface, 'hover').length).toBeGreaterThan(0)
+    expect(boxesOf(surface, 'clip').length).toBeGreaterThan(0)
+  })
+
+  /**
+   * And what the click carries. The journal knows a note by its text and by nothing else, so a
+   * click that named the single sentence it landed on would not match the note holding it —
+   * `toggle` would file that sentence as a *second* note overlapping the first, rather than
+   * removing the one the reader was pointing at.
+   */
+  it('hands a click the whole note it landed in', async () => {
+    const { surface, root } = mount(`<p>${FIRST} ${SECOND} ${THIRD}</p>`)
+    const block = surface.querySelector('p')!
+    const note = noteOver(block, 0, 2)
+
+    const toggled: Passage[] = []
+    attach(surface, root, [note], (hit) => toggled.push(hit))
+    click(surface, pointAt(block, 'Second sentence'))
+
+    expect(toggled.map((hit) => hit.text)).toEqual([`${FIRST} ${SECOND} ${THIRD}`])
+  })
+
+  it('hands a click the bare sentence when no note holds it', async () => {
+    const { surface, root } = mount(`<p>${FIRST} ${SECOND} ${THIRD}</p>`)
+    const block = surface.querySelector('p')!
+
+    const toggled: Passage[] = []
+    attach(surface, root, [noteOver(block, 0, 0)], (hit) => toggled.push(hit))
+    click(surface, pointAt(block, 'Second sentence'))
+
+    expect(toggled.map((hit) => hit.text)).toEqual([SECOND])
   })
 })

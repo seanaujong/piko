@@ -6,9 +6,11 @@ opens over the page you're already on.
 
 - Drag a link → the article appears in a panel, in reader mode
 - Or click the toolbar icon → the page you're already on becomes clippable
-- Hover a sentence → it lights up
-- Click it → it's clipped to a journal that persists across reloads
-- Shift-click a sentence beside it → the note grows to cover both, as one clipping
+- Hover a sentence → it lights up; hover a note you've kept and all of it lights up
+- Click it → it's clipped to a journal that persists across reloads; click a note again and
+  the whole note goes, however many sentences it grew to hold
+- Shift-click a sentence beside a note → the note grows to cover both, as one clipping. Beside
+  *another note* → the two become one
 - Export the journal → one Markdown file, ready to drop into an Obsidian vault, where each
   quote links back to the exact sentence on the page it came from
 

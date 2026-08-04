@@ -279,6 +279,38 @@ function distanceTo(passage: Passage, span: { start: number; end: number }): num
   return 0
 }
 
+/**
+ * Whether `passage` already accounts for `hit`.
+ *
+ * Containment rather than equality, because a passage is a run: the second sentence of a
+ * two-sentence note is a hit that note holds without being equal to. Asked as equality, every
+ * rule below would treat a note's later sentences as unclipped text.
+ */
+const covers = (passage: Passage, hit: Passage): boolean =>
+  passage.block === hit.block && passage.start <= hit.start && passage.end >= hit.end
+
+/**
+ * The note holding the sentence under the cursor, or null when no note holds it.
+ *
+ * **This is what makes a note, rather than a sentence, the thing a reader points at.** Once a
+ * note can be more than one sentence, "what is under the cursor" has two answers — the
+ * sentence the hit-test found, and the note that sentence belongs to — and the reader only
+ * ever means the second one. A gesture aimed at the smaller answer acts on a fragment: a
+ * click meant to drop a note instead files the one sentence it landed on as a second,
+ * overlapping note, and a hover meant to light the note lights a third of it.
+ *
+ * Kept here beside `Passage` rather than in the highlighter, because it is a fact about what
+ * a passage is and not about how one is painted — which is also what lets both the hover and
+ * the click ask it, instead of each deciding for itself what it is looking at.
+ *
+ * The first covering note wins. Notes cannot normally overlap, so there is at most one; a
+ * journal that arrives already overlapping is repaired by the reach rule below rather than
+ * resolved here.
+ */
+export function noteCovering(hit: Passage, clipped: readonly Passage[]): Passage | null {
+  return clipped.find((passage) => covers(passage, hit)) ?? null
+}
+
 /** A passage grown to reach somewhere new, and the passages it swallowed getting there. */
 export type ExtendedPassage = { grown: Passage; supersedes: readonly Passage[] }
 
@@ -289,30 +321,30 @@ export type ExtendedPassage = { grown: Passage; supersedes: readonly Passage[] }
  * surface — the preview or the live page — carries a copy of it. The reader's gesture says
  * "the thought runs to here"; the rule turns that into a span:
  *
- *  - The note being extended is the **nearest already-clipped passage in the same block**.
- *    Nearest rather than newest, because the reader is pointing at the page, not at the
- *    journal; the note their cursor is beside is the one they mean. A tie goes to the
- *    passage that reads first, which is the common case written down — clip a sentence, then
- *    reach forward to the one after it.
+ *  - The note being extended is the **nearest already-clipped passage in the same block that
+ *    the reach is not already part of**. Nearest rather than newest, because the reader is
+ *    pointing at the page, not at the journal; the note their cursor is beside is the one they
+ *    mean. A tie goes to the passage that reads first, which is the common case written down —
+ *    clip a sentence, then reach forward to the one after it.
+ *  - *Not already part of* is what lets a reach land on a note and join it. Without that
+ *    exclusion the nearest note to a reach that lands inside one is the one it landed in, at
+ *    distance zero, so reaching the sentence beside a note did the one thing it could not do:
+ *    nothing at all, silently, exactly where two notes were begging to be one.
  *  - The new passage covers everything from that note to the click, **including whatever lies
  *    between**. Reaching past a sentence and leaving it out would make the stored text differ
  *    from the highlighted text, and the highlight is the only record of what a note contains.
  *  - Every passage the new span covers is superseded by it, so two notes cannot end up
  *    overlapping. Overlap has no honest reading: the same sentence would belong to two notes,
  *    and the overlapping stretch would paint itself twice.
+ *  - A note the span covers only *partly* is taken whole, by growing the span to it. Superseding
+ *    a note the span does not cover would delete the rest of that note — the reader would reach
+ *    two sentences and watch a third leave the journal.
  *
- * That last rule looks more general than it is, and the generality is the point rather than an
- * accident. Given notes that do not already overlap, the span can only ever cover the anchor:
- * anything lying between the anchor and the click would be nearer the click, and would have
- * been the anchor instead. What the filter is really for is a journal that arrives already
- * overlapping — an older one, a hand-edited store — which it quietly repairs rather than
- * building on. Written as `[anchor]` it would depend on a theorem about its input holding.
- *
- * With nothing clipped in the block there is nothing to extend, so the click keeps its own
- * sentence and supersedes nothing — the same thing an ordinary click does. Landing inside a
- * passage that already covers the sentence returns null: the note already reaches here.
- * Shrinking one is deliberately not a gesture; a plain click removes the whole passage, which
- * is the way back.
+ * With nothing else clipped in the block there is nothing to reach from, so an unclipped click
+ * keeps its own sentence and supersedes nothing — the same thing an ordinary click does — and
+ * a click already inside the block's only note returns null, because the note already reaches
+ * here. Shrinking one is deliberately not a gesture; a plain click removes the whole passage,
+ * which is the way back.
  */
 export function passageExtendedTo(
   hit: Passage,
@@ -320,15 +352,28 @@ export function passageExtendedTo(
   locale: string,
 ): ExtendedPassage | null {
   const here = clipped.filter((passage) => passage.block === hit.block)
-  if (here.length === 0) return { grown: hit, supersedes: [] }
+  const anchors = here.filter((passage) => !covers(passage, hit))
+  if (anchors.length === 0) return here.length === 0 ? { grown: hit, supersedes: [] } : null
 
-  const anchor = here.reduce((nearest, passage) =>
+  const anchor = anchors.reduce((nearest, passage) =>
     distanceTo(passage, hit) < distanceTo(nearest, hit) ? passage : nearest,
   )
 
-  const start = Math.min(anchor.start, hit.start)
-  const end = Math.max(anchor.end, hit.end)
-  if (anchor.start === start && anchor.end === end) return null
+  // Grown to the union of every note it touches, repeatedly, because swallowing one note can
+  // carry the span up against the next. It settles: each pass either takes in a note or stops,
+  // and the block holds a fixed number of them.
+  let start = Math.min(anchor.start, hit.start)
+  let end = Math.max(anchor.end, hit.end)
+  for (;;) {
+    const touched = here.filter((passage) => passage.start < end && passage.end > start)
+    const reach = {
+      start: Math.min(start, ...touched.map((passage) => passage.start)),
+      end: Math.max(end, ...touched.map((passage) => passage.end)),
+    }
+    if (reach.start === start && reach.end === end) break
+    start = reach.start
+    end = reach.end
+  }
 
   const supersedes = here.filter((passage) => passage.start < end && passage.end > start)
   const text = sentencesIn(hit.block, locale)

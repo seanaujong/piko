@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Passage } from './sentences'
 import {
   findPassages,
+  noteCovering,
   passageExtendedTo,
   rangeForSpan,
   sentencesIn,
@@ -409,6 +410,100 @@ describe('passages', () => {
 
       expect(passageExtendedTo(sentenceIn(container, 0), [whole], 'en')).toBeNull()
       expect(passageExtendedTo(sentenceIn(container, 1), [whole], 'en')).toBeNull()
+    })
+
+    /**
+     * The gesture that used to do nothing. Two notes side by side is exactly the arrangement a
+     * reader wants joined, and the old rule made it the one arrangement it could not touch: the
+     * nearest note to a reach landing on a note is that note itself, at distance zero, so the
+     * span never grew and the reach returned null.
+     */
+    it('joins the note the reach lands on', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const alone = sentenceIn(container, 0)
+      const beside = sentenceIn(container, 1)
+
+      const extension = passageExtendedTo(beside, [alone, beside], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND}`)
+      expect(extension!.supersedes.map((p) => p.text).sort()).toEqual([FIRST, SECOND].sort())
+    })
+
+    /** Reaching from a note is the same gesture whichever of the two the cursor is on. */
+    it('joins the note the reach comes from, reached the other way', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const alone = sentenceIn(container, 0)
+      const beside = sentenceIn(container, 1)
+
+      const extension = passageExtendedTo(alone, [alone, beside], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND}`)
+      expect(extension!.supersedes.map((p) => p.text).sort()).toEqual([FIRST, SECOND].sort())
+    })
+
+    /**
+     * A note the span reaches into but does not cover would be superseded whole and replaced by
+     * something shorter, so the reader would join two sentences and watch a third leave the
+     * journal. The span takes such a note whole instead.
+     */
+    it('takes a note it reaches into whole, rather than truncating it', () => {
+      const container = article([FIRST, SECOND, THIRD].join(' '))
+      const block = container.querySelector('p')!
+      const sentences = sentencesIn(block, 'en')
+      const alone = sentenceIn(container, 0)
+      const pair: Passage = {
+        block,
+        start: sentences[1]!.start,
+        end: sentences[2]!.end,
+        text: `${SECOND} ${THIRD}`,
+      }
+
+      // Reaching the pair's FIRST sentence: the span alone would stop at the end of SECOND.
+      const extension = passageExtendedTo(sentenceIn(container, 1), [alone, pair], 'en')
+
+      expect(extension!.grown.text).toBe(`${FIRST} ${SECOND} ${THIRD}`)
+      expect(extension!.supersedes.map((p) => p.text).sort()).toEqual(
+        [FIRST, `${SECOND} ${THIRD}`].sort(),
+      )
+    })
+  })
+
+  /**
+   * What the cursor is on. The hit-test answers with a sentence; every gesture means the note
+   * that sentence belongs to, and this is the one place that translation happens.
+   */
+  describe('noteCovering', () => {
+    it('answers with the whole note holding the sentence under the cursor', () => {
+      const container = article([FIRST, SECOND].join(' '))
+      const block = container.querySelector('p')!
+      const sentences = sentencesIn(block, 'en')
+      const whole: Passage = {
+        block,
+        start: sentences[0]!.start,
+        end: sentences[1]!.end,
+        text: `${FIRST} ${SECOND}`,
+      }
+
+      // Either sentence of the note, including the later one that is not equal to it.
+      expect(noteCovering(sentenceIn(container, 0), [whole])).toBe(whole)
+      expect(noteCovering(sentenceIn(container, 1), [whole])).toBe(whole)
+    })
+
+    it('answers with nothing when no note holds it', () => {
+      const container = article([FIRST, SECOND].join(' '))
+
+      expect(noteCovering(sentenceIn(container, 1), [sentenceIn(container, 0)])).toBeNull()
+      expect(noteCovering(sentenceIn(container, 0), [])).toBeNull()
+    })
+
+    /** A note in another paragraph holds nothing here, however the offsets line up. */
+    it('never answers with a note from another block', () => {
+      const container = article(FIRST, FIRST)
+      const [there, here] = [...container.querySelectorAll('p')]
+      const kept: Passage = { block: there!, ...sentencesIn(there!, 'en')[0]! }
+      const hit: Passage = { block: here!, ...sentencesIn(here!, 'en')[0]! }
+
+      expect(noteCovering(hit, [kept])).toBeNull()
     })
   })
 

@@ -2,6 +2,7 @@ import type { ExtendedPassage, LineBand, LineRect, Passage } from '../extraction
 import {
   lineBandsFor,
   lineRectsForSpan,
+  noteCovering,
   passageExtendedTo,
   sentenceAtPoint,
 } from '../extraction/sentences'
@@ -31,7 +32,12 @@ type Options = {
   root: DocumentOrShadowRoot
   /** Passages already clipped, painted persistently. Re-read on every repaint. */
   clipped: () => readonly Passage[]
-  /** A plain click: keep this sentence, or drop the passage it belongs to. */
+  /**
+   * A plain click: keep the sentence under the cursor, or drop the note already holding it.
+   *
+   * Handed a whole note when one is under the cursor, never the single sentence that was hit.
+   * The journal knows a note by its text, so dropping one means naming all of it.
+   */
   onToggle: (hit: Passage) => void
   /**
    * A shift-click: the note nearest the cursor now runs this far.
@@ -58,17 +64,6 @@ const samePassage = (a: Passage, b: Passage): boolean =>
   a.block === b.block && a.start === b.start && a.end === b.end
 
 /**
- * Whether `passage` already accounts for `hit`.
- *
- * Containment rather than equality, because a passage is a run: hovering the second sentence
- * of a two-sentence note is a hit the note covers without being equal to. Compared for
- * equality, the hover mark would paint over the clip mark of a sentence already kept, and the
- * note would appear to lose its stronger colour wherever the cursor rested on it.
- */
-const covers = (passage: Passage, hit: Passage): boolean =>
-  passage.block === hit.block && passage.start <= hit.start && passage.end >= hit.end
-
-/**
  * Paints the sentence under the cursor, plus every already-clipped sentence, into an overlay
  * layered beneath the text. The article's own DOM is never touched.
  *
@@ -85,7 +80,16 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
   overlay.className = 'piko-marks'
   surface.prepend(overlay)
 
-  let hovered: Passage | null = null
+  /**
+   * The *sentence* the last hit-test landed on, not the note holding it.
+   *
+   * Which note holds it is derived at paint time instead, because that answer depends on the
+   * journal and the journal changes underneath a stationary cursor: click to drop a note and
+   * the cursor is suddenly over plain text again. Cached, the overlay would go on lighting a
+   * note that no longer exists until the reader moved the mouse. The expensive half — the
+   * hit-test, which reads layout — is what is worth caching; the cheap half is re-derived.
+   */
+  let hoveredSentence: Passage | null = null
   let framePending = false
   let lastPoint: { x: number; y: number } | null = null
 
@@ -134,10 +138,13 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     const clippedHits = clipped()
     for (const hit of clippedHits) measureRange(hit, 'piko-mark piko-mark-clip', bands, marks)
 
-    // A clipped sentence keeps its own stronger colour rather than being overdrawn on hover.
-    if (hovered && !clippedHits.some((c) => covers(c, hovered!))) {
-      measureRange(hovered, 'piko-mark piko-mark-hover', bands, marks)
-    }
+    // The cursor is on a note, not on a sentence, whenever a note holds what it landed on — so
+    // the hover mark spans the whole note however many sentences it runs to. Painted over the
+    // clip mark rather than instead of it: a note under the cursor is still kept, and what the
+    // reader needs to see is the extent of the thing a click is about to drop.
+    const hovered =
+      hoveredSentence && (noteCovering(hoveredSentence, clippedHits) ?? hoveredSentence)
+    if (hovered) measureRange(hovered, 'piko-mark piko-mark-hover', bands, marks)
 
     overlay.replaceChildren(
       ...marks.map(({ rect, className }) => {
@@ -157,10 +164,11 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     if (!lastPoint) return
 
     const hit = sentenceAtPoint(article, root, locale, lastPoint.x, lastPoint.y)
-    const unchanged = hit && hovered ? samePassage(hit, hovered) : hit === hovered
+    const unchanged =
+      hit && hoveredSentence ? samePassage(hit, hoveredSentence) : hit === hoveredSentence
     if (unchanged) return
 
-    hovered = hit
+    hoveredSentence = hit
     repaint()
   }
 
@@ -175,8 +183,8 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
 
   function onPointerLeave(): void {
     lastPoint = null
-    if (hovered === null) return
-    hovered = null
+    if (hoveredSentence === null) return
+    hoveredSentence = null
     repaint()
   }
 
@@ -187,12 +195,19 @@ export function attachSentenceHighlight(options: Options): HighlightHandle {
     const selection = surface.getRootNode() instanceof ShadowRoot ? null : window.getSelection()
     if (!event.shiftKey && selection && !selection.isCollapsed) return
 
-    const hit = sentenceAtPoint(article, root, locale, event.clientX, event.clientY)
-    if (!hit) return
+    const sentence = sentenceAtPoint(article, root, locale, event.clientX, event.clientY)
+    if (!sentence) return
+
+    // What was clicked is the note holding that sentence, when one does. A click aimed at the
+    // sentence instead would name a fragment the journal has never heard of: dropping a
+    // two-sentence note would file its first sentence as a second note overlapping the first,
+    // which is the one shape the reach rule exists to keep out of the journal.
+    const clippedHits = clipped()
+    const hit = noteCovering(sentence, clippedHits) ?? sentence
 
     // Resolved before the event is swallowed, so a shift-click that would change nothing
     // leaves the page's own handling of it alone.
-    const extension = event.shiftKey ? passageExtendedTo(hit, clipped(), locale) : null
+    const extension = event.shiftKey ? passageExtendedTo(hit, clippedHits, locale) : null
     if (event.shiftKey && !extension) return
 
     if (options.suppressActivation) {
