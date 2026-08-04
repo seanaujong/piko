@@ -196,6 +196,7 @@ font-size contrast made it real.
 | Whatever the menu can do, it can undo — a guessed parent is repaired without leaving the page | ✅ | `background/siteMenu.ts` (`siteMenuItems`) | `siteMenu.test.ts` |
 | The page the install opens is reachable again, and reads correctly in both access states | ✅ | `public/onboarding.html` | `e2e/extension.test.ts` (`the page the install opens`) |
 | Every picture that page carries is in the build — folds opened, nothing broken | ✅ | `esbuild.config.mjs` | `e2e/extension.test.ts` (`the page the install opens`) |
+| The gesture that page teaches is answered on the one page that cannot perform it, by the tracker the content script runs rather than a second one resembling it | ✅ | `src/onboarding/index.ts` (`startDragTracking`) | `e2e/extension.test.ts` (`answers a dragged link`) |
 | The options page is the standing-start repair surface: the whole list, undoable from anywhere | ✅ | `src/onboarding/siteList.ts` | `siteList.test.ts`, `e2e/extension.test.ts` |
 | A row carries the undo only when pressing it would change something — shipped entries never do | ✅ | `src/onboarding/siteList.ts` (`siteRows`) | `siteList.test.ts` |
 | Standing down is one-way; only the worker decides that Piko may run, and a tab never re-arms itself | 👁 | `content/index.ts` (`standDown`) | — |

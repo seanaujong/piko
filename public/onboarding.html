@@ -155,6 +155,19 @@
         background: color-mix(in srgb, currentColor 8%, transparent);
       }
       .tryit > :last-child { margin-bottom: 0; }
+
+      /* The answer a real drag reveals. Hidden in the markup rather than absent from it, so the
+         live region is in the document before it has anything to announce — a region inserted at
+         the moment it gains its text is often announced by nothing at all.
+
+         Deliberately sets no `display`. `hidden` works by setting `display: none`, and any rule
+         here that set one would outrank it and leave the confirmation on screen before the
+         reader had done anything — which is the one state this paragraph must never be in. */
+      .practice-said { font-size: 0.95rem; }
+      .practice-tick { font-weight: 700; color: #1b7f3b; }
+      @media (prefers-color-scheme: dark) {
+        .practice-tick { color: #5fd08a; }
+      }
       /* Tightened against the line introducing it, so the closing list reads as belonging to
          that sentence rather than as a second set of steps. */
       .tryit .fineprint { margin-bottom: 0.4em; }
@@ -254,12 +267,29 @@
     <div class="tryit">
       <p>
         Reading is easy with Piko! Piko is a type of commonplace book (a personal notebook) in
-        your browser. Let's use its
-        <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
-          >Wikipedia page</a
-        >
-        as an example of how to engage yourself while reading:
+        your browser. Let's use Wikipedia's page on commonplace books as an example of how to
+        engage yourself while reading.
       </p>
+
+      <!-- The gesture goes first because it is the one the reader is most likely to try
+           unprompted, on the link in the sentence above, and get nothing for. Answering it here
+           turns the tutorial's most confusing moment into its first instruction. The confirmation
+           below is revealed by a real drag and describes only what actually happened; what it
+           refuses to do is show a preview, which would teach the motion by lying about the page
+           it was performed on. -->
+      <p class="practice">
+        <strong>The motion, first.</strong> Everything Piko does starts with a dragged hyperlink,
+        and the gesture is smaller than it sounds:
+        <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
+          >take hold of this link</a
+        >, move it a short distance, and let go. You do not have to drop it on anything.
+      </p>
+      <p class="practice-said" id="practice-said" role="status" hidden>
+        <span class="practice-tick">✓</span> That is the whole gesture, and nothing opened — Piko
+        does not run on its own pages, and this is one of them. On the article itself, that same
+        drag opens whatever you dragged, in reader mode, without taking you off the page.
+      </p>
+
       <ol>
         <li>
           Pin Piko to your toolbar. Click the
@@ -315,6 +345,8 @@
           </svg>
           </details>
         </li>
+        <li>Open the link above and switch to that tab. Every step from here happens on that
+          page rather than on this one.</li>
         <li>Press <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> in your
           toolbar. The journal docks on the right, and the page becomes clippable.</li>
         <li>
@@ -352,8 +384,6 @@
       <ol class="fineprint">
         <li>Dragging a link puts the page's own clipping away. Press Piko's icon again whenever
           you want it back.</li>
-        <li>The drag has to happen on the Wikipedia page, not on this one. Piko does not run on
-          its own pages.</li>
         <li>A tab you already had open before allowing Piko needs a reload first. Piko can only
           get into a page while that page is loading.</li>
       </ol>

@@ -24,11 +24,13 @@
  */
 import { ALL_SITES } from '../background/contentScriptRegistration'
 import { includeSite, onExcludedSitesChanged, readExcludedSites } from '../background/excludedSites'
+import { startDragTracking } from '../content/dragTracking'
 import { renderSiteList, siteRows } from './siteList'
 
 const button = document.getElementById('grant') as HTMLButtonElement | null
 const status = document.getElementById('status')
 const sites = document.getElementById('sites')
+const practiceSaid = document.getElementById('practice-said')
 
 /**
  * The one answer the button cannot give for itself: that the grant did not happen, and why.
@@ -89,6 +91,36 @@ async function showSites(): Promise<void> {
   const rows = siteRows(await readExcludedSites())
   sites.replaceChildren(renderSiteList(rows, (host) => void includeSite(host)))
 }
+
+/**
+ * Confirms the one gesture this page teaches and cannot itself perform.
+ *
+ * The content script is registered for `<all_urls>`, which covers http, https, file and ftp and
+ * does not cover `chrome-extension:` — the scheme this page is served on. No grant and no reload
+ * changes that, so a link dragged here is an ordinary dragged link. That leaves the tutorial
+ * describing the product's headline gesture on the one page that cannot answer it, while the
+ * reader's likeliest first instinct is to try it on the link sitting in the paragraph.
+ *
+ * So the motion is confirmed and the outcome is not faked. Nothing is previewed and nothing is
+ * fetched; the paragraph this reveals says what happened, which is that the gesture was right and
+ * that this page is not one Piko runs on.
+ *
+ * **The whole tracker, not a watcher on one marked link.** Reusing what the content script runs
+ * leaves one definition of the gesture rather than a second one written to resemble it, and
+ * answers for whatever links this page holds rather than for the one element someone remembered
+ * to tag. What differs between the two callers is only what they do with the answer: the content
+ * script previews, and this explains.
+ *
+ * Reuse carries the guards across as well as the rule, and both earn their place here for reasons
+ * of their own. `isTrusted` keeps the confirmation honest — it claims *you did this*, and a
+ * script-made event is evidence that nobody did. The gated `preventDefault` on drop is what stops
+ * Chrome navigating this tab to a link dropped onto it, which would throw the reader off the
+ * tutorial at the moment they followed it correctly.
+ *
+ * The teardown is dropped deliberately: there is no standing down from an extension page, which
+ * lives exactly as long as the tab showing it.
+ */
+startDragTracking(() => practiceSaid?.removeAttribute('hidden'))
 
 // Redrawn from storage rather than from the click that changed it, so a list edited from the
 // icon's menu in another window lands here on the same path — and so the row only goes once the
