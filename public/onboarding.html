@@ -260,27 +260,20 @@
     <h2>Try it</h2>
     <div class="tryit">
       <p>
-        Reading is easy with Piko! Piko is a type of commonplace book (a personal notebook) in
-        your browser. Let's use its
+        Reading is easy with Piko! Piko is a scrapbook that works in your browser. Click on
         <a href="https://en.wikipedia.org/wiki/Commonplace_book" target="_blank" rel="noreferrer"
-          >Wikipedia page</a
+          >this Wikipedia page</a
         >
-        as an example of how to engage yourself while reading:
+        and let me teach you how to use Piko!
       </p>
       <ol>
-        <li>Open that page and switch to its tab. Everything from here happens there — Piko does
-          not run on its own pages, so a link dragged on this one does nothing.</li>
         <li>
-          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-drag" /></svg> Take hold
-          of a link in the article, move it a short distance, and let go. You do not have to drop
-          it on anything. That article opens in place, in reader mode, with your journal beside
-          it.
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-drag" /></svg> On the
+          Wikipedia page, try dragging a link to activate Piko's preview mode!
         </li>
         <li>
-          Read until you find the one sentence that says what <em>that</em> article is about.
-          Click it. That sentence is now the article, in your journal. If the thought carries on
-          into the sentence beside it, <kbd>Shift</kbd>-click that one and the note grows to hold
-          both, as one clipping. Escape brings you back.
+          In the preview, try hovering your mouse over each sentence as you read. When you find
+          the sentence that summarizes the article, click on that sentence to clip it!
           <details>
             <summary>What a dragged article looks like</summary>
             <img class="shot" src="shots/preview.webp" width="1040" height="660"
@@ -289,12 +282,20 @@
                       sentence." />
           </details>
         </li>
+        <li>If you want to group multiple sentences, try <kbd>Shift</kbd> click!</li>
+        <!-- All three are named because all three are wired to the same dismissal, and a reader
+             who reaches for the one they already expect should not find it missing. `mountPanel`
+             is where that is true: the close button, the backdrop and the Escape key all send
+             `Dismissed`. -->
+        <li>Press <kbd>Esc</kbd>, the red ✕, or the background of the preview to go back to the
+          main page.</li>
         <li>
-          Pin Piko to your toolbar, so the rest is one press away. Click the
+          You can clip sentences on the main page too! Click the
           <svg class="inline-icon" aria-hidden="true"><use href="#glyph-puzzle" /></svg> puzzle
-          piece at the right of the address bar, then the
-          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-pin" /></svg> pin beside
-          Piko.
+          piece icon on your browser, then
+          <svg class="inline-icon" aria-hidden="true"><use href="#glyph-pin" /></svg> pin the
+          Piko extension. Try clicking on
+          <img class="inline-icon" src="icons/icon128.png" alt="" /> Piko!
           <!-- Folded, so a step reads as one instruction and the picture is there for whoever
                wants it. Open by default would make the list a gallery to scroll past rather than
                a sequence to follow.
@@ -342,12 +343,8 @@
           </svg>
           </details>
         </li>
-        <li>Press <img class="inline-icon" src="icons/icon128.png" alt="the Piko icon" /> in your
-          toolbar. The journal docks on the right, and the page you are on becomes clippable
-          too.</li>
         <li>
-          Now find the one sentence that says what the article you started from is
-          <em>about</em>, and click that.
+          Finally, try clipping a sentence on the main page!
           <details>
             <summary>What the docked journal and a kept sentence look like</summary>
             <img class="shot" src="shots/armed.webp" width="1040" height="660"
@@ -363,6 +360,12 @@
       </p>
       <p class="fineprint">A few things that might surprise you along the way:</p>
       <ol class="fineprint">
+        <!-- Back among the surprises rather than in a step, now that the steps open on the
+             Wikipedia page rather than with the trip to it. It still has to be written down
+             somewhere: this page is full of links, dragging one is the first thing the steps
+             above ask for, and a reader who tries it here gets silence and no reason for it. -->
+        <li>Piko does not run on its own pages, so dragging a link on <em>this</em> one does
+          nothing. Every step above happens on the Wikipedia page.</li>
         <li>Dragging a link puts the page's own clipping away. Press Piko's icon again whenever
           you want it back.</li>
         <li>A tab you already had open before allowing Piko needs a reload first. Piko can only
