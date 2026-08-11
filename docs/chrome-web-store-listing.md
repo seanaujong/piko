@@ -15,13 +15,13 @@ reassuring: everything claimed below is checkable in the source.
 **Product name**
 
 ```
-Piko — drag a link, read it in place
+Piko
 ```
 
 **Summary** (≤ 132 chars)
 
 ```
-Drag a hyperlink to read the article in place, and keep the sentences worth keeping in a journal.
+Preview links by dragging them
 ```
 
 **Category:** `Productivity`
@@ -30,31 +30,11 @@ Drag a hyperlink to read the article in place, and keep the sentences worth keep
 **Description**
 
 ```
-Piko is for link-dense reading — the article with forty interesting links in it, where
-following one means losing the page you were on and following all forty means forty tabs
-you never come back to.
+Piko lets you preview links by dragging them. Read through websites without losing context!
 
-Drag a hyperlink. The article opens over the page you are already reading, in reader
-mode, and closes with Escape. Nothing about where you were changes.
+As you read with Piko, hover and click on sentences to save them as notes.
 
-Or press the toolbar icon, and the page you are already on becomes clippable with the
-journal docked beside it.
-
-On either one, hovering a sentence lights it up and clicking keeps it. Clipped sentences
-go to a journal that persists across reloads, grouped by the page they came from and by
-the sitting you were in, searchable, and narrowed by span of time. Every clipping links
-back to the exact sentence on the page it came from — not to the top of the article.
-
-When you want it elsewhere, one button exports the whole journal as a Markdown file: one
-section per source, a quote per clipping, and each quote linked to its own sentence. It
-drops straight into an Obsidian vault or any folder of Markdown notes.
-
-Piko's bet is engagement, not summarisation. A summariser exists so you don't have to
-read; every gesture here costs almost nothing to perform and still requires you to look.
-That is why there is no AI in it: a generated summary and a generated recall question both
-replace the reading rather than provoke it.
-
-Free and open source (MIT). No account, no analytics, no servers, and no data collected.
+Free and open source (MIT).
 ```
 
 ## Privacy practices

@@ -1,8 +1,6 @@
 # Piko
 
-Drag a link, read it in place. Piko is a small Chrome extension for link-dense pages —
-instead of opening a tab you'll never come back to, drag the hyperlink and the article
-opens over the page you're already on.
+Piko lets you preview links by dragging them. Read through websites without losing context!
 
 - Drag a link → the article appears in a panel, in reader mode
 - Or click the toolbar icon → the page you're already on becomes clippable
