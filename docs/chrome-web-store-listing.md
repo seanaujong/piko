@@ -250,10 +250,12 @@ same page the browser would load had the link been clicked. Nothing is collected
       `store-assets/store-icon-128.png`. Not `public/icons/icon128.png`, which is the toolbar
       icon and runs edge to edge — the store drops its tile into its own rounded frame, so this
       instead rasterizes the same SVG at 96×96 and pads it into a transparent 128×128 canvas.
-- [x] Screenshots — `npm run shots:store` (`shots/store.shots.ts`), written to
-      `store-assets/screenshots/`, 1280×800, no alpha. The three: a link mid-drag with the panel
-      open over the page, a sentence highlighted under the cursor, and the journal with two
-      sources and its chip row.
+- [ ] Screenshots — `npm run shots:store` (`shots/store.shots.ts`) writes 1280×800, no alpha, to
+      `store-assets/screenshots/`, gitignored rather than committed: nothing in the repo links to
+      them, so unlike the icon there is nothing they need a stable URL for, and they are cheap to
+      regenerate. Run it fresh before each submission and look before uploading — the three it
+      produces are a link mid-drag with the panel open over the page, a sentence highlighted
+      under the cursor, and the journal with two sources and its chip row.
 - [ ] Small promo tile 440×280 — optional
 - [x] Privacy policy URL live — confirmed serving (HTTP 200) at the URL below
 

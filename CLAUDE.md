@@ -70,8 +70,9 @@ rather than drawn and why the pin illustration beside them is the opposite call.
 **`npm run shots:store` captures the three screenshots the store listing's Assets checklist
 asks for**, at the dashboard's own 1280×800 with no alpha channel, through the same real gestures
 `shots/helpers.ts` shares with `capture.shots.ts` — same bargain, different size and destination
-(`store-assets/screenshots/`, not `public/`). Also judged by eye; regenerate when the panel's
-look changes.
+(`store-assets/screenshots/`, not `public/`). Unlike that icon, the output is gitignored rather
+than committed: nothing in the repo links to a store screenshot the way the onboarding page links
+to its own, so there is no stable URL to keep current — run it fresh before each submission.
 
 **`npm run bench` prints, it doesn't assert** — add `--reporter=verbose` for the tables. Three
 benches over a generated 220-paragraph article, each isolating a different cost: `reading` what

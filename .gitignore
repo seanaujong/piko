@@ -11,6 +11,13 @@ piko-*.zip
 # Output of npm run icons:sheet — something to look at once, not an artifact to keep.
 icon-sheet.png
 
+# Chrome Web Store screenshots (npm run shots:store) — generated, reviewed by eye, and uploaded
+# once to the dashboard, never linked from anywhere in the repo. Nothing here needs a stable URL
+# the way store-icon-128.png does, so unlike that icon this stays out of git entirely rather than
+# committed or pushed to a release: regenerate before each submission, the way the store listing
+# doc's Assets checklist says to.
+store-assets/screenshots/
+
 # Local agent scratch: worktrees are checkouts of this same repo, never content.
 .claude/worktrees/
 
