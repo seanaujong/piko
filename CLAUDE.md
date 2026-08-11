@@ -26,7 +26,9 @@ npm test            # Vitest alone. The authority — assert against a real run,
 npm run build       # esbuild → dist/
 npm run icons       # only after editing public/icons/icon.svg
 npm run icons:sheet # the contact sheet an icon edit is judged on — see below
+npm run icons:store # the store dashboard's own icon tile — see below
 npm run shots       # only after the panel's look changes — see below
+npm run shots:store # the store dashboard's own screenshots — see below
 npm run bench       # measurements, NOT in the gate — see below
 npm run package     # piko-<version>.zip — what "Load unpacked" and the store both want
 npm run release-bump <major|minor|patch|X.Y.Z>   # both version fields at once
@@ -50,6 +52,13 @@ gull" is not a predicate, so it stays out of the gate. `scripts/icon-sheet.mjs` 
 four failures that were invisible at 128 and obvious at 16, and `scripts/rasterize.mjs` says
 why the sheet and the shipping icons must rasterize through the same code.
 
+**`npm run icons:store` renders the Chrome Web Store's own icon tile**, which is not
+`public/icons/icon128.png` — that one runs edge to edge for the toolbar, and the dashboard drops
+whatever it's given into its own rounded frame. `scripts/store-icon.mjs` rasterizes the same SVG
+at 96×96 through `rasterize.mjs` and pads it into a transparent 128×128 canvas, and writes to
+`store-assets/`, never `public/`, since `esbuild.config.mjs` copies `public/` into `dist/`
+wholesale and this is a dashboard upload, not a shipped byte.
+
 **`npm run shots` rewrites the onboarding page's two screenshots** — the armed page and an open
 preview — by driving the real extension against the real Wikipedia article the page tells the
 reader to open. Committed to `public/shots/`, so an ordinary build never runs it; regenerate when
@@ -57,6 +66,13 @@ the panel's look changes, and judge the result with your eyes, which is why it p
 nothing. What it *cannot* be wrong about is guarded: the e2e suite opens every fold on the page
 and fails if any image is missing. `shots/capture.shots.ts` says why the captures are generated
 rather than drawn and why the pin illustration beside them is the opposite call.
+
+**`npm run shots:store` captures the three screenshots the store listing's Assets checklist
+asks for**, at the dashboard's own 1280×800 with no alpha channel, through the same real gestures
+`shots/helpers.ts` shares with `capture.shots.ts` — same bargain, different size and destination
+(`store-assets/screenshots/`, not `public/`). Unlike that icon, the output is gitignored rather
+than committed: nothing in the repo links to a store screenshot the way the onboarding page links
+to its own, so there is no stable URL to keep current — run it fresh before each submission.
 
 **`npm run bench` prints, it doesn't assert** — add `--reporter=verbose` for the tables. Three
 benches over a generated 220-paragraph article, each isolating a different cost: `reading` what
@@ -128,6 +144,7 @@ Layering and dependency direction are in `README.md`'s diagram. Practically:
 | how host access is asked for, or what the install and the icon's *Options* item open | `public/onboarding.html` + `src/onboarding/index.ts` |
 | how the options page shows and undoes what Piko stays off | `src/onboarding/siteList.ts` |
 | the screenshots on the onboarding page, or how they are taken | `shots/capture.shots.ts` |
+| the store listing's icon tile or screenshots | `scripts/store-icon.mjs`, `shots/store.shots.ts` |
 | when the content script is registered | `background/contentScriptRegistration.ts` |
 | which sites Piko stays off | `background/excludedSites.ts` — the reader's list; `shared/sensitiveHosts.ts` is the shipped one; `onboarding/siteList.ts` shows both |
 | what the icon's right-click menu offers | `background/siteMenu.ts`, then the plumbing in `background/index.ts` |

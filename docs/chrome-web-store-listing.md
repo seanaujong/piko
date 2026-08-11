@@ -15,13 +15,13 @@ reassuring: everything claimed below is checkable in the source.
 **Product name**
 
 ```
-Piko — drag a link, read it in place
+Piko
 ```
 
 **Summary** (≤ 132 chars)
 
 ```
-Drag a hyperlink to read the article in place, and keep the sentences worth keeping in a journal.
+Preview links by dragging them
 ```
 
 **Category:** `Productivity`
@@ -30,31 +30,11 @@ Drag a hyperlink to read the article in place, and keep the sentences worth keep
 **Description**
 
 ```
-Piko is for link-dense reading — the article with forty interesting links in it, where
-following one means losing the page you were on and following all forty means forty tabs
-you never come back to.
+Piko lets you preview links by dragging them. Read through websites without losing context!
 
-Drag a hyperlink. The article opens over the page you are already reading, in reader
-mode, and closes with Escape. Nothing about where you were changes.
+As you read with Piko, hover and click on sentences to save them as notes.
 
-Or press the toolbar icon, and the page you are already on becomes clippable with the
-journal docked beside it.
-
-On either one, hovering a sentence lights it up and clicking keeps it. Clipped sentences
-go to a journal that persists across reloads, grouped by the page they came from and by
-the sitting you were in, searchable, and narrowed by span of time. Every clipping links
-back to the exact sentence on the page it came from — not to the top of the article.
-
-When you want it elsewhere, one button exports the whole journal as a Markdown file: one
-section per source, a quote per clipping, and each quote linked to its own sentence. It
-drops straight into an Obsidian vault or any folder of Markdown notes.
-
-Piko's bet is engagement, not summarisation. A summariser exists so you don't have to
-read; every gesture here costs almost nothing to perform and still requires you to look.
-That is why there is no AI in it: a generated summary and a generated recall question both
-replace the reading rather than provoke it.
-
-Free and open source (MIT). No account, no analytics, no servers, and no data collected.
+Free and open source (MIT).
 ```
 
 ## Privacy practices
@@ -207,9 +187,9 @@ the listing's privacy policy down with it.
 
 ## Support contact
 
-Set at the **account** level in the dashboard, not per item — which means it is currently
-whatever hi-chu's listing uses, and would appear on Piko's store page as well. Decide before
-submitting whether that address should serve both extensions or whether Piko wants its own.
+Set at the **account** level in the dashboard, not per item — so it is whatever hi-chu's listing
+uses, and it appears on Piko's store page too. Sean's call: shared with hi-chu, not a dedicated
+address for Piko.
 
 ## Instructions for reviewers (test instructions)
 
@@ -246,15 +226,18 @@ same page the browser would load had the link been clicked. Nothing is collected
 ## Assets checklist
 
 - [x] Package zip — `npm run package` → `piko-<version>.zip`
-- [ ] Store icon 128×128 — needs its own frame, NOT `public/icons/icon128.png`, which is the
-      toolbar icon and runs edge to edge. The store drops its tile into a rounded frame, so the
-      artwork wants to sit at 96×96 with 16px of transparent padding per side, and the
-      transparency has to survive the export.
-- [ ] Screenshots — 1280×800 (or 640×400), 1–5. The obvious three: a link mid-drag with the
-      panel open over the page, a sentence highlighted under the cursor, and the journal with
-      several sources and its chip row.
+- [x] Store icon 128×128 — `npm run icons:store` (`scripts/store-icon.mjs`), written to
+      `store-assets/store-icon-128.png`. Not `public/icons/icon128.png`, which is the toolbar
+      icon and runs edge to edge — the store drops its tile into its own rounded frame, so this
+      instead rasterizes the same SVG at 96×96 and pads it into a transparent 128×128 canvas.
+- [ ] Screenshots — `npm run shots:store` (`shots/store.shots.ts`) writes 1280×800, no alpha, to
+      `store-assets/screenshots/`, gitignored rather than committed: nothing in the repo links to
+      them, so unlike the icon there is nothing they need a stable URL for, and they are cheap to
+      regenerate. Run it fresh before each submission and look before uploading — the three it
+      produces are a link mid-drag with the panel open over the page, a sentence highlighted
+      under the cursor, and the journal with two sources and its chip row.
 - [ ] Small promo tile 440×280 — optional
-- [ ] Privacy policy URL live — push `PRIVACY.md` first
+- [x] Privacy policy URL live — confirmed serving (HTTP 200) at the URL below
 
 ## After submission
 
