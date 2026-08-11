@@ -207,9 +207,9 @@ the listing's privacy policy down with it.
 
 ## Support contact
 
-Set at the **account** level in the dashboard, not per item — which means it is currently
-whatever hi-chu's listing uses, and would appear on Piko's store page as well. Decide before
-submitting whether that address should serve both extensions or whether Piko wants its own.
+Set at the **account** level in the dashboard, not per item — so it is whatever hi-chu's listing
+uses, and it appears on Piko's store page too. Sean's call: shared with hi-chu, not a dedicated
+address for Piko.
 
 ## Instructions for reviewers (test instructions)
 
@@ -246,15 +246,16 @@ same page the browser would load had the link been clicked. Nothing is collected
 ## Assets checklist
 
 - [x] Package zip — `npm run package` → `piko-<version>.zip`
-- [ ] Store icon 128×128 — needs its own frame, NOT `public/icons/icon128.png`, which is the
-      toolbar icon and runs edge to edge. The store drops its tile into a rounded frame, so the
-      artwork wants to sit at 96×96 with 16px of transparent padding per side, and the
-      transparency has to survive the export.
-- [ ] Screenshots — 1280×800 (or 640×400), 1–5. The obvious three: a link mid-drag with the
-      panel open over the page, a sentence highlighted under the cursor, and the journal with
-      several sources and its chip row.
+- [x] Store icon 128×128 — `npm run icons:store` (`scripts/store-icon.mjs`), written to
+      `store-assets/store-icon-128.png`. Not `public/icons/icon128.png`, which is the toolbar
+      icon and runs edge to edge — the store drops its tile into its own rounded frame, so this
+      instead rasterizes the same SVG at 96×96 and pads it into a transparent 128×128 canvas.
+- [x] Screenshots — `npm run shots:store` (`shots/store.shots.ts`), written to
+      `store-assets/screenshots/`, 1280×800, no alpha. The three: a link mid-drag with the panel
+      open over the page, a sentence highlighted under the cursor, and the journal with two
+      sources and its chip row.
 - [ ] Small promo tile 440×280 — optional
-- [ ] Privacy policy URL live — push `PRIVACY.md` first
+- [x] Privacy policy URL live — confirmed serving (HTTP 200) at the URL below
 
 ## After submission
 

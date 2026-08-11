@@ -30,6 +30,7 @@ import { fileURLToPath } from 'node:url'
 import type { Page } from 'playwright'
 import { it } from 'vitest'
 import { buildTestExtension, dragElement, launchWithExtension, SHADOW } from '../e2e/harness'
+import { armClipping, clipSentenceIn, settle } from './helpers'
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..')
 const SHOTS = path.join(ROOT, 'public', 'shots')
@@ -101,7 +102,7 @@ it('captures the two pictures the onboarding page shows of Piko working', async 
     // rest of the sequence happens. The journal holds two sentences from two sources by the time
     // this one is taken, and the step it sits under is the one that just added the second.
     await page.keyboard.press('Escape')
-    await armClipping(page)
+    await armClipping(page, `${ARTICLE}*`)
     await clipSentenceIn(page, '#mw-content-text p')
     await settle(page)
     await write(page, 'armed.webp')
@@ -109,69 +110,6 @@ it('captures the two pictures the onboarding page shows of Piko working', async 
     await context.close()
   }
 }, 180_000)
-
-/**
- * The toolbar click, which no script can perform — the message it sends is what arms the page.
- *
- * Retried, because the content script arrives at `document_idle` and nothing in the page
- * announces it: Piko adds nothing until a gesture asks it to. So the message is its own
- * detector, and "receiving end does not exist" means not yet rather than not at all.
- */
-async function armClipping(page: Page): Promise<void> {
-  const [worker] = page.context().serviceWorkers()
-
-  for (let attempt = 0; ; attempt++) {
-    const armed = await worker!.evaluate(async (match) => {
-      const [tab] = await chrome.tabs.query({ url: match })
-      if (tab?.id === undefined) return false
-      try {
-        await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_CLIPPING' })
-        return true
-      } catch {
-        return false
-      }
-    }, `${ARTICLE}*`)
-
-    if (armed) break
-    if (attempt >= 60) throw new Error('the content script never reached the article')
-    await page.waitForTimeout(250)
-  }
-
-  await page.waitForFunction(() =>
-    [...document.documentElement.children].some((e) => e.shadowRoot?.querySelector('.piko-rail')),
-  )
-}
-
-/** Clicks into the first line of a substantial paragraph, the way a reader picks a sentence. */
-async function clipSentenceIn(page: Page, selector: string, inShadow = false): Promise<void> {
-  const target = inShadow
-    ? selector
-    : `[...document.querySelectorAll(${JSON.stringify(selector)})].find(el => el.textContent.trim().length > 200)`
-  const point = (await page.evaluate(`(() => {
-    const el = ${target}
-    el.scrollIntoView({ block: 'center' })
-    const r = el.getBoundingClientRect()
-    return { x: r.left + 60, y: r.top + 10 }
-  })()`)) as { x: number; y: number }
-
-  await page.mouse.move(point.x, point.y)
-  await page.mouse.click(point.x, point.y)
-}
-
-/**
- * Composes the shot, once the clicking is done.
- *
- * The cursor goes somewhere with no prose under it, because Piko paints a hover band wherever it
- * rests and a half-cut band at the edge of the frame is noise in a picture about the *kept* mark.
- * The scroll goes home for the same reason: `scrollIntoView` leaves the article's header sliced
- * through the middle, which reads as a broken capture rather than a page. Both marks stay in
- * frame from the top, because the sentence worth clipping in this article is its first.
- */
-async function settle(page: Page): Promise<void> {
-  await page.mouse.move(4, 4)
-  await page.evaluate(() => window.scrollTo(0, 0))
-  await page.waitForTimeout(700)
-}
 
 /**
  * PNG out of Playwright, WebP through the browser already running.
