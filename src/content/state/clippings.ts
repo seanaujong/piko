@@ -73,7 +73,28 @@ const NO_EXTENSION = 'Piko was reloaded. Refresh this page to keep clipping.'
 const isSame = (a: Clipping, b: Clipping): boolean =>
   a.sourceUrl === b.sourceUrl && a.text === b.text
 
-export function createClippingsStore(): ClippingsStore {
+/**
+ * The one seam between the store's decision logic and `chrome.storage`. A store built with a
+ * fake implementation of this never needs `vi.stubGlobal('chrome', ...)` — the fake's shape is
+ * checked by the type system rather than hand-reconstructed in every test file that needs one.
+ */
+export type ClippingsStorage = {
+  /** Calls `onLoaded` with whatever was previously stored, or throws if the extension is gone. */
+  get: (onLoaded: (stored: unknown) => void) => void
+  /** The returned promise rejects the way a full quota does; throws if the extension is gone. */
+  set: (clippings: readonly Clipping[]) => Promise<void>
+}
+
+const chromeStorage: ClippingsStorage = {
+  get(onLoaded) {
+    chrome.storage.local.get(STORAGE_KEY, (stored) => onLoaded(stored?.[STORAGE_KEY]))
+  },
+  set(clippings) {
+    return chrome.storage.local.set({ [STORAGE_KEY]: clippings })
+  },
+}
+
+export function createClippingsStore(storage: ClippingsStorage = chromeStorage): ClippingsStore {
   /**
    * Replaced wholesale on every change rather than mutated, so `all()` returns a snapshot of
    * one moment: a caller holding an earlier array keeps seeing exactly what it was handed.
@@ -104,7 +125,7 @@ export function createClippingsStore(): ClippingsStore {
   const persist = (): void => {
     storageError = null
     try {
-      void chrome.storage?.local.set({ [STORAGE_KEY]: clippings })?.catch(() => {
+      void storage.set(clippings).catch(() => {
         storageError = QUOTA_FULL
         notify()
       })
@@ -115,8 +136,7 @@ export function createClippingsStore(): ClippingsStore {
   }
 
   try {
-    void chrome.storage?.local.get(STORAGE_KEY, (stored) => {
-      const loaded = stored?.[STORAGE_KEY]
+    storage.get((loaded) => {
       if (!Array.isArray(loaded) || loaded.length === 0) return
       // Anything already clipped this page wins over the stored copy it predates.
       const seen = clippings

@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { Clipping } from './clippings'
+import { describe, expect, it } from 'vitest'
+import type { Clipping, ClippingsStorage } from './clippings'
 import {
   createClippingsStore,
   ageBandOf,
@@ -9,6 +9,29 @@ import {
   sourcesInSessionOrder,
   visibleClippings,
 } from './clippings'
+
+/** Refuses every write the way a full quota does, until told to stop. */
+const refusingStorage = (): ClippingsStorage & { allow: () => void } => {
+  let refusing = true
+  return {
+    get: (onLoaded) => onLoaded(undefined),
+    set: () =>
+      refusing ? Promise.reject(new Error('QUOTA_BYTES quota exceeded')) : Promise.resolve(),
+    allow: () => {
+      refusing = false
+    },
+  }
+}
+
+/** Stands in for an extension that has gone out from under an already-open tab. */
+const noExtension: ClippingsStorage = {
+  get: () => {
+    throw new Error('Extension context invalidated.')
+  },
+  set: () => {
+    throw new Error('Extension context invalidated.')
+  },
+}
 
 const T0 = 1_700_000_000_000
 
@@ -82,23 +105,8 @@ describe('the store', () => {
    * as it does when everything is saved, into a journal that would be empty on the next load.
    */
   describe('a write that does not land', () => {
-    afterEach(() => vi.unstubAllGlobals())
-
-    /** Enough `chrome` for the store: `get` finds nothing, `set` refuses the way a full quota does. */
-    const storageThatRefuses = (): void => {
-      vi.stubGlobal('chrome', {
-        storage: {
-          local: {
-            get: (_key: string, done: (items: Record<string, unknown>) => void) => done({}),
-            set: () => Promise.reject(new Error('QUOTA_BYTES quota exceeded')),
-          },
-        },
-      })
-    }
-
     it('is reported, and announced to whoever is watching', async () => {
-      storageThatRefuses()
-      const store = createClippingsStore()
+      const store = createClippingsStore(refusingStorage())
       let notifications = 0
       store.subscribe(() => (notifications += 1))
 
@@ -117,15 +125,13 @@ describe('the store', () => {
     })
 
     it('clears once a later write lands', async () => {
-      storageThatRefuses()
-      const store = createClippingsStore()
+      const storage = refusingStorage()
+      const store = createClippingsStore(storage)
       store.toggle(clip('First.', ENCYCLOPEDIA, T0))
       await Promise.resolve()
       expect(store.storageError()).not.toBeNull()
 
-      vi.stubGlobal('chrome', {
-        storage: { local: { get: () => {}, set: () => Promise.resolve() } },
-      })
+      storage.allow()
       store.toggle(clip('Second.', ENCYCLOPEDIA, T0 + 60_000))
 
       expect(store.storageError()).toBeNull()
@@ -137,7 +143,7 @@ describe('the store', () => {
      * page and none of it is being saved, so the reader is told to refresh.
      */
     it('says so when the extension has gone out from under the page', () => {
-      const store = createClippingsStore()
+      const store = createClippingsStore(noExtension)
       store.toggle(clip('First.', ENCYCLOPEDIA, T0))
 
       expect(store.storageError()).toContain('Refresh')
