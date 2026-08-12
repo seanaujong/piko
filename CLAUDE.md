@@ -189,7 +189,7 @@ font-size contrast made it real.
 
 | Invariant | | Reasoning owned by | Checked by |
 |---|---|---|---|
-| Rules live in the reducer; events stay mechanical, and the content script decides nothing | ✅ | `content/state/previewState.ts`, `content/index.ts` | `previewState.test.ts` |
+| Rules live in the reducer; events stay mechanical, and the content script decides nothing | ✅ | `content/state/previewState.ts`, `content/index.ts` | `previewState.test.ts`, `architecture.test.ts` |
 | `PreviewState`/`PreviewEvent` are discriminated unions and `transition`'s `switch` is exhaustive — never add a `default:` | ✅ | `content/state/previewState.ts` | `npm run typecheck` |
 | Frameability is answered in the background worker; a page-context `fetch()` cannot see response headers | 👁 | `background/frameability.ts` | — |
 | A link that is not a page is named, never navigated to — a navigation Chrome cannot render is a download | ✅ | `background/previewableContent.ts` | `previewableContent.test.ts`, `e2e/extension.test.ts` (`a link that is not a page`) |
