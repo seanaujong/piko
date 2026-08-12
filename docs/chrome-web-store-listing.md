@@ -39,10 +39,11 @@ Free and open source (MIT).
 
 ## Privacy practices
 
-These map onto the **Privacy practices** tab. Piko requests two API permissions (`storage` and
-`contextMenus`) and broad host access, so there are three justification boxes to fill. Neither
-API permission raises an install warning — that is what qualified them — but the dashboard asks
-for a justification per declared permission whether it warns or not. Fill them in order.
+These map onto the **Privacy practices** tab. Piko requests three API permissions (`storage`,
+`scripting` and `contextMenus`) and broad host access, so there are four justification boxes to
+fill. None of the API permissions raises an install warning — that is what qualified them — but
+the dashboard asks for a justification per declared permission whether it warns or not. Fill them
+in order.
 
 ### Single purpose
 
@@ -66,6 +67,25 @@ when they dragged the link, and the time. It stays on the device and is never tr
 
 The same local storage holds the list of sites the user has told Piko to stay off, which is
 a list of hostnames they chose themselves and is likewise never transmitted.
+```
+
+### Permission justification — `scripting`
+
+The reviewer-facing point is that this is the mechanism behind the whole "asked for at runtime,
+not at install" design in the host permission justification below: the manifest declares no
+`content_scripts`, so nothing can run in a page until this permission does the registering, on
+the reader's own say-so. `background/contentScriptRegistration.ts` is the whole of it.
+
+```
+Piko's manifest declares no content_scripts, so it can reach no page until the reader grants
+access from its own onboarding page. This permission is what registers the content script
+afterward, with chrome.scripting.registerContentScripts — and unregisters it the moment access
+is revoked, or updates it when the reader excludes a site, so an old registration is never left
+matching a page it should no longer run on.
+
+Piko does not use scripting.executeScript or any other means of injecting arbitrary code. The
+only script ever registered is the extension's own bundled content.js, and only once host access
+has been granted.
 ```
 
 ### Permission justification — `contextMenus`
@@ -158,10 +178,22 @@ would in a tab.
 
 ### Data usage
 
-Disclose **no** collection — leave every category unchecked. "Collect" in the dashboard's terms
-means transferring data off the user's device, and Piko transfers nothing anywhere: the journal
-is written to local extension storage, and the only network request is for the page the reader
-asked to read. Then check all three certifications:
+**Not "no collection."** Chrome's own user-data FAQ is explicit that local-only counts:
+*"Extensions are required to disclose how they handle user data, even when data is processed or
+stored locally on a user's device and is not transmitted to external servers or third parties"* —
+"handle" is defined there as *"collecting, transmitting, using, or sharing user data."*
+
+Check:
+
+- **Website content and resources** — the sentence text and hyperlinks Piko reads to extract an
+  article and find sentence boundaries.
+- **Web history** — the URL and title of the page a clipping came from, and the page the reader
+  was on when they dragged the link, both held in the journal.
+
+For each, the honest answer to the dashboard's own follow-up questions is: collected, yes; kept
+in `chrome.storage.local`; never transferred off the device. Then check all three certifications,
+which hold regardless of what's checked above — they are about *sharing* and *use*, not about
+local storage:
 
 - I do not sell or transfer user data to third parties, outside the approved use cases. ✅
 - I do not use or transfer user data for purposes unrelated to my item's single purpose. ✅
@@ -169,11 +201,14 @@ asked to read. Then check all three certifications:
 
 …and the final *"I certify that the above disclosures are accurate"* box.
 
-Note for whoever fills this in: the journal does hold page text and URLs, which *are* the
-"website content" and "web history" categories by name. Those boxes describe **collection**,
-which is transmission off the device — and there is none. If a future version ever syncs the
-journal (`chrome.storage.sync` would be enough to count), this answer changes and this note is
-where to start.
+**Confirm the two category names and their follow-up questions against the live dashboard before
+submitting.** They're taken from Chrome's user-data FAQ
+(<https://developer.chrome.com/docs/webstore/program-policies/user-data-faq>), fetched and read
+for this doc rather than recalled, but that page describes the policy in prose — it is not a
+screenshot of the form, and the dashboard may phrase the same categories differently.
+
+If a future version ever syncs the journal (`chrome.storage.sync` would be enough to count), the
+"never transferred off the device" half of the answer flips, and this note is where to start.
 
 ### Privacy policy URL
 
@@ -197,30 +232,19 @@ Piko shows nothing on install until access is granted and a gesture is made, so 
 only clicks around will conclude it does nothing. **Step 1 is not optional** — without the grant
 Piko is inert by design, and a reviewer who skips it will find a broken extension and say so.
 
+The field itself caps at 500 characters, which is why this is the drag path only — the toolbar
+icon's alternate entry point and the journal's export button are real, but a reviewer who has
+seen one sentence highlighted and kept has already seen the mechanism that carries them too.
+
 ```
-Piko asks for no host access at install. It requests it afterwards, from its own page, and does
-nothing at all until that is granted — so please start at step 1. There is no popup, and no
-account, login, or payment is needed. The options page is that same page: it holds the access
-button and the list of sites Piko stays off.
+Piko does nothing until host access is granted — start at step 1, or it looks broken.
 
-1. Install the extension. Piko opens a page titled "Piko needs to be allowed on the pages you
-   read". Press "Allow Piko on all sites" and confirm Chrome's prompt. (If the page was closed,
-   right-click Piko's toolbar icon and choose "Options" to reopen it.)
-2. Open any article with links in it — for example
-   https://en.wikipedia.org/wiki/Photosynthesis
-3. DRAG any hyperlink in the text a short distance and let go. That linked article opens in a
-   panel over the page, in reader mode. Press Escape to close it.
-4. HOVER a sentence in that panel — it highlights. CLICK it, and it is saved to the journal in
-   the column on the right.
-5. Alternatively, press Piko's toolbar icon on any article. The journal docks to the right of
-   the page and the page itself becomes clippable in the same way. (Chrome hides a new
-   extension's icon: click the puzzle piece at the right of the address bar, then the pin
-   beside Piko, and the icon appears in the toolbar.)
-6. In the journal, the download button exports everything as a Markdown file, and each entry's
-   link reopens the source page at that exact sentence.
+1. Press "Allow Piko on all sites" and confirm Chrome's prompt.
+2. Open an article, e.g. https://en.wikipedia.org/wiki/Photosynthesis
+3. Drag a hyperlink a short distance and release — it opens in a panel, in reader mode.
+4. Hover a sentence to highlight it; click to save it to the journal.
 
-Everything runs locally. The only network request is for the page whose link was dragged — the
-same page the browser would load had the link been clicked. Nothing is collected or transmitted.
+No login or payment needed.
 ```
 
 ## Assets checklist
