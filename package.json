@@ -1,6 +1,6 @@
 {
   "name": "piko",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Piko lets you preview links by dragging them. Read through websites without losing context!",
   "scripts": {
