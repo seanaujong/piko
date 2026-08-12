@@ -2,7 +2,7 @@
   "name": "piko",
   "version": "0.1.0",
   "private": true,
-  "description": "Drag-to-preview Chrome extension",
+  "description": "Piko lets you preview links by dragging them. Read through websites without losing context!",
   "scripts": {
     "prepare": "git config core.hooksPath .githooks && git config pull.rebase true",
     "bench": "vitest run --config vitest.bench.config.ts",

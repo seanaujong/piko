@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "Piko",
   "version": "0.1.0",
-  "description": "Drag a link to preview its content in place, instead of opening a tab.",
+  "description": "Piko lets you preview links by dragging them. Read through websites without losing context!",
   "icons": {
     "16": "icons/icon16.png",
     "32": "icons/icon32.png",
